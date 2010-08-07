@@ -11,8 +11,8 @@
 @class PSMTabBarCell;
 
 @interface PSMTabDragWindow : NSWindow {
-	PSMTabBarCell *_cell;
-	NSImageView *_imageView;
+    PSMTabBarCell *_cell;
+    NSImageView *_imageView;
 }
 + (PSMTabDragWindow *)dragWindowWithTabBarCell:(PSMTabBarCell *)cell image:(NSImage *)image styleMask:(unsigned int)styleMask;
 

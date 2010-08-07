@@ -41,8 +41,8 @@
 @protocol PTYTabViewDelegateProtocol;
 
 typedef enum {
-	PSMTabBarHorizontalOrientation,
-	PSMTabBarVerticalOrientation
+    PSMTabBarHorizontalOrientation,
+    PSMTabBarVerticalOrientation
 } PSMTabBarOrientation;
 
 enum {
@@ -57,7 +57,7 @@ enum {
 
 enum {
     PSMTab_TopTab           = 0,
-    PSMTab_BottomTab		= 1
+    PSMTab_BottomTab        = 1
 };
 
 @interface PSMTabBarControl : NSControl <PTYTabViewDelegateProtocol> {
@@ -71,25 +71,25 @@ enum {
     // drawing style
     id<PSMTabStyle>             style;
     BOOL                        _canCloseOnlyTab;
-	BOOL						_disableTabClose;
+    BOOL                        _disableTabClose;
     BOOL                        _hideForSingleTab;
     BOOL                        _showAddTabButton;
     BOOL                        _sizeCellsToFit;
     BOOL                        _useOverflowMenu;
-	int							_resizeAreaCompensation;
-	PSMTabBarOrientation		_orientation;
-	BOOL						_automaticallyAnimates;
-	NSTimer						*_animationTimer;
-	float						_animationDelta;
-	
-	// behavior
-	BOOL						_allowsBackgroundTabClosing;
-	BOOL						_selectsTabsOnMouseDown;
-	
-	// vertical tab resizing
-	BOOL						_allowsResizing;
-	BOOL						_resizing;
-	
+    int                            _resizeAreaCompensation;
+    PSMTabBarOrientation        _orientation;
+    BOOL                        _automaticallyAnimates;
+    NSTimer                        *_animationTimer;
+    float                        _animationDelta;
+    
+    // behavior
+    BOOL                        _allowsBackgroundTabClosing;
+    BOOL                        _selectsTabsOnMouseDown;
+    
+    // vertical tab resizing
+    BOOL                        _allowsResizing;
+    BOOL                        _resizing;
+    
     // cell width
     int                         _cellMinWidth;
     int                         _cellMaxWidth;
@@ -101,12 +101,12 @@ enum {
     BOOL                        _hideIndicators;
     IBOutlet id                 partnerView;                // gets resized when hide/show
     BOOL                        _awakenedFromNib;
-	int							_tabBarWidth;
+    int                            _tabBarWidth;
     
     // drag and drop
     NSEvent                     *_lastMouseDownEvent;      // keep this for dragging reference
-	BOOL						_didDrag;
-	BOOL						_closeClicked;
+    BOOL                        _didDrag;
+    BOOL                        _closeClicked;
     
     // MVC help
     IBOutlet id                 delegate;

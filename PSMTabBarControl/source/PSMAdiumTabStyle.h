@@ -11,14 +11,14 @@
 
 @interface PSMAdiumTabStyle : NSObject <PSMTabStyle>
 {
-	NSImage *_closeButton, *_closeButtonDown, *_closeButtonOver;
-	NSImage *_addTabButtonImage, *_addTabButtonPressedImage, *_addTabButtonRolloverImage;
-	NSImage *_gradientImage;
-	
-	PSMTabBarOrientation orientation;
-	PSMTabBarControl *tabBar;
-	
-	BOOL _drawsUnified, _drawsRight;
+    NSImage *_closeButton, *_closeButtonDown, *_closeButtonOver;
+    NSImage *_addTabButtonImage, *_addTabButtonPressedImage, *_addTabButtonRolloverImage;
+    NSImage *_gradientImage;
+    
+    PSMTabBarOrientation orientation;
+    PSMTabBarControl *tabBar;
+    
+    BOOL _drawsUnified, _drawsRight;
 }
 
 - (void)loadImages;

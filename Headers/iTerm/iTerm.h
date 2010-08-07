@@ -4,7 +4,7 @@
  **  Copyright (c) 2002, 2003
  **
  **  Author: Fabian, Ujwal S. Setlur
- **	     Initial code by Kiichi Kusama
+ **         Initial code by Kiichi Kusama
  **
  **  Project: iTerm
  **
@@ -29,7 +29,7 @@
 #define _ITERM_H_
 
 
-#define NSLogRect(aRect)	NSLog(@"Rect = %f,%f,%f,%f", (aRect).origin.x, (aRect).origin.y, (aRect).size.width, (aRect).size.height)
+#define NSLogRect(aRect)    NSLog(@"Rect = %f,%f,%f,%f", (aRect).origin.x, (aRect).origin.y, (aRect).size.width, (aRect).size.height)
 
 #define OSX_TIGERORLATER (floor(NSAppKitVersionNumber) > 743)
 #define OSX_LEOPARDORLATER (floor(NSAppKitVersionNumber) > 824)

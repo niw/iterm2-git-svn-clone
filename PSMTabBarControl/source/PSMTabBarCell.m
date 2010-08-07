@@ -47,12 +47,12 @@
         _controlView = controlView;
         _isPlaceholder = YES;
         if (!value) {
-			if ([controlView orientation] == PSMTabBarHorizontalOrientation) {
-				frame.size.width = 0.0;
-			} else {
-				frame.size.height = 0.0;
-			}
-		}
+            if ([controlView orientation] == PSMTabBarHorizontalOrientation) {
+                frame.size.width = 0.0;
+            } else {
+                frame.size.height = 0.0;
+            }
+        }
         [self setFrame:frame];
         _closeButtonTrackingTag = 0;
         _cellTrackingTag = 0;
@@ -311,7 +311,7 @@
         return;
     }
     
-    [(id <PSMTabStyle>)[_controlView style] drawTabCell:self];	
+    [(id <PSMTabStyle>)[_controlView style] drawTabCell:self];    
 }
 
 #pragma mark -
@@ -325,11 +325,11 @@
     }
     if ([theEvent trackingNumber] == _cellTrackingTag) {
         [self setHighlighted:YES];
-		[_controlView setNeedsDisplay:NO];
+        [_controlView setNeedsDisplay:NO];
     }
-	
-	//tell the control we only need to redraw the affected tab
-	[_controlView setNeedsDisplayInRect:NSInsetRect([self frame], -2, -2)];
+    
+    //tell the control we only need to redraw the affected tab
+    [_controlView setNeedsDisplayInRect:NSInsetRect([self frame], -2, -2)];
 }
 
 - (void)mouseExited:(NSEvent *)theEvent
@@ -338,14 +338,14 @@
     if ([theEvent trackingNumber] == _closeButtonTrackingTag) {
         _closeButtonOver = NO;
     }
-	
+    
     if ([theEvent trackingNumber] == _cellTrackingTag) {
         [self setHighlighted:NO];
-		[_controlView setNeedsDisplay:NO];
+        [_controlView setNeedsDisplay:NO];
     }
-	
-	//tell the control we only need to redraw the affected tab
-	[_controlView setNeedsDisplayInRect:NSInsetRect([self frame], -2, -2)];
+    
+    //tell the control we only need to redraw the affected tab
+    [_controlView setNeedsDisplayInRect:NSInsetRect([self frame], -2, -2)];
 }
 
 #pragma mark -
@@ -353,9 +353,9 @@
 
 - (NSImage *)dragImage
 {
-	NSRect cellFrame = [(id <PSMTabStyle>)[_controlView style] dragRectForTabCell:self orientation:[(PSMTabBarControl *)_controlView orientation]];
-	//NSRect cellFrame = [self frame];
-	
+    NSRect cellFrame = [(id <PSMTabStyle>)[_controlView style] dragRectForTabCell:self orientation:[(PSMTabBarControl *)_controlView orientation]];
+    //NSRect cellFrame = [self frame];
+    
     [_controlView lockFocus];
     NSBitmapImageRep *rep = [[NSBitmapImageRep alloc] initWithFocusedViewRect:cellFrame];
     [_controlView unlockFocus];
@@ -429,63 +429,63 @@
 #pragma mark Accessibility
 
 -(BOOL)accessibilityIsIgnored {
-	return NO;
+    return NO;
 }
 
 - (id)accessibilityAttributeValue:(NSString *)attribute {
-	id attributeValue = nil;
+    id attributeValue = nil;
 
-	if ([attribute isEqualToString: NSAccessibilityRoleAttribute]) {
-		attributeValue = NSAccessibilityButtonRole;
-	} else if ([attribute isEqualToString: NSAccessibilityHelpAttribute]) {
-		if ([[[self controlView] delegate] respondsToSelector:@selector(accessibilityStringForTabView:objectCount:)]) {
-			attributeValue = [NSString stringWithFormat:@"%@, %i %@", [self stringValue],
-																		[self count],
-																		[[[self controlView] delegate] accessibilityStringForTabView:[[self controlView] tabView] objectCount:[self count]]];
-		} else {
-			attributeValue = [self stringValue];
-		}
-	} else if ([attribute isEqualToString: NSAccessibilityFocusedAttribute]) {
-		attributeValue = [NSNumber numberWithBool:([self tabState] == 2)];
-	} else {
+    if ([attribute isEqualToString: NSAccessibilityRoleAttribute]) {
+        attributeValue = NSAccessibilityButtonRole;
+    } else if ([attribute isEqualToString: NSAccessibilityHelpAttribute]) {
+        if ([[[self controlView] delegate] respondsToSelector:@selector(accessibilityStringForTabView:objectCount:)]) {
+            attributeValue = [NSString stringWithFormat:@"%@, %i %@", [self stringValue],
+                                                                        [self count],
+                                                                        [[[self controlView] delegate] accessibilityStringForTabView:[[self controlView] tabView] objectCount:[self count]]];
+        } else {
+            attributeValue = [self stringValue];
+        }
+    } else if ([attribute isEqualToString: NSAccessibilityFocusedAttribute]) {
+        attributeValue = [NSNumber numberWithBool:([self tabState] == 2)];
+    } else {
         attributeValue = [super accessibilityAttributeValue:attribute];
     }
 
-	return attributeValue;
+    return attributeValue;
 }
 
 - (NSArray *)accessibilityActionNames
 {
-	static NSArray *actions;
-	
-	if (!actions) {
-		actions = [[NSArray alloc] initWithObjects:NSAccessibilityPressAction, nil];
-	}
-	return actions;
+    static NSArray *actions;
+    
+    if (!actions) {
+        actions = [[NSArray alloc] initWithObjects:NSAccessibilityPressAction, nil];
+    }
+    return actions;
 }
 
 - (NSString *)accessibilityActionDescription:(NSString *)action
 {
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_4
-	return NSAccessibilityActionDescription(action);
+    return NSAccessibilityActionDescription(action);
 #else
     return nil;
 #endif
 }
-	
+    
 - (void)accessibilityPerformAction:(NSString *)action {
-	if ([action isEqualToString:NSAccessibilityPressAction]) {
-		// this tab was selected
-		[_controlView performSelector:@selector(tabClick:) withObject:self];
-	}
+    if ([action isEqualToString:NSAccessibilityPressAction]) {
+        // this tab was selected
+        [_controlView performSelector:@selector(tabClick:) withObject:self];
+    }
 }
 
 - (id)accessibilityHitTest:(NSPoint)point {
-	return NSAccessibilityUnignoredAncestor(self);
+    return NSAccessibilityUnignoredAncestor(self);
 }
 
 - (id)accessibilityFocusedUIElement:(NSPoint)point {
-	return NSAccessibilityUnignoredAncestor(self);
+    return NSAccessibilityUnignoredAncestor(self);
 }
 
 #pragma mark -

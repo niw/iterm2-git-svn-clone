@@ -11,7 +11,7 @@
  **  Project: iTerm
  **
  **  Description: overrides sendEvent: so that key mappings with command mask  
- **				  are handled properly.
+ **                  are handled properly.
  **
  **  This program is free software; you can redistribute it and/or modify
  **  it under the terms of the GNU General Public License as published by
@@ -40,29 +40,29 @@
 // override to catch key press events very early on
 - (void)sendEvent:(NSEvent*)event
 {
-	if([event type] == NSKeyDown) {
-		if([[self keyWindow] isKindOfClass:[PTYWindow class]]) {
-			PseudoTerminal* currentTerminal = [[iTermController sharedInstance] currentTerminal];
-			PTYTabView* tabView = [currentTerminal tabView];
-			PTYSession* currentSession = [currentTerminal currentSession];
+    if([event type] == NSKeyDown) {
+        if([[self keyWindow] isKindOfClass:[PTYWindow class]]) {
+            PseudoTerminal* currentTerminal = [[iTermController sharedInstance] currentTerminal];
+            PTYTabView* tabView = [currentTerminal tabView];
+            PTYSession* currentSession = [currentTerminal currentSession];
 
-			const int mask = NSShiftKeyMask | NSControlKeyMask | NSAlternateKeyMask | NSCommandKeyMask;
-			if(([event modifierFlags] & mask) == NSCommandKeyMask) {
-				int digit = [[event charactersIgnoringModifiers] intValue];
-				if(digit >= 1 && digit <= [tabView numberOfTabViewItems]) {
-					[tabView selectTabViewItemAtIndex:digit-1];
-					return;
-				}
-			}
+            const int mask = NSShiftKeyMask | NSControlKeyMask | NSAlternateKeyMask | NSCommandKeyMask;
+            if(([event modifierFlags] & mask) == NSCommandKeyMask) {
+                int digit = [[event charactersIgnoringModifiers] intValue];
+                if(digit >= 1 && digit <= [tabView numberOfTabViewItems]) {
+                    [tabView selectTabViewItemAtIndex:digit-1];
+                    return;
+                }
+            }
 
-			if([currentSession hasKeyMappingForEvent:event highPriority:YES]) {
-				[currentSession keyDown:event];
-				return;
-			}
-		}
-	}
+            if([currentSession hasKeyMappingForEvent:event highPriority:YES]) {
+                [currentSession keyDown:event];
+                return;
+            }
+        }
+    }
 
-	[super sendEvent: event];
+    [super sendEvent: event];
 }
 
 @end

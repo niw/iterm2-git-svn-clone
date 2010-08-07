@@ -14,25 +14,25 @@
 @interface iTermBookmarkController : NSWindowController {
     NSUserDefaults *_prefs;
 
-	// Bookmark stuff
-	IBOutlet NSOutlineView *bookmarksView;
-	IBOutlet NSPanel *addBookmarkFolderPanel;
-	IBOutlet NSPanel *deleteBookmarkPanel;
-	IBOutlet NSPanel *editBookmarkPanel;
-	IBOutlet NSButton *bookmarkDeleteButton;
-	IBOutlet NSButton *bookmarkEditButton;
-	IBOutlet NSSegmentedControl *launchButton;
-	IBOutlet NSTextField *bookmarkFolderName;
-	IBOutlet NSTextField *bookmarkName;
-	IBOutlet NSTextField *bookmarkCommand;
-	IBOutlet NSTextField *bookmarkWorkingDirectory;
-	IBOutlet NSPopUpButton *bookmarkShortcut;
-	IBOutlet NSPopUpButton *bookmarkTerminalProfile;
-	IBOutlet NSPopUpButton *bookmarkKeyboardProfile;
-	IBOutlet NSPopUpButton *bookmarkDisplayProfile;
-	NSArray	 		*draggedNodes;
-	IBOutlet NSButton *defaultSessionButton;
-	IBOutlet NSTextField *addFolderPanelTitle;
+    // Bookmark stuff
+    IBOutlet NSOutlineView *bookmarksView;
+    IBOutlet NSPanel *addBookmarkFolderPanel;
+    IBOutlet NSPanel *deleteBookmarkPanel;
+    IBOutlet NSPanel *editBookmarkPanel;
+    IBOutlet NSButton *bookmarkDeleteButton;
+    IBOutlet NSButton *bookmarkEditButton;
+    IBOutlet NSSegmentedControl *launchButton;
+    IBOutlet NSTextField *bookmarkFolderName;
+    IBOutlet NSTextField *bookmarkName;
+    IBOutlet NSTextField *bookmarkCommand;
+    IBOutlet NSTextField *bookmarkWorkingDirectory;
+    IBOutlet NSPopUpButton *bookmarkShortcut;
+    IBOutlet NSPopUpButton *bookmarkTerminalProfile;
+    IBOutlet NSPopUpButton *bookmarkKeyboardProfile;
+    IBOutlet NSPopUpButton *bookmarkDisplayProfile;
+    NSArray             *draggedNodes;
+    IBOutlet NSButton *defaultSessionButton;
+    IBOutlet NSTextField *addFolderPanelTitle;
 }
 
 + (iTermBookmarkController*)sharedInstance;

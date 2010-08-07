@@ -7,7 +7,7 @@
  **  Copyright (c) 2002, 2003
  **
  **  Author: Fabian, Ujwal S. Setlur
- **	     Initial code by Kiichi Kusama
+ **         Initial code by Kiichi Kusama
  **
  **  Project: iTerm
  **
@@ -57,25 +57,25 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
 
     // anti-alias flag
     BOOL antiAlias;
-	
-	// option to not render in bold
-	BOOL disableBold;
+    
+    // option to not render in bold
+    BOOL disableBold;
 
-	// NSTextInput support
+    // NSTextInput support
     BOOL IM_INPUT_INSERT;
     NSRange IM_INPUT_SELRANGE;
     NSRange IM_INPUT_MARKEDRANGE;
     NSDictionary *markedTextAttributes;
     NSAttributedString *markedText;
-	
-	BOOL CURSOR;
-	BOOL drawAllowed;
-	
+    
+    BOOL CURSOR;
+    BOOL drawAllowed;
+    
     // geometry
-	float lineHeight;
+    float lineHeight;
     float lineWidth;
-	float charWidth;
-	float charWidthWithoutSpacing, charHeightWithoutSpacing;
+    float charWidth;
+    float charWidthWithoutSpacing, charHeightWithoutSpacing;
     
     NSFont *font;
     NSFont *nafont;
@@ -83,48 +83,48 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
     NSColor* defaultFGColor;
     NSColor* defaultBGColor;
     NSColor* defaultBoldColor;
-	NSColor* defaultCursorColor;
-	NSColor* selectionColor;
-	NSColor* selectedTextColor;
-	NSColor* cursorTextColor;
-	
-	// transparency
-	float transparency;
+    NSColor* defaultCursorColor;
+    NSColor* selectionColor;
+    NSColor* selectedTextColor;
+    NSColor* cursorTextColor;
+    
+    // transparency
+    float transparency;
     BOOL useTransparency;
-	
+    
     // data source
     VT100Screen *dataSource;
     id _delegate;
-	
-	//selection
-	int startX, startY, endX, endY;
-	int oldStartX, oldStartY, oldEndX, oldEndY;
-	char oldSelectMode;
-	BOOL mouseDown;
-	BOOL mouseDragged;
-	char selectMode;
-	BOOL mouseDownOnSelection;
-	NSEvent *mouseDownEvent;
-		
-	//find support
-	int lastFindX, lastFindY;
-	
-	BOOL reportingMouseDown;
-	
-	// blinking cursor
-	BOOL blinkingCursor;
-	BOOL showCursor;
-	BOOL blinkShow;
+    
+    //selection
+    int startX, startY, endX, endY;
+    int oldStartX, oldStartY, oldEndX, oldEndY;
+    char oldSelectMode;
+    BOOL mouseDown;
+    BOOL mouseDragged;
+    char selectMode;
+    BOOL mouseDownOnSelection;
+    NSEvent *mouseDownEvent;
+        
+    //find support
+    int lastFindX, lastFindY;
+    
+    BOOL reportingMouseDown;
+    
+    // blinking cursor
+    BOOL blinkingCursor;
+    BOOL showCursor;
+    BOOL blinkShow;
     struct timeval lastBlink;
     int oldCursorX, oldCursorY;
-	
-	// trackingRect tab
-	NSTrackingRectTag trackingRectTag;
-	
-	BOOL keyIsARepeat;
     
-	// Needed for determining font size.
-	NSLayoutManager *layoutManager;
+    // trackingRect tab
+    NSTrackingRectTag trackingRectTag;
+    
+    BOOL keyIsARepeat;
+    
+    // Needed for determining font size.
+    NSLayoutManager *layoutManager;
 }
 
 + (NSCursor *) textViewCursor;
@@ -271,10 +271,10 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
 - (long)conversationIdentifier;
 - (NSRect)firstRectForCharacterRange:(NSRange)theRange;
 
-	// service stuff
+    // service stuff
 - (id)validRequestorForSendType:(NSString *)sendType returnType:(NSString *)returnType;
 - (BOOL)writeSelectionToPasteboard:(NSPasteboard *)pboard types:(NSArray *)types;
-- (BOOL)readSelectionFromPasteboard:(NSPasteboard *)pboard;	
+- (BOOL)readSelectionFromPasteboard:(NSPasteboard *)pboard;    
 
 @end
 
@@ -288,11 +288,11 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
 
 - (void) _scrollToLine:(int)line;
 - (NSString *) _getWordForX: (int) x 
-					y: (int) y 
-			   startX: (int *) startx 
-			   startY: (int *) starty 
-				 endX: (int *) endx 
-				 endY: (int *) endy;
+                    y: (int) y 
+               startX: (int *) startx 
+               startY: (int *) starty 
+                 endX: (int *) endx 
+                 endY: (int *) endy;
 - (NSString *) _getURLForX: (int) x y: (int) y;
 - (void) _drawLine:(int)line AtY:(float)curY;
 - (void) _drawCursor;

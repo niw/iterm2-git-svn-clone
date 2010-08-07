@@ -26,12 +26,12 @@
     PSMTabBarCell               *_draggedCell;
     int                         _draggedCellIndex;   // for snap back
     BOOL                        _isDragging;
-	
-	// Support for dragging into new windows
-	PSMTabDragWindow			*_dragTabWindow, *_dragViewWindow;
-	NSSize						_dragWindowOffset;
-	NSTimer						*_fadeTimer;
-	
+    
+    // Support for dragging into new windows
+    PSMTabDragWindow            *_dragTabWindow, *_dragViewWindow;
+    NSSize                        _dragWindowOffset;
+    NSTimer                        *_fadeTimer;
+    
     // Animation
     NSTimer                     *_animationTimer;
     NSMutableArray              *_sineCurveWidths;

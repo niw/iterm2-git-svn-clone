@@ -5,7 +5,7 @@
 //  Created by Andreas on 2005-06-01.
 //  Copyright 2005 Andreas Mayer. All rights reserved.
 //
-//	based on http://www.cocoadev.com/index.pl?GradientFill
+//    based on http://www.cocoadev.com/index.pl?GradientFill
 
 
 #import <Cocoa/Cocoa.h>

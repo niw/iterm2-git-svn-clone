@@ -10,46 +10,46 @@
 
 @implementation GrowlDelegate
 - (id) initWithAllNotifications:(NSArray *)allNotifications defaultNotifications:(NSArray *)defaultNotifications {
-	if ((self = [super init])) {
-		registrationDictionary = [[NSDictionary alloc] initWithObjectsAndKeys:
-			allNotifications,     GROWL_NOTIFICATIONS_ALL,
-			defaultNotifications, GROWL_NOTIFICATIONS_DEFAULT,
-			nil];
-	}
-	return self;
+    if ((self = [super init])) {
+        registrationDictionary = [[NSDictionary alloc] initWithObjectsAndKeys:
+            allNotifications,     GROWL_NOTIFICATIONS_ALL,
+            defaultNotifications, GROWL_NOTIFICATIONS_DEFAULT,
+            nil];
+    }
+    return self;
 }
 
 - (void) dealloc {
-	[registrationDictionary      release];
-	[applicationNameForGrowl     release];
-	[applicationIconDataForGrowl release];
-	[super dealloc];
+    [registrationDictionary      release];
+    [applicationNameForGrowl     release];
+    [applicationIconDataForGrowl release];
+    [super dealloc];
 }
 
 - (NSDictionary *) registrationDictionaryForGrowl {
-	return registrationDictionary;
+    return registrationDictionary;
 }
 
 - (NSString *) applicationNameForGrowl {
-	return applicationNameForGrowl;
+    return applicationNameForGrowl;
 }
 
 - (void) setApplicationNameForGrowl:(NSString *)name {
-	if (name != applicationNameForGrowl) {
-		[applicationNameForGrowl release];
-		applicationNameForGrowl = [name retain];
-	}
+    if (name != applicationNameForGrowl) {
+        [applicationNameForGrowl release];
+        applicationNameForGrowl = [name retain];
+    }
 }
 
 - (NSData *) applicationIconDataForGrowl {
-	return applicationIconDataForGrowl;
+    return applicationIconDataForGrowl;
 }
 
 - (void) setApplicationIconDataForGrowl:(NSData *)data {
-	if (data != applicationIconDataForGrowl) {
-		[applicationIconDataForGrowl release];
-		applicationIconDataForGrowl = [data retain];
-	}
+    if (data != applicationIconDataForGrowl) {
+        [applicationIconDataForGrowl release];
+        applicationIconDataForGrowl = [data retain];
+    }
 }
 
 @end

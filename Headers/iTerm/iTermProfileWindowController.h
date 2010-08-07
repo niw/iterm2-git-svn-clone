@@ -27,96 +27,96 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/AppKit.h>
 
-#define KEYBOARD_PROFILE_TAB		0
-#define TERMINAL_PROFILE_TAB		1
-#define DISPLAY_PROFILE_TAB			2
+#define KEYBOARD_PROFILE_TAB        0
+#define TERMINAL_PROFILE_TAB        1
+#define DISPLAY_PROFILE_TAB            2
 
 @interface iTermProfileWindowController : NSWindowController 
 {
     NSUserDefaults *_prefs;
 
-	IBOutlet NSTabView *profileTabView;
-	IBOutlet NSOutlineView *profileOutline;
+    IBOutlet NSTabView *profileTabView;
+    IBOutlet NSOutlineView *profileOutline;
 
-	// Add Profile panel
-	IBOutlet NSPanel *addProfile;
-	IBOutlet NSPopUpButton *addProfileCategory;
-	IBOutlet NSTextField *profileName;
+    // Add Profile panel
+    IBOutlet NSPanel *addProfile;
+    IBOutlet NSPopUpButton *addProfileCategory;
+    IBOutlet NSTextField *profileName;
     
     IBOutlet NSButton *deleteButton;
     IBOutlet NSButton *duplicateButton;
     
-	// Keybinding profile UI
-	IBOutlet NSPanel *addKBEntry;
-	IBOutlet NSPopUpButton *kbEntryKey;
-	IBOutlet NSButton *kbEntryKeyModifierOption;
-	IBOutlet NSButton *kbEntryKeyModifierControl;
-	IBOutlet NSButton *kbEntryKeyModifierShift;
-	IBOutlet NSButton *kbEntryKeyModifierCommand;
-	IBOutlet NSPopUpButton *kbEntryAction;
-	IBOutlet NSTextField *kbEntryText;
-	IBOutlet NSTextField *kbEntryKeyCode;
-	IBOutlet NSTextField *kbEntryHint;
-	IBOutlet NSTableView *kbEntryTableView;
-	IBOutlet NSButton *kbEntryDeleteButton;
-	IBOutlet NSMatrix *kbOptionKey;
-	IBOutlet NSButton *kbEntryHighPriority;
-	
-	// Display profile UI
-	IBOutlet NSColorWell *displayFGColor;
-	IBOutlet NSColorWell *displayBGColor;
-	IBOutlet NSColorWell *displayBoldColor;
-	IBOutlet NSColorWell *displaySelectionColor;
-	IBOutlet NSColorWell *displaySelectedTextColor;
-	IBOutlet NSColorWell *displayCursorColor;
-	IBOutlet NSColorWell *displayCursorTextColor;
-	IBOutlet NSColorWell *displayAnsi0Color;
-	IBOutlet NSColorWell *displayAnsi1Color;
-	IBOutlet NSColorWell *displayAnsi2Color;
-	IBOutlet NSColorWell *displayAnsi3Color;
-	IBOutlet NSColorWell *displayAnsi4Color;
-	IBOutlet NSColorWell *displayAnsi5Color;
-	IBOutlet NSColorWell *displayAnsi6Color;
-	IBOutlet NSColorWell *displayAnsi7Color;
-	IBOutlet NSColorWell *displayAnsi8Color;
-	IBOutlet NSColorWell *displayAnsi9Color;
-	IBOutlet NSColorWell *displayAnsi10Color;
-	IBOutlet NSColorWell *displayAnsi11Color;
-	IBOutlet NSColorWell *displayAnsi12Color;
-	IBOutlet NSColorWell *displayAnsi13Color;
-	IBOutlet NSColorWell *displayAnsi14Color;
-	IBOutlet NSColorWell *displayAnsi15Color;
-	IBOutlet NSTextField *displayTransparency;
-	IBOutlet NSButton *displayUseBackgroundImage;
+    // Keybinding profile UI
+    IBOutlet NSPanel *addKBEntry;
+    IBOutlet NSPopUpButton *kbEntryKey;
+    IBOutlet NSButton *kbEntryKeyModifierOption;
+    IBOutlet NSButton *kbEntryKeyModifierControl;
+    IBOutlet NSButton *kbEntryKeyModifierShift;
+    IBOutlet NSButton *kbEntryKeyModifierCommand;
+    IBOutlet NSPopUpButton *kbEntryAction;
+    IBOutlet NSTextField *kbEntryText;
+    IBOutlet NSTextField *kbEntryKeyCode;
+    IBOutlet NSTextField *kbEntryHint;
+    IBOutlet NSTableView *kbEntryTableView;
+    IBOutlet NSButton *kbEntryDeleteButton;
+    IBOutlet NSMatrix *kbOptionKey;
+    IBOutlet NSButton *kbEntryHighPriority;
+    
+    // Display profile UI
+    IBOutlet NSColorWell *displayFGColor;
+    IBOutlet NSColorWell *displayBGColor;
+    IBOutlet NSColorWell *displayBoldColor;
+    IBOutlet NSColorWell *displaySelectionColor;
+    IBOutlet NSColorWell *displaySelectedTextColor;
+    IBOutlet NSColorWell *displayCursorColor;
+    IBOutlet NSColorWell *displayCursorTextColor;
+    IBOutlet NSColorWell *displayAnsi0Color;
+    IBOutlet NSColorWell *displayAnsi1Color;
+    IBOutlet NSColorWell *displayAnsi2Color;
+    IBOutlet NSColorWell *displayAnsi3Color;
+    IBOutlet NSColorWell *displayAnsi4Color;
+    IBOutlet NSColorWell *displayAnsi5Color;
+    IBOutlet NSColorWell *displayAnsi6Color;
+    IBOutlet NSColorWell *displayAnsi7Color;
+    IBOutlet NSColorWell *displayAnsi8Color;
+    IBOutlet NSColorWell *displayAnsi9Color;
+    IBOutlet NSColorWell *displayAnsi10Color;
+    IBOutlet NSColorWell *displayAnsi11Color;
+    IBOutlet NSColorWell *displayAnsi12Color;
+    IBOutlet NSColorWell *displayAnsi13Color;
+    IBOutlet NSColorWell *displayAnsi14Color;
+    IBOutlet NSColorWell *displayAnsi15Color;
+    IBOutlet NSTextField *displayTransparency;
+    IBOutlet NSButton *displayUseBackgroundImage;
     IBOutlet NSImageView *displayBackgroundImage;
-	IBOutlet NSTextField *displayColTextField;
-	IBOutlet NSTextField *displayRowTextField;
-	IBOutlet NSTextField *displayFontTextField;
-	IBOutlet NSTextField *displayNAFontTextField;
-	IBOutlet NSView *displayFontAccessoryView;
-	IBOutlet NSSlider *displayFontSpacingWidth;
-	IBOutlet NSSlider *displayFontSpacingHeight;
-	IBOutlet NSButton *displayAntiAlias;
-	IBOutlet NSButton *displayBlur;
-	IBOutlet NSButton *displayDisableBold;
-	
-	BOOL changingNAFont;
-	
-	// Terminal Profile UI
-	IBOutlet NSComboBox *terminalType;
-	IBOutlet NSPopUpButton *terminalEncoding;
-	IBOutlet NSTextField *terminalScrollback;
-	IBOutlet NSButton *terminalSilenceBell;
-	IBOutlet NSButton *terminalShowBell;
-	IBOutlet NSButton *terminalEnableGrowl;
-	IBOutlet NSButton *terminalBlink;
-	IBOutlet NSButton *terminalCloseOnSessionEnd;
-	IBOutlet NSButton *terminalDoubleWidth;
-	IBOutlet NSButton *terminalSendIdleChar;
-	IBOutlet NSTextField *terminalIdleChar;
-	IBOutlet NSButton *terminalAppendTitle;
-	IBOutlet NSButton *terminalNoResizing;
-	IBOutlet NSButton *xtermMouseReporting;
+    IBOutlet NSTextField *displayColTextField;
+    IBOutlet NSTextField *displayRowTextField;
+    IBOutlet NSTextField *displayFontTextField;
+    IBOutlet NSTextField *displayNAFontTextField;
+    IBOutlet NSView *displayFontAccessoryView;
+    IBOutlet NSSlider *displayFontSpacingWidth;
+    IBOutlet NSSlider *displayFontSpacingHeight;
+    IBOutlet NSButton *displayAntiAlias;
+    IBOutlet NSButton *displayBlur;
+    IBOutlet NSButton *displayDisableBold;
+    
+    BOOL changingNAFont;
+    
+    // Terminal Profile UI
+    IBOutlet NSComboBox *terminalType;
+    IBOutlet NSPopUpButton *terminalEncoding;
+    IBOutlet NSTextField *terminalScrollback;
+    IBOutlet NSButton *terminalSilenceBell;
+    IBOutlet NSButton *terminalShowBell;
+    IBOutlet NSButton *terminalEnableGrowl;
+    IBOutlet NSButton *terminalBlink;
+    IBOutlet NSButton *terminalCloseOnSessionEnd;
+    IBOutlet NSButton *terminalDoubleWidth;
+    IBOutlet NSButton *terminalSendIdleChar;
+    IBOutlet NSTextField *terminalIdleChar;
+    IBOutlet NSButton *terminalAppendTitle;
+    IBOutlet NSButton *terminalNoResizing;
+    IBOutlet NSButton *xtermMouseReporting;
 
     NSString *selectedProfile;
 }

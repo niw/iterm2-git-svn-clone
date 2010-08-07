@@ -11,7 +11,7 @@
  **  Copyright (c) 2002, 2003
  **
  **  Author: Fabian
- **	     Initial code by Kiichi Kusama
+ **         Initial code by Kiichi Kusama
  **
  **  Project: iTerm
  **

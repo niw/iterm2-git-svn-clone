@@ -6,7 +6,7 @@
  **  Copyright (c) 2002, 2003
  **
  **  Author: Fabian, Ujwal S. Setlur
- **	     Initial code by Kiichi Kusama
+ **         Initial code by Kiichi Kusama
  **
  **  Project: iTerm
  **
@@ -28,10 +28,10 @@
  */
 
 /*
-	Delegate
-		readTask:
-		brokenPipe
-		closeSession:
+    Delegate
+        readTask:
+        brokenPipe
+        closeSession:
 */
 
 #import <Foundation/Foundation.h>
@@ -45,27 +45,27 @@
 
 @interface PTYTask : NSObject
 {
-	pid_t pid;
-	int fd;
-	int status;
-	id delegate;
-	NSString* tty;
-	NSString* path;
-	BOOL hasOutput;
+    pid_t pid;
+    int fd;
+    int status;
+    id delegate;
+    NSString* tty;
+    NSString* path;
+    BOOL hasOutput;
 
-	NSLock* writeLock;
-	NSMutableData* writeBuffer;
+    NSLock* writeLock;
+    NSMutableData* writeBuffer;
 
-	NSString* logPath;
-	NSFileHandle* logHandle;
+    NSString* logPath;
+    NSFileHandle* logHandle;
 }
 
 - (id)init;
 - (void)dealloc;
 
 - (void)launchWithPath:(NSString*)progpath
-		arguments:(NSArray*)args environment:(NSDictionary*)env
-		width:(int)width height:(int)height;
+        arguments:(NSArray*)args environment:(NSDictionary*)env
+        width:(int)width height:(int)height;
 
 - (void)setDelegate:(id)object;
 - (id)delegate;

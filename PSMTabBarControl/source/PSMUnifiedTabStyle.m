@@ -40,8 +40,8 @@
         _addTabButtonPressedImage = [[NSImage alloc] initByReferencingFile:[[PSMTabBarControl bundle] pathForImageResource:@"AquaTabNewPressed"]];
         _addTabButtonRolloverImage = [[NSImage alloc] initByReferencingFile:[[PSMTabBarControl bundle] pathForImageResource:@"AquaTabNewRollover"]];
     
-		leftMargin = 5.0;
-	}
+        leftMargin = 5.0;
+    }
     return self;
 }
 
@@ -62,7 +62,7 @@
 
 - (void)setLeftMarginForTabBarControl:(float)margin
 {
-	leftMargin = margin;
+    leftMargin = margin;
 }
 
 - (float)leftMarginForTabBarControl
@@ -77,7 +77,7 @@
 
 - (float)topMarginForTabBarControl
 {
-	return 10.0f;
+    return 10.0f;
 }
 
 #pragma mark -
@@ -103,9 +103,9 @@
 
 - (NSRect)dragRectForTabCell:(PSMTabBarCell *)cell orientation:(PSMTabBarOrientation)orientation
 {
-	NSRect dragRect = [cell frame];
-	dragRect.size.width++;
-	return dragRect;
+    NSRect dragRect = [cell frame];
+    dragRect.size.width++;
+    return dragRect;
 }
 
 - (NSRect)closeButtonRectForTabCell:(PSMTabBarCell *)cell
@@ -291,7 +291,7 @@
     }
     [attrStr addAttribute:NSParagraphStyleAttributeName value:TruncatingTailParagraphStyle range:range];
     
-    return attrStr;	
+    return attrStr;    
 }
 
 #pragma mark -
@@ -300,20 +300,20 @@
 - (void)drawTabCell:(PSMTabBarCell *)cell
 {
     NSRect cellFrame = [cell frame];
-	
-	NSToolbar *toolbar = [[[cell controlView] window] toolbar];
-	BOOL showsBaselineSeparator = (toolbar && [toolbar respondsToSelector:@selector(showsBaselineSeparator)] && [toolbar showsBaselineSeparator]);
-	if (!showsBaselineSeparator) {
-		cellFrame.origin.y += 1.0;
-		cellFrame.size.height -= 1.0;
-	}
-	
+    
+    NSToolbar *toolbar = [[[cell controlView] window] toolbar];
+    BOOL showsBaselineSeparator = (toolbar && [toolbar respondsToSelector:@selector(showsBaselineSeparator)] && [toolbar showsBaselineSeparator]);
+    if (!showsBaselineSeparator) {
+        cellFrame.origin.y += 1.0;
+        cellFrame.size.height -= 1.0;
+    }
+    
     NSColor * lineColor = nil;
     NSBezierPath* bezier = [NSBezierPath bezierPath];
     lineColor = [NSColor colorWithCalibratedWhite:0.576 alpha:1.0];
 
     if (!showsBaselineSeparator || [cell state] == NSOnState)
-	{
+    {
         if ([[cell controlView] tabLocation] == PSMTab_TopTab) 
         {
             // selected tab
@@ -348,74 +348,74 @@
             cornerPoint = NSMakePoint(NSMaxX(aRect), NSMinY(aRect));
             [bezier appendBezierPathWithPoints:&cornerPoint count:1];
             [bezier appendBezierPathWithArcWithCenter:NSMakePoint(NSMaxX(rect), NSMaxY(rect)) radius:radius startAngle:0.0 endAngle:90.0];
-		}		
+        }        
     
         [bezier closePath];
-		
-		//[[NSColor windowBackgroundColor] set];
-		//[bezier fill];
-		if ([NSApp isActive]) {
-			if ([cell state] == NSOnState) {
-				[bezier linearGradientFillWithStartColor:[NSColor colorWithCalibratedWhite:0.99 alpha:1.0]
-												endColor:[NSColor colorWithCalibratedWhite:0.941 alpha:1.0]];
-			} else if ([cell isHighlighted]) {
-				[bezier linearGradientFillWithStartColor:[NSColor colorWithCalibratedWhite:0.80 alpha:1.0]
-												endColor:[NSColor colorWithCalibratedWhite:0.80 alpha:1.0]];
-			} else {
-				[bezier linearGradientFillWithStartColor:[NSColor colorWithCalibratedWhite:0.835 alpha:1.0]
-												endColor:[NSColor colorWithCalibratedWhite:0.843 alpha:1.0]];
-			}
-		}
-		
-		[lineColor set];
+        
+        //[[NSColor windowBackgroundColor] set];
+        //[bezier fill];
+        if ([NSApp isActive]) {
+            if ([cell state] == NSOnState) {
+                [bezier linearGradientFillWithStartColor:[NSColor colorWithCalibratedWhite:0.99 alpha:1.0]
+                                                endColor:[NSColor colorWithCalibratedWhite:0.941 alpha:1.0]];
+            } else if ([cell isHighlighted]) {
+                [bezier linearGradientFillWithStartColor:[NSColor colorWithCalibratedWhite:0.80 alpha:1.0]
+                                                endColor:[NSColor colorWithCalibratedWhite:0.80 alpha:1.0]];
+            } else {
+                [bezier linearGradientFillWithStartColor:[NSColor colorWithCalibratedWhite:0.835 alpha:1.0]
+                                                endColor:[NSColor colorWithCalibratedWhite:0.843 alpha:1.0]];
+            }
+        }
+        
+        [lineColor set];
         [bezier stroke];
     }
-	else
-	{
+    else
+    {
         // unselected tab
         NSRect aRect = NSMakeRect(cellFrame.origin.x, cellFrame.origin.y, cellFrame.size.width, cellFrame.size.height);
         aRect.origin.y += 0.5;
         aRect.origin.x += 1.5;
         aRect.size.width -= 1;
-		
-		aRect.origin.x -= 1;
+        
+        aRect.origin.x -= 1;
         aRect.size.width += 1;
         
         // rollover
         if ([cell isHighlighted])
-		{
+        {
             [[NSColor colorWithCalibratedWhite:0.0 alpha:0.1] set];
             NSRectFillUsingOperation(aRect, NSCompositeSourceAtop);
         }
         
         // frame
-		
+        
         [lineColor set];
         [bezier moveToPoint:NSMakePoint(aRect.origin.x + aRect.size.width, aRect.origin.y-0.5)];
-		if(!([cell tabState] & PSMTab_RightIsSelectedMask)){
+        if(!([cell tabState] & PSMTab_RightIsSelectedMask)){
             [bezier lineToPoint:NSMakePoint(NSMaxX(aRect), NSMaxY(aRect))];
         }
-		 
+         
         [bezier stroke];
-		
-		// Create a thin lighter line next to the dividing line for a bezel effect
-		if(!([cell tabState] & PSMTab_RightIsSelectedMask)){
-			[[[NSColor whiteColor] colorWithAlphaComponent:0.5] set];
-			[NSBezierPath strokeLineFromPoint:NSMakePoint(NSMaxX(aRect)+1.0, aRect.origin.y-0.5)
-									  toPoint:NSMakePoint(NSMaxX(aRect)+1.0, NSMaxY(aRect)-2.5)];
-		}
-		
-		// If this is the leftmost tab, we want to draw a line on the left, too
-		if ([cell tabState] & PSMTab_PositionLeftMask)
-		{
-			[lineColor set];
-			[NSBezierPath strokeLineFromPoint:NSMakePoint(aRect.origin.x,aRect.origin.y-0.5)
-									  toPoint:NSMakePoint(aRect.origin.x,NSMaxY(aRect)-2.5)];
-			[[[NSColor whiteColor] colorWithAlphaComponent:0.5] set];
-			[NSBezierPath strokeLineFromPoint:NSMakePoint(aRect.origin.x+1.0,aRect.origin.y-0.5)
-									  toPoint:NSMakePoint(aRect.origin.x+1.0,NSMaxY(aRect)-2.5)];
-		}
-	}
+        
+        // Create a thin lighter line next to the dividing line for a bezel effect
+        if(!([cell tabState] & PSMTab_RightIsSelectedMask)){
+            [[[NSColor whiteColor] colorWithAlphaComponent:0.5] set];
+            [NSBezierPath strokeLineFromPoint:NSMakePoint(NSMaxX(aRect)+1.0, aRect.origin.y-0.5)
+                                      toPoint:NSMakePoint(NSMaxX(aRect)+1.0, NSMaxY(aRect)-2.5)];
+        }
+        
+        // If this is the leftmost tab, we want to draw a line on the left, too
+        if ([cell tabState] & PSMTab_PositionLeftMask)
+        {
+            [lineColor set];
+            [NSBezierPath strokeLineFromPoint:NSMakePoint(aRect.origin.x,aRect.origin.y-0.5)
+                                      toPoint:NSMakePoint(aRect.origin.x,NSMaxY(aRect)-2.5)];
+            [[[NSColor whiteColor] colorWithAlphaComponent:0.5] set];
+            [NSBezierPath strokeLineFromPoint:NSMakePoint(aRect.origin.x+1.0,aRect.origin.y-0.5)
+                                      toPoint:NSMakePoint(aRect.origin.x+1.0,NSMaxY(aRect)-2.5)];
+        }
+    }
     
     [self drawInteriorWithTabCell:cell inView:[cell controlView]];
 }
@@ -472,7 +472,7 @@
         [[NSColor colorWithCalibratedWhite:0.3 alpha:0.6] set];
         NSBezierPath *path = [NSBezierPath bezierPath];
         NSRect myRect = [self objectCounterRectForTabCell:cell];
-		myRect.origin.y -= 1.0;
+        myRect.origin.y -= 1.0;
         [path moveToPoint:NSMakePoint(myRect.origin.x + kPSMUnifiedObjectCounterRadius, myRect.origin.y)];
         [path lineToPoint:NSMakePoint(myRect.origin.x + myRect.size.width - kPSMUnifiedObjectCounterRadius, myRect.origin.y)];
         [path appendBezierPathWithArcWithCenter:NSMakePoint(myRect.origin.x + myRect.size.width - kPSMUnifiedObjectCounterRadius, myRect.origin.y + kPSMUnifiedObjectCounterRadius) radius:kPSMUnifiedObjectCounterRadius startAngle:270.0 endAngle:90.0];
@@ -493,9 +493,9 @@
     NSRect labelRect;
     labelRect.origin.x = labelPosition;
     labelRect.size.width = cellFrame.size.width - (labelRect.origin.x - cellFrame.origin.x) - kPSMTabBarCellPadding;
-	NSSize s = [[cell attributedStringValue] size];
-	labelRect.origin.y = cellFrame.origin.y + (cellFrame.size.height-s.height)/2.0 - 1.0;
-	labelRect.size.height = s.height;
+    NSSize s = [[cell attributedStringValue] size];
+    labelRect.origin.y = cellFrame.origin.y + (cellFrame.size.height-s.height)/2.0 - 1.0;
+    labelRect.size.height = s.height;
     
     if(![[cell indicator] isHidden])
         labelRect.size.width -= (kPSMTabBarIndicatorWidth + kPSMTabBarCellPadding);
@@ -509,26 +509,26 @@
 
 - (void)drawBackgroundInRect:(NSRect)rect
 {
-	NSRect gradientRect = rect;
-	gradientRect.size.height -= 1.0;
-	if ([[[tabBar tabView] window] isKeyWindow]) {
-		NSBezierPath *path = [NSBezierPath bezierPathWithRect:gradientRect];
-		[path linearGradientFillWithStartColor:[NSColor colorWithCalibratedWhite:0.835 alpha:1.0]
-								  endColor:[NSColor colorWithCalibratedWhite:0.843 alpha:1.0]];
-		[[NSColor colorWithCalibratedWhite:0.576 alpha:1.0] set];
-		[NSBezierPath strokeLineFromPoint:NSMakePoint(rect.origin.x, NSMaxY(rect) - 0.5)
-								  toPoint:NSMakePoint(NSMaxX(rect), NSMaxY(rect) - 0.5)];
-	} else {
-		[[NSColor windowBackgroundColor] set];
-		NSRectFill(gradientRect);
-	}
+    NSRect gradientRect = rect;
+    gradientRect.size.height -= 1.0;
+    if ([[[tabBar tabView] window] isKeyWindow]) {
+        NSBezierPath *path = [NSBezierPath bezierPathWithRect:gradientRect];
+        [path linearGradientFillWithStartColor:[NSColor colorWithCalibratedWhite:0.835 alpha:1.0]
+                                  endColor:[NSColor colorWithCalibratedWhite:0.843 alpha:1.0]];
+        [[NSColor colorWithCalibratedWhite:0.576 alpha:1.0] set];
+        [NSBezierPath strokeLineFromPoint:NSMakePoint(rect.origin.x, NSMaxY(rect) - 0.5)
+                                  toPoint:NSMakePoint(NSMaxX(rect), NSMaxY(rect) - 0.5)];
+    } else {
+        [[NSColor windowBackgroundColor] set];
+        NSRectFill(gradientRect);
+    }
 }
 
 - (void)drawTabBar:(PSMTabBarControl *)bar inRect:(NSRect)rect
 {
-	tabBar = bar;
-	[self drawBackgroundInRect:rect];
-	
+    tabBar = bar;
+    [self drawBackgroundInRect:rect];
+    
     // no tab view == not connected
     if(![bar tabView]){
         NSRect labelRect = rect;
@@ -557,7 +557,7 @@
             [cell drawWithFrame:[cell frame] inView:bar];
         }
     }
-}   	
+}       
 
 #pragma mark -
 #pragma mark Archiving

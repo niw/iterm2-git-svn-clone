@@ -11,7 +11,7 @@
  **  Project: iTerm
  **
  **  Description: Implements a tree structure for bookmarks. 
- **				  Adapted from Apple's example code.
+ **                  Adapted from Apple's example code.
  **
  **  This program is free software; you can redistribute it and/or modify
  **  it under the terms of the GNU General Public License as published by
@@ -30,11 +30,11 @@
 
 #import <iTerm/Tree.h>
 
-#define KEY_NAME			@"Name"
-#define KEY_DESCRIPTION		@"Description"
-#define KEY_IS_GROUP		@"Group Node"
-#define KEY_ENTRIES			@"Entries"
-#define KEY_DATA			@"Data"
+#define KEY_NAME            @"Name"
+#define KEY_DESCRIPTION        @"Description"
+#define KEY_IS_GROUP        @"Group Node"
+#define KEY_ENTRIES            @"Entries"
+#define KEY_DATA            @"Data"
 
 
 @implementation NSArray (MyExtensions)
@@ -61,7 +61,7 @@
 @implementation TreeNode
 
 + (id) treeFromDictionary:(NSDictionary*)dict {
-		
+        
     return [[[TreeNode alloc] initFromDictionary:dict] autorelease];
 }
 
@@ -87,25 +87,25 @@
     
     self = [self initWithData:data parent:nil children:[NSArray array]];
     if (self==nil) return nil;
-	
-	if([dict objectForKey: KEY_IS_GROUP])
-		[self setIsLeaf: NO];
-	else
-		[self setIsLeaf: YES];
+    
+    if([dict objectForKey: KEY_IS_GROUP])
+        [self setIsLeaf: NO];
+    else
+        [self setIsLeaf: YES];
     
     while ((entry=[entryEnum nextObject])) 
-	{
-		// if child is another group, recursively add the branch
+    {
+        // if child is another group, recursively add the branch
         if ([[entry objectForKey: KEY_IS_GROUP] isEqualToString: @"Yes"])
-		{
+        {
             child = [TreeNode treeFromDictionary: entry];
-		}
+        }
         else 
-		{
-			data = [entry objectForKey: KEY_DATA];
+        {
+            data = [entry objectForKey: KEY_DATA];
             child = [[[TreeNode alloc] initWithData: data parent:nil children: [NSArray array]] autorelease];
-			[child setIsLeaf: YES];
-		}
+            [child setIsLeaf: YES];
+        }
         [self insertChild: child atIndex: [self numberOfChildren]];
     }
     
@@ -115,52 +115,52 @@
 // return a dictionary representation of the node and its children
 - (NSDictionary *) dictionary
 {
-	NSMutableDictionary *aDict;
-	NSEnumerator *entryEnum;
-	TreeNode *child;
-	NSMutableArray *aMutableArray;
-	
-	aDict = [[NSMutableDictionary alloc] init];
-	
-	if(nodeData)
-		[aDict setObject: nodeData forKey: KEY_DATA];
-	if(!isLeaf)
-		[aDict setObject: @"Yes" forKey: KEY_IS_GROUP];
-	
-	// recursively encode the children
-	aMutableArray = [NSMutableArray array];
-	entryEnum = [nodeChildren objectEnumerator];
-	while ((child = [entryEnum nextObject]))
-	{
-		[aMutableArray addObject: [child dictionary]];
-	}
-	
-	[aDict setObject: aMutableArray forKey: KEY_ENTRIES];
-	
-	return ([aDict autorelease]);
-	
+    NSMutableDictionary *aDict;
+    NSEnumerator *entryEnum;
+    TreeNode *child;
+    NSMutableArray *aMutableArray;
+    
+    aDict = [[NSMutableDictionary alloc] init];
+    
+    if(nodeData)
+        [aDict setObject: nodeData forKey: KEY_DATA];
+    if(!isLeaf)
+        [aDict setObject: @"Yes" forKey: KEY_IS_GROUP];
+    
+    // recursively encode the children
+    aMutableArray = [NSMutableArray array];
+    entryEnum = [nodeChildren objectEnumerator];
+    while ((child = [entryEnum nextObject]))
+    {
+        [aMutableArray addObject: [child dictionary]];
+    }
+    
+    [aDict setObject: aMutableArray forKey: KEY_ENTRIES];
+    
+    return ([aDict autorelease]);
+    
 }
 
 // return an array of all nodes
 - (NSArray *) array
 {
-	NSEnumerator *entryEnum;
-	TreeNode *child;
-	NSMutableArray *aMutableArray;
-	
-	// recursively encode the children
-	aMutableArray = [NSMutableArray array];
-	entryEnum = [nodeChildren objectEnumerator];
-	while ((child = [entryEnum nextObject]))
-	{
-		if ([child isLeaf])
-			[aMutableArray addObject: child];
-		else
-			[aMutableArray addObjectsFromArray: [child array]];
-	}
-	
-	return (aMutableArray);
-	
+    NSEnumerator *entryEnum;
+    TreeNode *child;
+    NSMutableArray *aMutableArray;
+    
+    // recursively encode the children
+    aMutableArray = [NSMutableArray array];
+    entryEnum = [nodeChildren objectEnumerator];
+    while ((child = [entryEnum nextObject]))
+    {
+        if ([child isLeaf])
+            [aMutableArray addObject: child];
+        else
+            [aMutableArray addObjectsFromArray: [child array]];
+    }
+    
+    return (aMutableArray);
+    
 }
 
 
@@ -195,17 +195,17 @@
 
 - (BOOL)isGroup
 {
-	return (!isLeaf);
+    return (!isLeaf);
 }
 
 - (BOOL) isLeaf
 {
-	return (isLeaf);
+    return (isLeaf);
 }
 
 - (void) setIsLeaf: (BOOL) flag
 {
-	isLeaf = flag;
+    isLeaf = flag;
 }
 
 
@@ -301,11 +301,11 @@
 }
 
 - (int) indexForNode: (id) node {
-	return ([[self array] indexOfObject:node]);
+    return ([[self array] indexOfObject:node]);
 }
 
 - (id) nodeForIndex: (int) index {
-	return ([[self array] objectAtIndex:index]);
+    return ([[self array] objectAtIndex:index]);
 }
 
 - (NSString*)description {
@@ -336,14 +336,14 @@
 }
 
 - (id)initWithCoder:(NSCoder *)coder { 
-	self = 	[[TreeNode alloc] initFromDictionary:[coder decodeObject]]; 
-	return self; 
+    self =     [[TreeNode alloc] initFromDictionary:[coder decodeObject]]; 
+    return self; 
 }
 
 - (void)encodeWithCoder:(NSCoder *)coder { 
-	if (self) { 
-		[coder encodeObject: [self dictionary]]; 
-	} 
+    if (self) { 
+        [coder encodeObject: [self dictionary]]; 
+    } 
 }
 
 - (NSComparisonResult) compare: (id) comparator

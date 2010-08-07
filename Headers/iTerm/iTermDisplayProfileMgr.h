@@ -28,33 +28,33 @@
 #import <AppKit/AppKit.h>
 #import <Tree.h>
 
-#define TYPE_ANSI_0_COLOR				0
-#define TYPE_ANSI_1_COLOR				1
-#define TYPE_ANSI_2_COLOR				2
-#define TYPE_ANSI_3_COLOR				3
-#define TYPE_ANSI_4_COLOR				4
-#define TYPE_ANSI_5_COLOR				5
-#define TYPE_ANSI_6_COLOR				6
-#define TYPE_ANSI_7_COLOR				7
-#define TYPE_ANSI_8_COLOR				8
-#define TYPE_ANSI_9_COLOR				9
-#define TYPE_ANSI_10_COLOR				10
-#define TYPE_ANSI_11_COLOR				11
-#define TYPE_ANSI_12_COLOR				12
-#define TYPE_ANSI_13_COLOR				13
-#define TYPE_ANSI_14_COLOR				14
-#define TYPE_ANSI_15_COLOR				15
-#define TYPE_FOREGROUND_COLOR			16
-#define TYPE_BACKGROUND_COLOR			17
-#define TYPE_BOLD_COLOR					18
-#define TYPE_SELECTION_COLOR			19
-#define TYPE_SELECTED_TEXT_COLOR		20
-#define TYPE_CURSOR_COLOR				21
-#define TYPE_CURSOR_TEXT_COLOR			22
+#define TYPE_ANSI_0_COLOR                0
+#define TYPE_ANSI_1_COLOR                1
+#define TYPE_ANSI_2_COLOR                2
+#define TYPE_ANSI_3_COLOR                3
+#define TYPE_ANSI_4_COLOR                4
+#define TYPE_ANSI_5_COLOR                5
+#define TYPE_ANSI_6_COLOR                6
+#define TYPE_ANSI_7_COLOR                7
+#define TYPE_ANSI_8_COLOR                8
+#define TYPE_ANSI_9_COLOR                9
+#define TYPE_ANSI_10_COLOR                10
+#define TYPE_ANSI_11_COLOR                11
+#define TYPE_ANSI_12_COLOR                12
+#define TYPE_ANSI_13_COLOR                13
+#define TYPE_ANSI_14_COLOR                14
+#define TYPE_ANSI_15_COLOR                15
+#define TYPE_FOREGROUND_COLOR            16
+#define TYPE_BACKGROUND_COLOR            17
+#define TYPE_BOLD_COLOR                    18
+#define TYPE_SELECTION_COLOR            19
+#define TYPE_SELECTED_TEXT_COLOR        20
+#define TYPE_CURSOR_COLOR                21
+#define TYPE_CURSOR_TEXT_COLOR            22
 
 @interface iTermDisplayProfileMgr : NSObject 
 {
-	NSMutableDictionary *profiles;
+    NSMutableDictionary *profiles;
 }
 
 // Class methods

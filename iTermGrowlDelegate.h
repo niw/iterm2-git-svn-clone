@@ -58,16 +58,16 @@
 
 #define OURGROWLAPPNAME  @"iTerm"
 #define DEFAULTNOTIFICATION @"Miscellaneous"
-#define OURNOTIFICATIONS	@"Bells",			\
-							@"Broken Pipes",	\
-							@"Miscellaneous",	\
-							@"Idle",			\
-							@"New Output",      \
+#define OURNOTIFICATIONS    @"Bells",            \
+                            @"Broken Pipes",    \
+                            @"Miscellaneous",    \
+                            @"Idle",            \
+                            @"New Output",      \
                             @"Customized Message"
 
 @interface iTermGrowlDelegate : NSObject <GrowlApplicationBridgeDelegate> {
-	BOOL enabled;
-	NSArray * notifications;
+    BOOL enabled;
+    NSArray * notifications;
 }
 
 + (id) sharedInstance;

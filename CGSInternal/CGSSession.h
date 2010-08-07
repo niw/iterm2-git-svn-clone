@@ -29,16 +29,16 @@ typedef int CGSSessionID;
 CG_EXTERN_C_BEGIN
 
 /*! Gets information about the current login session. Keys as of 10.4:
-	kCGSSessionGroupIDKey
-	kCGSSessionOnConsoleKey
-	kCGSSessionIDKey
-	kCGSSessionUserNameKey
-	kCGSessionLoginDoneKey
-	kCGSessionLongUserNameKey
-	kCGSSessionSystemSafeBoot
-	kCGSSessionLoginwindowSafeLogin
-	kCGSSessionConsoleSetKey
-	kCGSSessionUserIDKey
+    kCGSSessionGroupIDKey
+    kCGSSessionOnConsoleKey
+    kCGSSessionIDKey
+    kCGSSessionUserNameKey
+    kCGSessionLoginDoneKey
+    kCGSessionLongUserNameKey
+    kCGSSessionSystemSafeBoot
+    kCGSSessionLoginwindowSafeLogin
+    kCGSSessionConsoleSetKey
+    kCGSSessionUserIDKey
  */
 CG_EXTERN CFDictionaryRef CGSCopyCurrentSessionDictionary(void);
 

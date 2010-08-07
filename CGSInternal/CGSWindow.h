@@ -30,16 +30,16 @@ typedef int CGSAnimationObj;
 typedef struct { CGPoint localPoint; CGPoint globalPoint; } CGSWarpPoint;
 
 typedef enum {
-	kCGSSharingNone,
-	kCGSSharingReadOnly,
-	kCGSSharingReadWrite
+    kCGSSharingNone,
+    kCGSSharingReadOnly,
+    kCGSSharingReadWrite
 } CGSSharingState;
 
 typedef enum {
-	kCGSOrderBelow = -1,
-	kCGSOrderOut, /* hides the window */
-	kCGSOrderAbove,
-	kCGSOrderIn /* shows the window */
+    kCGSOrderBelow = -1,
+    kCGSOrderOut, /* hides the window */
+    kCGSOrderAbove,
+    kCGSOrderIn /* shows the window */
 } CGSWindowOrderingMode;
 
 typedef enum {

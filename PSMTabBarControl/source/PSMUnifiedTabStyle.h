@@ -17,9 +17,9 @@
     NSImage *_addTabButtonImage;
     NSImage *_addTabButtonPressedImage;
     NSImage *_addTabButtonRolloverImage;
-	
+    
     float leftMargin;
-	PSMTabBarControl *tabBar;
+    PSMTabBarControl *tabBar;
 }
 - (void)setLeftMarginForTabBarControl:(float)margin;
 @end

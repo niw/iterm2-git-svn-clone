@@ -123,11 +123,11 @@
 
 - (void) drawRect: (NSRect) rect
 {
-	//NSLog(@"%s", __PRETTY_FUNCTION__);
-	
-	[[NSNotificationCenter defaultCenter] postNotificationName: @"iTermTabViewWillRedraw" object: self];
-	[super drawRect: rect];
-	
+    //NSLog(@"%s", __PRETTY_FUNCTION__);
+    
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermTabViewWillRedraw" object: self];
+    [super drawRect: rect];
+    
 }
 
 
@@ -142,7 +142,7 @@
     id delegate = [self delegate];
 
     if([delegate conformsToProtocol: @protocol(PTYTabViewDelegateProtocol)])
-		[delegate tabView: self willAddTabViewItem: aTabViewItem];
+        [delegate tabView: self willAddTabViewItem: aTabViewItem];
     
     
     [super addTabViewItem: aTabViewItem];
@@ -158,7 +158,7 @@
     id delegate = [self delegate];
     
     if([delegate conformsToProtocol: @protocol(PTYTabViewDelegateProtocol)])
-		[delegate tabView: self willRemoveTabViewItem: aTabViewItem];
+        [delegate tabView: self willRemoveTabViewItem: aTabViewItem];
     
     // remove the item
     [super removeTabViewItem: aTabViewItem];

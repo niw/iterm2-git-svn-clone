@@ -130,14 +130,14 @@ static char* formatsct(screen_char_t* src, int len, char* dest) {
 
 - (int) getPositionOfLine: (int*)lineNum atX: (int) x withWidth: (int)width
 {
-	int length;
-	BOOL eol;
-	screen_char_t* p = [self getWrappedLineWithWrapWidth: width lineNum: lineNum lineLength: &length includesEndOfLine: &eol];
-	if (!p) {
-		return -1;
-	} else {
-		return p - raw_buffer + x;
-	}
+    int length;
+    BOOL eol;
+    screen_char_t* p = [self getWrappedLineWithWrapWidth: width lineNum: lineNum lineLength: &length includesEndOfLine: &eol];
+    if (!p) {
+        return -1;
+    } else {
+        return p - raw_buffer + x;
+    }
 }
 
 - (screen_char_t*) getWrappedLineWithWrapWidth: (int) width lineNum: (int*) lineNum lineLength: (int*) lineLength includesEndOfLine: (BOOL*) includesEndOfLine
@@ -266,7 +266,7 @@ static char* formatsct(screen_char_t* src, int len, char* dest) {
 
 - (int) startOffset
 {
-	return start_offset;
+    return start_offset;
 }
 
 - (int) getRawLineLength: (int) linenum
@@ -343,184 +343,184 @@ static char* formatsct(screen_char_t* src, int len, char* dest) {
 // TODO: Make this more unicode friendly
 BOOL stringCaseCompare(unichar* needle, int needle_len, screen_char_t* haystack, int haystack_len, int* result_length)
 {
-	int i;
-	if (needle_len > haystack_len) {
-		return NO;
-	}
-	for (i = 0; i < needle_len; ++i) {
-		if (haystack[i].ch != 0xffff && tolower(needle[i]) != tolower(haystack[i].ch)) {
-			return NO;
-		}
-	}
-	*result_length = i;
-	return YES;
+    int i;
+    if (needle_len > haystack_len) {
+        return NO;
+    }
+    for (i = 0; i < needle_len; ++i) {
+        if (haystack[i].ch != 0xffff && tolower(needle[i]) != tolower(haystack[i].ch)) {
+            return NO;
+        }
+    }
+    *result_length = i;
+    return YES;
 } 
 
 BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int haystack_len, int* result_length)
 {
-	int i;
-	if (needle_len > haystack_len) {
-		return NO;
-	}
-	for (i = 0; i < needle_len; ++i) {
-		if (haystack[i].ch != 0xffff && needle[i] != haystack[i].ch) {
-			return NO;
-		}
-	}
-	*result_length = i;
-	return YES;
+    int i;
+    if (needle_len > haystack_len) {
+        return NO;
+    }
+    for (i = 0; i < needle_len; ++i) {
+        if (haystack[i].ch != 0xffff && needle[i] != haystack[i].ch) {
+            return NO;
+        }
+    }
+    *result_length = i;
+    return YES;
 }
 
 - (int) _lineRawOffset: (int) index
 {
-	if (index == first_entry) {
-		return start_offset;
-	} else {
-		return cumulative_line_lengths[index - 1];
-	}
+    if (index == first_entry) {
+        return start_offset;
+    } else {
+        return cumulative_line_lengths[index - 1];
+    }
 }
 
 - (int) _findInRawLine:(int) entry needle:(NSString*) substring options: (int) options skip: (int) skip length: (int) raw_line_length resultLength: (int*) resultLength
 {
-	screen_char_t* rawline = raw_buffer + [self _lineRawOffset:entry];
-	unichar buffer[1000];
-	NSRange range;
-	range.location = 0;
-	range.length = [substring length];
-	if (range.length > 1000) {
-		range.length = 1000;
-	}
-	[substring getCharacters:buffer range:range];
+    screen_char_t* rawline = raw_buffer + [self _lineRawOffset:entry];
+    unichar buffer[1000];
+    NSRange range;
+    range.location = 0;
+    range.length = [substring length];
+    if (range.length > 1000) {
+        range.length = 1000;
+    }
+    [substring getCharacters:buffer range:range];
 
-	// TODO: use a smarter search algorithm
-	if (options & FindOptBackwards) {
-		int i;
-		NSAssert(skip >= 0, @"Negative skip");
-		if (skip + range.length > raw_line_length) {
-			skip = raw_line_length - range.length;
-		}
-		if (skip < 0) {
-			return -1;
-		}
-		if (options & FindOptCaseInsensitive) {
-			for (i = skip; i >= 0; --i) {
-				if (stringCaseCompare(buffer, range.length, rawline + i, raw_line_length - i, resultLength)) {
-					return i;
-				}
-			}
-		} else {
-			for (i = skip; i >= 0; --i) {
-				if (stringCompare(buffer, range.length, rawline + i, raw_line_length - i, resultLength)) {
-					return i;
-				}
-			}
-		}
-	} else {
-		int i;
-		int limit = raw_line_length - [substring length];
-		if (skip + range.length > raw_line_length) {
-			return -1;
-		}
-		if (options & FindOptCaseInsensitive) {
-			for (i = skip; i <= limit; ++i) {
-				if (stringCaseCompare(buffer, range.length, rawline + i, raw_line_length - i, resultLength)) {
-					return i;
-				}
-			}
-		} else {
-			for (i = skip; i <= limit; ++i) {
-				if (stringCompare(buffer, range.length, rawline + i, raw_line_length - i, resultLength)) {
-					return i;
-				}
-			}
-		}			
-	}
-	return -1;
+    // TODO: use a smarter search algorithm
+    if (options & FindOptBackwards) {
+        int i;
+        NSAssert(skip >= 0, @"Negative skip");
+        if (skip + range.length > raw_line_length) {
+            skip = raw_line_length - range.length;
+        }
+        if (skip < 0) {
+            return -1;
+        }
+        if (options & FindOptCaseInsensitive) {
+            for (i = skip; i >= 0; --i) {
+                if (stringCaseCompare(buffer, range.length, rawline + i, raw_line_length - i, resultLength)) {
+                    return i;
+                }
+            }
+        } else {
+            for (i = skip; i >= 0; --i) {
+                if (stringCompare(buffer, range.length, rawline + i, raw_line_length - i, resultLength)) {
+                    return i;
+                }
+            }
+        }
+    } else {
+        int i;
+        int limit = raw_line_length - [substring length];
+        if (skip + range.length > raw_line_length) {
+            return -1;
+        }
+        if (options & FindOptCaseInsensitive) {
+            for (i = skip; i <= limit; ++i) {
+                if (stringCaseCompare(buffer, range.length, rawline + i, raw_line_length - i, resultLength)) {
+                    return i;
+                }
+            }
+        } else {
+            for (i = skip; i <= limit; ++i) {
+                if (stringCompare(buffer, range.length, rawline + i, raw_line_length - i, resultLength)) {
+                    return i;
+                }
+            }
+        }            
+    }
+    return -1;
 }
-				
+                
 - (int) _lineLength: (int) index
 {
-	int prev;
-	if (index == first_entry) {
-		prev = start_offset;
-	} else {
-		prev = cumulative_line_lengths[index - 1];
-	}
-	return cumulative_line_lengths[index] - prev;
+    int prev;
+    if (index == first_entry) {
+        prev = start_offset;
+    } else {
+        prev = cumulative_line_lengths[index - 1];
+    }
+    return cumulative_line_lengths[index] - prev;
 }
 
 - (int) _findEntryBeforeOffset: (int) offset
 {
-	NSAssert(offset >= start_offset, @"Offset before start_offset");
-	int i;
-	for (i = first_entry; i < cll_entries; ++i) {
-		if (cumulative_line_lengths[i] > offset) {
-			return i;
-		}
-	}
-	NSAssert(NO, @"Offset not in block");
-	return cll_entries - 1;
+    NSAssert(offset >= start_offset, @"Offset before start_offset");
+    int i;
+    for (i = first_entry; i < cll_entries; ++i) {
+        if (cumulative_line_lengths[i] > offset) {
+            return i;
+        }
+    }
+    NSAssert(NO, @"Offset not in block");
+    return cll_entries - 1;
 }
 
 - (int) findSubstring: (NSString*) substring options: (int) options atOffset: (int) offset resultLength: (int*) resultLength
 {
-	if (offset == -1) {
-		offset = [self rawSpaceUsed] - 1;
-	}
-	int entry;
-	int limit;
-	int dir;
-	if (options & FindOptBackwards) {
-		entry = [self _findEntryBeforeOffset: offset];
-		limit = first_entry - 1;
-		dir = -1;
-	} else {
-		entry = first_entry;
-		limit = cll_entries;
-		dir = 1;
-	}
-	while (entry != limit) {
-		int line_raw_offset = [self _lineRawOffset:entry];
-		int skipped = offset - line_raw_offset;
-		if (skipped < 0) {
-			skipped = 0;
-		}
-		int pos = [self _findInRawLine:entry needle:substring options:options skip: skipped length: [self _lineLength: entry] resultLength: resultLength];
-		if (pos != -1) {
-			return pos + line_raw_offset;
-		}
-		entry += dir;
-	}
-	return -1;
+    if (offset == -1) {
+        offset = [self rawSpaceUsed] - 1;
+    }
+    int entry;
+    int limit;
+    int dir;
+    if (options & FindOptBackwards) {
+        entry = [self _findEntryBeforeOffset: offset];
+        limit = first_entry - 1;
+        dir = -1;
+    } else {
+        entry = first_entry;
+        limit = cll_entries;
+        dir = 1;
+    }
+    while (entry != limit) {
+        int line_raw_offset = [self _lineRawOffset:entry];
+        int skipped = offset - line_raw_offset;
+        if (skipped < 0) {
+            skipped = 0;
+        }
+        int pos = [self _findInRawLine:entry needle:substring options:options skip: skipped length: [self _lineLength: entry] resultLength: resultLength];
+        if (pos != -1) {
+            return pos + line_raw_offset;
+        }
+        entry += dir;
+    }
+    return -1;
 }
 
 - (BOOL) convertPosition: (int) position withWidth: (int) width toX: (int*) x toY: (int*) y
 {
-	int i;
-	*x = 0;
-	*y = 0;
-	int prev = start_offset;
-	for (i = first_entry; i < cll_entries; ++i) {
-		int eol = cumulative_line_lengths[i];
-		int line_length = eol-prev;
-		if (position >= eol) {
-			int spans = (line_length - 1) / width;
-			*y += spans + 1;
-		} else {
-			int bytes_to_consume_in_this_line = position - prev;
-			int consume = bytes_to_consume_in_this_line / width;
-			*y += consume;
-			if (consume > 0) {
-				*x = bytes_to_consume_in_this_line % (consume * width);
-			} else {
-				*x = bytes_to_consume_in_this_line;
-			}
-			return YES;
-		}
-		prev = eol;
-	}
-	NSLog(@"Didn't find position %d", position);
-	return NO;
+    int i;
+    *x = 0;
+    *y = 0;
+    int prev = start_offset;
+    for (i = first_entry; i < cll_entries; ++i) {
+        int eol = cumulative_line_lengths[i];
+        int line_length = eol-prev;
+        if (position >= eol) {
+            int spans = (line_length - 1) / width;
+            *y += spans + 1;
+        } else {
+            int bytes_to_consume_in_this_line = position - prev;
+            int consume = bytes_to_consume_in_this_line / width;
+            *y += consume;
+            if (consume > 0) {
+                *x = bytes_to_consume_in_this_line % (consume * width);
+            } else {
+                *x = bytes_to_consume_in_this_line;
+            }
+            return YES;
+        }
+        prev = eol;
+    }
+    NSLog(@"Didn't find position %d", position);
+    return NO;
 }
 
 
@@ -607,11 +607,11 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
 - (void) dump
 {
     int i;
-	int rawOffset = 0;
+    int rawOffset = 0;
     for (i = 0; i < [blocks count]; ++i) {
         NSLog(@"Block %d:\n", i);
         [[blocks objectAtIndex: i] dump:rawOffset];
-		rawOffset += [[blocks objectAtIndex:i] rawSpaceUsed];
+        rawOffset += [[blocks objectAtIndex:i] rawSpaceUsed];
     }
 }
 
@@ -819,92 +819,92 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
 
 - (BOOL) _findPosition: (int) start inBlock: (int*) block_num inOffset: (int*) offset
 {
-	int i;
-	int position = start;
-	for (i = 0; position >= 0 && i < [blocks count]; ++i) {
-		LineBlock* block = [blocks objectAtIndex:i];
-		int used = [block rawSpaceUsed];
-		if (position >= used) {
-			position -= used;
-		} else {
-			*block_num = i;
-			*offset = position;
-			return YES;
-		}
-	}
-	return NO;
+    int i;
+    int position = start;
+    for (i = 0; position >= 0 && i < [blocks count]; ++i) {
+        LineBlock* block = [blocks objectAtIndex:i];
+        int used = [block rawSpaceUsed];
+        if (position >= used) {
+            position -= used;
+        } else {
+            *block_num = i;
+            *offset = position;
+            return YES;
+        }
+    }
+    return NO;
 }
 
 - (int) _blockPosition: (int) block_num
 {
-	int i;
-	int position = 0;
-	for (i = 0; i < block_num; ++i) {
-		LineBlock* block = [blocks objectAtIndex:i];
-		position += [block rawSpaceUsed];
-	}
-	return position;
-		
+    int i;
+    int position = 0;
+    for (i = 0; i < block_num; ++i) {
+        LineBlock* block = [blocks objectAtIndex:i];
+        position += [block rawSpaceUsed];
+    }
+    return position;
+        
 }
 
 - (int) findSubstring: (NSString*) substring startingAt: (int) start resultLength: (int*) length options: (int) options stopAt: (int) stopAt
 {
-	int i;
-	int offset;
-	if ([self _findPosition: start inBlock: &i inOffset: &offset]) {
-		int dir;
-		if (options & FindOptBackwards) {
-			dir = -1;
-		} else {
-			dir = 1;
-		}
-		while (i >= 0 && i < [blocks count]) {
-			LineBlock* block = [blocks objectAtIndex:i];
-			int position = [block findSubstring: substring options: options atOffset: offset resultLength: length];
-			if (position >= 0) {
-				position += [self _blockPosition:i];
-				if (dir * (position - stopAt) > 0 || dir * (position + *length - stopAt) > 0) {
-					return -1;
-				}
-			}
-			if (position >= 0) {
-				return position;
-			}
-			if (dir < 0) {
-				offset = -1;
-			} else {
-				offset = 0;
-			}
-			i += dir;
-		}
-	}
-	return -1;
+    int i;
+    int offset;
+    if ([self _findPosition: start inBlock: &i inOffset: &offset]) {
+        int dir;
+        if (options & FindOptBackwards) {
+            dir = -1;
+        } else {
+            dir = 1;
+        }
+        while (i >= 0 && i < [blocks count]) {
+            LineBlock* block = [blocks objectAtIndex:i];
+            int position = [block findSubstring: substring options: options atOffset: offset resultLength: length];
+            if (position >= 0) {
+                position += [self _blockPosition:i];
+                if (dir * (position - stopAt) > 0 || dir * (position + *length - stopAt) > 0) {
+                    return -1;
+                }
+            }
+            if (position >= 0) {
+                return position;
+            }
+            if (dir < 0) {
+                offset = -1;
+            } else {
+                offset = 0;
+            }
+            i += dir;
+        }
+    }
+    return -1;
 }
 
 - (BOOL) convertPosition: (int) position withWidth: (int) width toX: (int*) x toY: (int*) y
 {
-	int i;
-	int yoffset = 0;
-	for (i = 0; position >= 0 && i < [blocks count]; ++i) {
-		LineBlock* block = [blocks objectAtIndex:i];
-		int used = [block rawSpaceUsed];
-		if (position >= used) {
-			position -= used;
-			yoffset += [block getNumLinesWithWrapWidth:width];
-		} else {
-			BOOL result = [block convertPosition: position withWidth: width toX: x toY: y];
-			*y += yoffset;
-			return result;
-		}
-	}
-	return NO;
+    int i;
+    int yoffset = 0;
+    for (i = 0; position >= 0 && i < [blocks count]; ++i) {
+        LineBlock* block = [blocks objectAtIndex:i];
+        int used = [block rawSpaceUsed];
+        if (position >= used) {
+            position -= used;
+            yoffset += [block getNumLinesWithWrapWidth:width];
+        } else {
+            BOOL result = [block convertPosition: position withWidth: width toX: x toY: y];
+            *y += yoffset;
+            return result;
+        }
+    }
+    return NO;
 }
 
 - (BOOL) convertCoordinatesAtX: (int) x atY: (int) y withWidth: (int) width toPosition: (int*) position offset:(int)offset
 {
     int line = y;
     int i;
-	*position = 0;
+    *position = 0;
     for (i = 0; i < [blocks count]; ++i) {
         LineBlock* block = [blocks objectAtIndex: i];
         NSAssert(block, @"Null block");
@@ -915,60 +915,60 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
         int block_lines = [block getNumLinesWithWrapWidth:width];
         if (block_lines <= line) {
             line -= block_lines;
-			*position += [block rawSpaceUsed];
+            *position += [block rawSpaceUsed];
             continue;
         }
-		
-		int pos;
-		pos = [block getPositionOfLine: &line atX: x withWidth: width];
-		if (pos >= 0) {
-			int tempx=0, tempy=0;
-			// The correct position has been computed:
-			// *position = start of block
-			// pos = offset within block
-			// offset = additional offset the user requested
-			// but we need to see if the position actually exists after adding offset. If it can be
-			// converted to an x,y position the it's all right.
-			if ([self convertPosition:*position+pos+offset withWidth:width toX:&tempx toY:&tempy] && tempy >= 0 && tempx >= 0) {
-				*position += pos + offset;
-				return YES;
-			} else {
-				return NO;
-			}
-		}
+        
+        int pos;
+        pos = [block getPositionOfLine: &line atX: x withWidth: width];
+        if (pos >= 0) {
+            int tempx=0, tempy=0;
+            // The correct position has been computed:
+            // *position = start of block
+            // pos = offset within block
+            // offset = additional offset the user requested
+            // but we need to see if the position actually exists after adding offset. If it can be
+            // converted to an x,y position the it's all right.
+            if ([self convertPosition:*position+pos+offset withWidth:width toX:&tempx toY:&tempy] && tempy >= 0 && tempx >= 0) {
+                *position += pos + offset;
+                return YES;
+            } else {
+                return NO;
+            }
+        }
     }
     return NO;
 }
 
 - (int) firstPos
 {
-	int i;
-	int position = 0;
-	for (i = 0; i < [blocks count]; ++i) {
-		LineBlock* block = [blocks objectAtIndex:i];
-		if (![block isEmpty]) {
-			position += [block startOffset];
-			break;
-		} else {
-			position += [block rawSpaceUsed];
-		}
-	}
-	return position;
+    int i;
+    int position = 0;
+    for (i = 0; i < [blocks count]; ++i) {
+        LineBlock* block = [blocks objectAtIndex:i];
+        if (![block isEmpty]) {
+            position += [block startOffset];
+            break;
+        } else {
+            position += [block rawSpaceUsed];
+        }
+    }
+    return position;
 }
 
 - (int) lastPos
 {
-	int i;
-	int position = 0;
-	for (i = 0; i < [blocks count]; ++i) {
-		LineBlock* block = [blocks objectAtIndex:i];
-		if (![block isEmpty]) {
-			position += [block rawSpaceUsed];
-		} else {
-			position += [block rawSpaceUsed];
-		}
-	}
-	return position;
+    int i;
+    int position = 0;
+    for (i = 0; i < [blocks count]; ++i) {
+        LineBlock* block = [blocks objectAtIndex:i];
+        if (![block isEmpty]) {
+            position += [block rawSpaceUsed];
+        } else {
+            position += [block rawSpaceUsed];
+        }
+    }
+    return position;
 }
 
 

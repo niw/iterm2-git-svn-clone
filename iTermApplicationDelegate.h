@@ -6,7 +6,7 @@
  **  Copyright (c) 2002, 2003
  **
  **  Author: Fabian, Ujwal S. Setlur
- **	     Initial code by Kiichi Kusama
+ **         Initial code by Kiichi Kusama
  **
  **  Project: iTerm
  **
@@ -36,18 +36,18 @@ void DebugLog(NSString* value);
 @interface iTermApplicationDelegate : NSObject
 {
     // about window
-	NSWindowController *aboutController;
+    NSWindowController *aboutController;
     IBOutlet id ABOUT;
-	IBOutlet NSTextView *scrollingInfo;
+    IBOutlet NSTextView *scrollingInfo;
     IBOutlet NSTextView *AUTHORS;
 
-	//Scrolling
-    NSTimer	*scrollTimer;
-	NSTimer	*eventLoopScrollTimer;
-    float	scrollLocation;
-    int		maxScroll;
+    //Scrolling
+    NSTimer    *scrollTimer;
+    NSTimer    *eventLoopScrollTimer;
+    float    scrollLocation;
+    int        maxScroll;
     float   scrollRate;
-	
+    
     
     // Menu items
     IBOutlet NSMenu     *bookmarkMenu;
@@ -59,8 +59,8 @@ void DebugLog(NSString* value);
     IBOutlet NSMenuItem *closeTab;
     IBOutlet NSMenuItem *closeWindow;
     IBOutlet NSMenuItem *sendInputToAllSessions;
-	IBOutlet NSMenuItem *fontSizeFollowWindowResize;
-	IBOutlet NSMenuItem *toggleBookmarksView;
+    IBOutlet NSMenuItem *fontSizeFollowWindowResize;
+    IBOutlet NSMenuItem *toggleBookmarksView;
     IBOutlet NSMenuItem *toggleTransparency;
 
 }

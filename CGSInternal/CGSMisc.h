@@ -32,7 +32,7 @@ CG_EXTERN CGError CGSFetchDirtyScreenRegion(CGSConnectionID cid, CGSRegionObj *o
 /*! Is someone watching this screen? Applies to Apple's remote desktop only? */
 CG_EXTERN bool CGSIsScreenWatcherPresent(void);
 
-/*! Returns	`True` if the application has been deemed unresponsive for a certain amount of time. */
+/*! Returns    `True` if the application has been deemed unresponsive for a certain amount of time. */
 CG_EXTERN bool CGSEventIsAppUnresponsive(CGSConnectionID cid, const ProcessSerialNumber *psn);
 
 /*! Sets the amount of time it takes for an application to be considered unresponsive. */

@@ -26,18 +26,18 @@
 
 #import <Foundation/Foundation.h>
 
-#define KEY_CHILDREN					@"Children"
-#define KEY_NAME						@"Name"
-#define KEY_DESCRIPTION					@"Description"
-#define KEY_COMMAND						@"Command"
-#define KEY_WORKING_DIRECTORY			@"Working Directory"
-#define KEY_TERMINAL_PROFILE			@"Terminal Profile"
-#define KEY_KEYBOARD_PROFILE			@"Keyboard Profile"
-#define KEY_DISPLAY_PROFILE				@"Display Profile"
-#define KEY_SHORTCUT					@"Shortcut"
-#define KEY_DEFAULT_BOOKMARK			@"Default Bookmark"
-#define KEY_BONJOUR_GROUP			@"Bonjour Group"
-#define KEY_BONJOUR_SERVICE			@"Bonjour Service"
+#define KEY_CHILDREN                    @"Children"
+#define KEY_NAME                        @"Name"
+#define KEY_DESCRIPTION                    @"Description"
+#define KEY_COMMAND                        @"Command"
+#define KEY_WORKING_DIRECTORY            @"Working Directory"
+#define KEY_TERMINAL_PROFILE            @"Terminal Profile"
+#define KEY_KEYBOARD_PROFILE            @"Keyboard Profile"
+#define KEY_DISPLAY_PROFILE                @"Display Profile"
+#define KEY_SHORTCUT                    @"Shortcut"
+#define KEY_DEFAULT_BOOKMARK            @"Default Bookmark"
+#define KEY_BONJOUR_GROUP            @"Bonjour Group"
+#define KEY_BONJOUR_SERVICE            @"Bonjour Service"
 #define KEY_BONJOUR_SERVICE_ADDRESS  @"Bonjour Service Address"
 
 
@@ -45,12 +45,12 @@
 
 @interface ITAddressBookMgr : NSObject 
 {
-	TreeNode *bookmarks;
-	NSNetServiceBrowser *sshBonjourBrowser;
-	NSNetServiceBrowser *ftpBonjourBrowser;
-	NSNetServiceBrowser *telnetBonjourBrowser;
-	TreeNode *bonjourGroup;
-	NSMutableArray *bonjourServices;
+    TreeNode *bookmarks;
+    NSNetServiceBrowser *sshBonjourBrowser;
+    NSNetServiceBrowser *ftpBonjourBrowser;
+    NSNetServiceBrowser *telnetBonjourBrowser;
+    TreeNode *bonjourGroup;
+    NSMutableArray *bonjourServices;
 }
 
 + (id)sharedInstance;

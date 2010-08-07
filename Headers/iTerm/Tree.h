@@ -11,7 +11,7 @@
  **  Project: iTerm
  **
  **  Description: Headertree structure for bookmarks. 
- **				  Adapted from Apple's example code.
+ **                  Adapted from Apple's example code.
  **
  **  This program is free software; you can redistribute it and/or modify
  **  it under the terms of the GNU General Public License as published by
@@ -42,8 +42,8 @@
 @interface TreeNode : NSObject 
 {
     TreeNode *nodeParent;
-	BOOL isLeaf;
-	NSMutableArray *nodeChildren;
+    BOOL isLeaf;
+    NSMutableArray *nodeChildren;
     NSMutableDictionary *nodeData;
 }
 + (id) treeFromDictionary:(NSDictionary*)dict;
@@ -88,9 +88,9 @@
 - (int) indexForNode: (id) node;
 - (id) nodeForIndex: (int) index;
 
-	// Returns the minimum nodes from 'allNodes' required to cover the nodes in 'allNodes'.
-	// This methods returns an array containing nodes from 'allNodes' such that no node in
-	// the returned array has an ancestor in the returned array.
+    // Returns the minimum nodes from 'allNodes' required to cover the nodes in 'allNodes'.
+    // This methods returns an array containing nodes from 'allNodes' such that no node in
+    // the returned array has an ancestor in the returned array.
 + (NSArray *)minimumNodeCoverFromNodesInArray: (NSArray *)allNodes;
 
 @end

@@ -15,9 +15,9 @@
  * with scripting languages such as F-Script (http://www.fscript.org).
  */
 @interface GrowlDelegate : NSObject <GrowlApplicationBridgeDelegate> {
-	NSDictionary	*registrationDictionary;
-	NSString		*applicationNameForGrowl;
-	NSData			*applicationIconDataForGrowl;
+    NSDictionary    *registrationDictionary;
+    NSString        *applicationNameForGrowl;
+    NSData            *applicationIconDataForGrowl;
 }
 - (id) initWithAllNotifications:(NSArray *)allNotifications defaultNotifications:(NSArray *)defaultNotifications;
 - (NSDictionary *) registrationDictionaryForGrowl;

@@ -29,13 +29,13 @@
 
 @interface iTermTerminalProfileMgr : NSObject {
 
-	NSMutableDictionary *profiles;
+    NSMutableDictionary *profiles;
 }
 
 // Class methods
 + (id) singleInstance;
 
-	// Instance methods
+    // Instance methods
 - (id) init;
 - (void) dealloc;
 

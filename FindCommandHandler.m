@@ -30,7 +30,7 @@
 #import <iTerm/PTYSession.h>
 #import <iTerm/FindCommandHandler.h>
 
-#define DEBUG_ALLOC	0
+#define DEBUG_ALLOC    0
 
 @implementation FindCommandHandler : NSObject
 
@@ -83,7 +83,7 @@
     {
         // get the selected text
         NSString *contentString = [textView selectedText];
-		if (!contentString) {
+        if (!contentString) {
             NSBeep();
             return;
         }
@@ -99,27 +99,26 @@
     PTYTextView* textView = [self currentTextView];
     if (textView)
     {        
-		[textView scrollToSelection];
+        [textView scrollToSelection];
     }
     else
         NSBeep();
 }
 
-- (void) findSubString: (NSString *) subString forwardDirection: (BOOL) direction ignoringCase: (BOOL) caseCheck
+- (void)findSubString: (NSString *) subString forwardDirection: (BOOL) direction ignoringCase: (BOOL) caseCheck
 {
     PseudoTerminal* pseudoTerminal = [[iTermController sharedInstance] currentTerminal];
     PTYSession* session = [pseudoTerminal currentSession];
-    PTYTextView* textView = [session TEXTVIEW];
-    if (textView)
-    {        
-        if ([subString length] <= 0)
-        {
-            NSBeep();
-            return;
-        }
-        
-        [textView findString:subString forwardDirection: direction ignoringCase: caseCheck];
+    if (!session) {
+        // I don't think this would ever happen, but better to be safe.
+        return;
     }
+    if (![session TEXTVIEW] && [subString length] <= 0)
+    {
+        NSBeep();
+        return;
+    }
+    [session initNewSearchForString:subString forwardDirection:direction ignoringCase:caseCheck];
 }
 
 - (NSString*)searchString;
@@ -129,7 +128,7 @@
 
 - (void) setSearchString: (NSString *) aString
 {
-	    
+        
     [_searchString release];
     _searchString = [aString retain];
 }

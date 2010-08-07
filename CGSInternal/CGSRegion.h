@@ -25,13 +25,13 @@
 
 #pragma mark types
 #if MAC_OS_X_VERSION_10_5 <= MAC_OS_X_VERSION_MAX_ALLOWED
-	// on Leopard and up these are CFTypes
-	typedef CFTypeRef CGSRegionObj;
-	typedef CFTypeRef CGSRegionEnumeratorObj;
+    // on Leopard and up these are CFTypes
+    typedef CFTypeRef CGSRegionObj;
+    typedef CFTypeRef CGSRegionEnumeratorObj;
 #else
-	// but opaque types under 10.4
-	typedef int CGSRegionObj;
-	typedef int CGSRegionEnumeratorObj;
+    // but opaque types under 10.4
+    typedef int CGSRegionObj;
+    typedef int CGSRegionEnumeratorObj;
 #endif
 
 CG_EXTERN_C_BEGIN

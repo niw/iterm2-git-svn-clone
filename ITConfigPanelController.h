@@ -4,7 +4,7 @@
  **  Copyright (c) 2002, 2003
  **
  **  Author: Fabian, Ujwal S. Setlur
- **	     Initial code by Kiichi Kusama
+ **         Initial code by Kiichi Kusama
  **
  **  Project: iTerm
  **
@@ -42,15 +42,15 @@
     IBOutlet id CONFIG_NAEXAMPLE;
     IBOutlet id CONFIG_TRANSPARENCY;
     IBOutlet id CONFIG_TRANS2;
-	IBOutlet id CONFIG_BLUR;
+    IBOutlet id CONFIG_BLUR;
     IBOutlet id CONFIG_NAME;
     IBOutlet id CONFIG_ANTIALIAS;
     IBOutlet NSColorWell *CONFIG_SELECTION;
     IBOutlet NSColorWell *CONFIG_BOLD;
-	IBOutlet NSColorWell *CONFIG_CURSOR;
-	IBOutlet NSColorWell *CONFIG_CURSORTEXT;
-	IBOutlet NSColorWell *CONFIG_SELECTIONTEXT;
-	
+    IBOutlet NSColorWell *CONFIG_CURSOR;
+    IBOutlet NSColorWell *CONFIG_CURSORTEXT;
+    IBOutlet NSColorWell *CONFIG_SELECTIONTEXT;
+    
     
     // anti-idle
     IBOutlet id AI_CODE;
@@ -59,18 +59,18 @@
     
     NSFont *configFont, *configNAFont;
     BOOL changingNA;
-	IBOutlet NSSlider *charHorizontalSpacing;
-	IBOutlet NSSlider *charVerticalSpacing;
+    IBOutlet NSSlider *charHorizontalSpacing;
+    IBOutlet NSSlider *charVerticalSpacing;
 
     // background image
     IBOutlet NSButton *useBackgroundImage;
     IBOutlet NSImageView *backgroundImageView;
     NSString *backgroundImagePath;
-	
-	IBOutlet NSButton *boldButton;
-	IBOutlet NSButton *transparencyButton;
-	IBOutlet NSButton *updateProfileButton;
-	IBOutlet NSButton *blurButton;
+    
+    IBOutlet NSButton *boldButton;
+    IBOutlet NSButton *transparencyButton;
+    IBOutlet NSButton *updateProfileButton;
+    IBOutlet NSButton *blurButton;
 }
 
 + (id) singleInstance;

@@ -27,39 +27,39 @@
 typedef int CGSTransitionID;
 
 typedef enum {
-	kCGSTransitionNone,
-	kCGSTransitionFade,
-	kCGSTransitionZoom,
-	kCGSTransitionReveal,
-	kCGSTransitionSlide,
-	kCGSTransitionWarpFade,
-	kCGSTransitionSwap,
-	kCGSTransitionCube,
-	kCGSTransitionWarpSwitch,
-	kCGSTransitionFlip
+    kCGSTransitionNone,
+    kCGSTransitionFade,
+    kCGSTransitionZoom,
+    kCGSTransitionReveal,
+    kCGSTransitionSlide,
+    kCGSTransitionWarpFade,
+    kCGSTransitionSwap,
+    kCGSTransitionCube,
+    kCGSTransitionWarpSwitch,
+    kCGSTransitionFlip
 } CGSTransitionType;
 
 typedef enum {
-	/*! Directions for the transition. Some directions don't apply to some transitions. */
-	kCGSTransitionDirectionLeft = 1 << 0,
-	kCGSTransitionDirectionRight = 1 << 1,
-	kCGSTransitionDirectionDown = 1 << 2,
-	kCGSTransitionDirectionUp = 1 << 3,
-	kCGSTransitionDirectionCenter = 1 << 4,
-	
-	/*! Reverses a transition. Doesn't apply for all transitions. */
-	kCGSTransitionFlagReversed = 1 << 5,
-	
-	/*! Ignore the background color and only transition the window. */
-	kCGSTransitionFlagTransparent = 1 << 7,
+    /*! Directions for the transition. Some directions don't apply to some transitions. */
+    kCGSTransitionDirectionLeft = 1 << 0,
+    kCGSTransitionDirectionRight = 1 << 1,
+    kCGSTransitionDirectionDown = 1 << 2,
+    kCGSTransitionDirectionUp = 1 << 3,
+    kCGSTransitionDirectionCenter = 1 << 4,
+    
+    /*! Reverses a transition. Doesn't apply for all transitions. */
+    kCGSTransitionFlagReversed = 1 << 5,
+    
+    /*! Ignore the background color and only transition the window. */
+    kCGSTransitionFlagTransparent = 1 << 7,
 } CGSTransitionFlags;
 
 typedef struct {
-	int unknown; // always set to zero
-	CGSTransitionType type;
-	CGSTransitionFlags options;
-	CGSWindowID wid; /* 0 means a full screen transition. */
-	float *backColor; /* NULL means black. */
+    int unknown; // always set to zero
+    CGSTransitionType type;
+    CGSTransitionFlags options;
+    CGSWindowID wid; /* 0 means a full screen transition. */
+    float *backColor; /* NULL means black. */
 } CGSTransitionSpec;
 
 CG_EXTERN_C_BEGIN

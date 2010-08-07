@@ -7,7 +7,7 @@
  **  Copyright (c) 2002, 2003
  **
  **  Author: Fabian, Ujwal S. Setlur
- **	     Initial code by Kiichi Kusama
+ **         Initial code by Kiichi Kusama
  **
  **  Project: iTerm
  **
@@ -39,16 +39,16 @@
 
 @interface PTYWindow : NSWindow 
 {
-	IBOutlet NSDrawer *drawer;
+    IBOutlet NSDrawer *drawer;
 
-	int blurFilter;
-	BOOL layoutDone;
+    int blurFilter;
+    BOOL layoutDone;
 }
 
 - initWithContentRect:(NSRect)contentRect 
             styleMask:(NSUInteger)aStyle 
-	      backing:(NSBackingStoreType)bufferingType 
-		defer:(BOOL)flag;
+          backing:(NSBackingStoreType)bufferingType 
+        defer:(BOOL)flag;
 
 - (void)toggleToolbarShown:(id)sender;
 

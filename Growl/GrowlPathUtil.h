@@ -13,10 +13,10 @@
 
 }
 /*!
- *	@method growlPrefPaneBundle
- *	@abstract Returns the bundle containing Growl's PrefPane.
- *	@discussion Searches all installed PrefPanes for the Growl PrefPane.
- *	@result Returns an NSBundle if Growl's PrefPane is installed, nil otherwise
+ *    @method growlPrefPaneBundle
+ *    @abstract Returns the bundle containing Growl's PrefPane.
+ *    @discussion Searches all installed PrefPanes for the Growl PrefPane.
+ *    @result Returns an NSBundle if Growl's PrefPane is installed, nil otherwise
  */
 + (NSBundle *) growlPrefPaneBundle;
 + (NSBundle *) helperAppBundle;
