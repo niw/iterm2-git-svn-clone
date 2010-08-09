@@ -33,16 +33,16 @@
 {
     NSString* _searchString;
     BOOL _ignoresCase;
-    
+    NSTimer* _timer;
 }
 
 + (id)sharedInstance;
 
-- (void)findNext;
-- (void)findPrevious;
-- (void)findWithSelection;
+- (BOOL)findNext;
+- (BOOL)findPrevious;
+- (BOOL)findWithSelection;
 - (void)jumpToSelection;
-- (void) findSubString:(NSString *) subString forwardDirection: (BOOL) direction ignoringCase: (BOOL) caseCheck;
+- (BOOL) findSubString:(NSString *) subString forwardDirection: (BOOL) direction ignoringCase: (BOOL) caseCheck;
 - (void)setSearchString:(NSString*)searchString;
 - (NSString*)searchString;
 - (BOOL)ignoresCase;

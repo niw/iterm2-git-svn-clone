@@ -344,21 +344,21 @@ static NSCursor* textViewCursor =  nil;
     return defaultCursorColor;
 }
 
-- (void) setColorTable:(int) index color:(NSColor *) c
+- (void) setColorTable:(int) anIndex color:(NSColor *) c
 {
-	[colorTable[index] release];
+	[colorTable[anIndex] release];
 	[c retain];
-	colorTable[index]=c;
+	colorTable[anIndex]=c;
 	[self setNeedsDisplay:YES];
 }
 
-- (NSColor *) colorForCode:(int) index
+- (NSColor *) colorForCode:(int) anIndex
 {
 	NSColor *color;
 	
-	if (index & DEFAULT_FG_COLOR_CODE) {
+	if (anIndex & DEFAULT_FG_COLOR_CODE) {
 		// special colors?
-		switch (index) {
+		switch (anIndex) {
 			case SELECTED_TEXT:
 				color = selectedTextColor;
 				break;
@@ -369,8 +369,8 @@ static NSCursor* textViewCursor =  nil;
 				color = defaultBGColor;
 				break;
 			default:
-				if(index & BOLD_MASK) {
-					color = index-BOLD_MASK == DEFAULT_BG_COLOR_CODE ? defaultBGColor : [self defaultBoldColor];
+				if(anIndex & BOLD_MASK) {
+					color = anIndex-BOLD_MASK == DEFAULT_BG_COLOR_CODE ? defaultBGColor : [self defaultBoldColor];
 				}
 				else {
 					color = defaultFGColor;
@@ -378,10 +378,10 @@ static NSCursor* textViewCursor =  nil;
 		}
 	}
 	else {
-		if([self disableBold] && (index & BOLD_MASK) && (index % 256 < 8)) {
-			index = index - BOLD_MASK + 8;
+		if([self disableBold] && (anIndex & BOLD_MASK) && (anIndex % 256 < 8)) {
+			anIndex = anIndex - BOLD_MASK + 8;
 		}
-		color = colorTable[index & 0xff];
+		color = colorTable[anIndex & 0xff];
 	}
 	
 	return color;
@@ -1806,43 +1806,43 @@ static NSCursor* textViewCursor =  nil;
 
 - (NSMenu *)menuForEvent:(NSEvent *)theEvent
 {
-    NSMenu *cMenu;
+    NSMenu *theMenu;
     
     // Allocate a menu
-    cMenu = [[NSMenu alloc] initWithTitle:@"Contextual Menu"];
+    theMenu = [[NSMenu alloc] initWithTitle:@"Contextual Menu"];
     
     // Menu items for acting on text selections
-    [cMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"-> Browser",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
+    [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"-> Browser",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(browse:) keyEquivalent:@""];
-    [cMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"-> Google",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
+    [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"-> Google",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(searchInBrowser:) keyEquivalent:@""];
-    [cMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"-> Mail",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
+    [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"-> Mail",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(mail:) keyEquivalent:@""];
     
     // Separator
-    [cMenu addItem:[NSMenuItem separatorItem]];
+    [theMenu addItem:[NSMenuItem separatorItem]];
     
     // Copy,  paste, and save
-    [cMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Copy",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
+    [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Copy",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(copy:) keyEquivalent:@""];
-    [cMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Paste",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
+    [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Paste",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(paste:) keyEquivalent:@""];
-    [cMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Save",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
+    [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Save",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(saveDocumentAs:) keyEquivalent:@""];
     
     // Separator
-    [cMenu addItem:[NSMenuItem separatorItem]];
+    [theMenu addItem:[NSMenuItem separatorItem]];
     
     // Select all
-    [cMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Select All",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
+    [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Select All",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(selectAll:) keyEquivalent:@""];
     
     
     // Ask the delegae if there is anything to be added
     if ([[self delegate] respondsToSelector:@selector(menuForEvent: menu:)])
-        [[self delegate] menuForEvent:theEvent menu: cMenu];
+        [[self delegate] menuForEvent:theEvent menu: theMenu];
     
-    return [cMenu autorelease];
+    return [theMenu autorelease];
 }
 
 - (void) mail:(id)sender
@@ -2289,31 +2289,22 @@ static NSCursor* textViewCursor =  nil;
 
 - (void)cancelFind
 {
-    if (findInProgress) {
+    if (_findInProgress) {
         [dataSource cancelFind];
-        findInProgress = NO;
+        _findInProgress = NO;
     }
 }
 
-- (BOOL)findString:(NSString *)aString 
-  forwardDirection:(BOOL)direction 
-      ignoringCase:(BOOL)ignoreCase
+- (BOOL)findInProgress
+{
+    return _findInProgress;
+}
+    
+- (BOOL) continueFind 
 {
     BOOL more;
-    if (!findInProgress) {
-        if (lastFindX == -1) {
-            lastFindX = 0;
-            lastFindY = [dataSource numberOfLines] + 1;
-        }
-
-        [dataSource initFindString:aString 
-                  forwardDirection:direction 
-                      ignoringCase:ignoreCase 
-                       startingAtX:lastFindX 
-                       startingAtY:lastFindY];
-        findInProgress = YES;
-    }    
     BOOL found;
+    NSLog(@"PTYTextView continueFind");
     more = [dataSource continueFindResultAtStartX:&startX 
                                          atStartY:&startY 
                                            atEndX:&endX 
@@ -2331,9 +2322,35 @@ static NSCursor* textViewCursor =  nil;
 		lastFindY = startY;
 	}
     if (!more) {
-        findInProgress = NO;
+        NSLog(@"PTYTextView: done");
+        _findInProgress = NO;
     }
     return more;
+}
+
+- (BOOL)findString:(NSString *)aString 
+  forwardDirection:(BOOL)direction 
+      ignoringCase:(BOOL)ignoreCase
+{
+    BOOL haveMore;
+    // TODO: cancel the running search and begin a new one
+    if (_findInProgress) {
+        [dataSource cancelFind];
+    }
+    
+    if (lastFindX == -1) {
+        lastFindX = 0;
+        lastFindY = [dataSource numberOfLines] + 1;
+    }
+
+    [dataSource initFindString:aString 
+              forwardDirection:direction 
+                  ignoringCase:ignoreCase 
+                   startingAtX:lastFindX 
+                   startingAtY:lastFindY];
+    _findInProgress = YES;
+
+    return [self continueFind];
 }
 
 // transparency
@@ -2506,7 +2523,7 @@ static NSCursor* textViewCursor =  nil;
 {
 	int WIDTH, HEIGHT;
 	screen_char_t* theLine;
-	int y1, x1;
+	int cursorY, x1;
 	float cursorWidth, cursorHeight;
 	float curX, curY;
 	BOOL double_width;
@@ -2514,8 +2531,8 @@ static NSCursor* textViewCursor =  nil;
 
 	WIDTH = [dataSource width];
 	HEIGHT = [dataSource height];
-	x1=[dataSource cursorX]-1;
-	y1=[dataSource cursorY]-1;
+	x1 = [dataSource cursorX]-1;
+	cursorY = [dataSource cursorY]-1;
 
 	if(charWidth < charWidthWithoutSpacing)
 		cursorWidth = charWidth;
@@ -2527,17 +2544,17 @@ static NSCursor* textViewCursor =  nil;
 	else
 		cursorHeight = charHeightWithoutSpacing;
 
-	if([self blinkingCursor] && [[self window] isKeyWindow] && x1==oldCursorX && y1==oldCursorY)
+	if([self blinkingCursor] && [[self window] isKeyWindow] && x1==oldCursorX && cursorY==oldCursorY)
 		showCursor = blinkShow;
 	else
 		showCursor = YES;
 
 	if(CURSOR) {
-		if (showCursor && x1<WIDTH && x1>=0 && y1>=0 && y1<HEIGHT) {
+		if (showCursor && x1<WIDTH && x1>=0 && cursorY>=0 && cursorY<HEIGHT) {
 			curX = floor(x1 * charWidth + MARGIN);
-			curY = (y1+[dataSource numberOfLines]-HEIGHT+1)*lineHeight - cursorHeight;
+			curY = (cursorY+[dataSource numberOfLines]-HEIGHT+1)*lineHeight - cursorHeight;
 			// get the cursor line
-			theLine = [dataSource getLineAtScreenIndex: y1];
+			theLine = [dataSource getLineAtScreenIndex: cursorY];
 			double_width = 0;
 			unichar aChar = theLine[x1].ch;
 			if (aChar) {
@@ -2562,7 +2579,7 @@ static NSCursor* textViewCursor =  nil;
 						[self _drawCharacter: aChar
 							fgColor: [[self window] isKeyWindow]?CURSOR_TEXT:theLine[x1].fg_color
 							AtX: x1 * charWidth + MARGIN
-							Y: (y1+[dataSource numberOfLines]-HEIGHT)*lineHeight
+							Y: (cursorY+[dataSource numberOfLines]-HEIGHT)*lineHeight
 							doubleWidth: double_width];
 					}
 
@@ -2578,20 +2595,20 @@ static NSCursor* textViewCursor =  nil;
 			}
 		}
 
-		([dataSource dirty]+y1*WIDTH)[x1] = 1; //cursor loc is dirty
+		([dataSource dirty]+cursorY*WIDTH)[x1] = 1; //cursor loc is dirty
 	}
 
 	oldCursorX = x1;
-	oldCursorY = y1;
+	oldCursorY = cursorY;
 
 	// draw any text for NSTextInput
 	if([self hasMarkedText]) {
 		int len=[markedText length];
 		if (len>WIDTH-x1) len=WIDTH-x1;
 		[markedText drawInRect:NSMakeRect(floor(x1 * charWidth + MARGIN),
-				(y1+[dataSource numberOfLines]-HEIGHT)*lineHeight + (lineHeight - cursorHeight),
+				(cursorY+[dataSource numberOfLines]-HEIGHT)*lineHeight + (lineHeight - cursorHeight),
 				ceil((WIDTH-x1)*cursorWidth),cursorHeight)];
-		memset([dataSource dirty]+y1*WIDTH+x1, 1,WIDTH-x1>len*2?len*2:WIDTH-x1); //len*2 is an over-estimation, but safe
+		memset([dataSource dirty]+cursorY*WIDTH+x1, 1,WIDTH-x1>len*2?len*2:WIDTH-x1); //len*2 is an over-estimation, but safe
 	}
 
 }
@@ -2765,8 +2782,8 @@ static NSCursor* textViewCursor =  nil;
     // Look for a left edge
     int leftx = 0;
     for (int xi = x-1, yi = y; 0 <= xi; xi--) {
-        unichar c = [self _getCharacterAtX:xi Y:yi];
-        if (c == '|' && 
+        unichar curChar = [self _getCharacterAtX:xi Y:yi];
+        if (curChar == '|' && 
             ((yi > 0 && [self _getCharacterAtX:xi Y:yi-1] == '|') ||
              (yi < h-1 && [self _getCharacterAtX:xi Y:yi+1] == '|'))) {
             leftx = xi+1;
@@ -2793,8 +2810,8 @@ static NSCursor* textViewCursor =  nil;
     {
         int endx = x-1;
         for (int xi = endx, yi = y; xi >= leftx && 0 <= yi; xi--) {
-            unichar c = [self _getCharacterAtX:xi Y:yi];
-            if (c == '\0' || !(isalnum(c) || strchr(urlSet, c))) {
+            unichar curChar = [self _getCharacterAtX:xi Y:yi];
+            if (curChar == '\0' || !(isalnum(curChar) || strchr(urlSet, curChar))) {
 				// Found a non-url character so append the left part of the URL.
                 [url insertString:[self contentFromX:xi+1 Y:yi ToX:endx Y:yi pad: YES]
                      atIndex:0];
@@ -2828,8 +2845,8 @@ static NSCursor* textViewCursor =  nil;
     {
         int startx = x;
         for (int xi = startx+1, yi = y; xi <= rightx && yi < h; xi++) {
-            unichar c = [self _getCharacterAtX:xi Y:yi];
-            if (c == '\0' || !(isalnum(c) || strchr(urlSet, c))) {
+            unichar curChar = [self _getCharacterAtX:xi Y:yi];
+            if (curChar == '\0' || !(isalnum(curChar) || strchr(urlSet, curChar))) {
 				// Found something non-urly. Append what we have so far.
                 [url appendString:[self contentFromX:startx Y:yi ToX:xi-1 Y:yi pad: YES]];
 				// skip backslahes that indicate wrapping
@@ -2874,7 +2891,7 @@ static NSCursor* textViewCursor =  nil;
 {
 	unichar matchingParenthesis, sameParenthesis, c;
 	int level = 0, direction;
-	int x1, y1;
+	int x1, yPos;
 	int w = [dataSource width];
 	int h = [dataSource numberOfLines];
 	
@@ -2913,21 +2930,21 @@ static NSCursor* textViewCursor =  nil;
 	
 	if (direction) {
 		x1 = X -1;
-		y1 = Y;
-		if (x1<0) y1--, x1=w-1;
-		for (;x1>=0&&y1>=0;) {
-			c = [self _getCharacterAtX:x1 Y:y1];
+		yPos = Y;
+		if (x1<0) yPos--, x1=w-1;
+		for (; x1 >= 0 && yPos >= 0;) {
+			c = [self _getCharacterAtX:x1 Y:yPos];
 			if (c == sameParenthesis) level++;
 			else if (c == matchingParenthesis) {
 				level--;
 				if (level<0) break;
 			}
 			x1--;
-			if (x1<0) y1--, x1=w-1;
+			if (x1<0) yPos--, x1=w-1;
 		}
 		if (level<0) {
 			startX = x1;
-			startY = y1;
+			startY = yPos;
 			endX = X+1;
 			endY = Y;
 
@@ -2938,24 +2955,24 @@ static NSCursor* textViewCursor =  nil;
 	}
 	else {
 		x1 = X +1;
-		y1 = Y;
-		if (x1>=w) y1++, x1=0;
+		yPos = Y;
+		if (x1>=w) yPos++, x1=0;
 		
-		for (;x1<w&&y1<h;) {
-			c = [self _getCharacterAtX:x1 Y:y1];
+		for (; x1 < w && yPos < h;) {
+			c = [self _getCharacterAtX:x1 Y:yPos];
 			if (c == sameParenthesis) level++;
 			else if (c == matchingParenthesis) {
 				level--;
 				if (level<0) break;
 			}
 			x1++;
-			if (x1>=w) y1++, x1=0;
+			if (x1>=w) yPos++, x1=0;
 		}
 		if (level<0) {
 			startX = X;
 			startY = Y;
 			endX = x1+1;
-			endY = y1;
+			endY = yPos;
 			
 			return YES;
 		}

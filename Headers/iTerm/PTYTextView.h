@@ -127,7 +127,7 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
 	NSLayoutManager *layoutManager;
     
     // Is a find currently executing?
-    BOOL findInProgress;
+    BOOL _findInProgress;
 }
 
 + (NSCursor *) textViewCursor;
@@ -278,6 +278,8 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
 - (id)validRequestorForSendType:(NSString *)sendType returnType:(NSString *)returnType;
 - (BOOL)writeSelectionToPasteboard:(NSPasteboard *)pboard types:(NSArray *)types;
 - (BOOL)readSelectionFromPasteboard:(NSPasteboard *)pboard;	
+- (BOOL)findInProgress;
+- (BOOL)continueFind;
 
 @end
 

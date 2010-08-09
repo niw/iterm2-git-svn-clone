@@ -721,7 +721,7 @@ NSString *sessionsKey = @"sessions";
     [self addNewSession: [sender representedObject]];
 }
 
-- (void) insertSession: (PTYSession *) aSession atIndex: (int) index
+- (void) insertSession: (PTYSession *) aSession atIndex: (int)anIndex
 {
     NSTabViewItem *aTabViewItem;
 	
@@ -743,10 +743,10 @@ NSString *sessionsKey = @"sessions";
 		[aTabViewItem setView: [aSession view]];
 		//[[aSession SCROLLVIEW] setLineScroll: charHeight];
         //[[aSession SCROLLVIEW] setPageScroll: HEIGHT*charHeight/2];
-        [TABVIEW insertTabViewItem: aTabViewItem atIndex: index];
+        [TABVIEW insertTabViewItem: aTabViewItem atIndex: anIndex];
 		
         [aTabViewItem release];
-		[TABVIEW selectTabViewItemAtIndex: index];
+		[TABVIEW selectTabViewItemAtIndex: anIndex];
 
 		if([self windowInited] && !_fullScreen)
 			[[self window] makeKeyAndOrderFront: self];
@@ -906,7 +906,12 @@ NSString *sessionsKey = @"sessions";
 	[findBar release];
 	
 	[_toolbarController release];
-
+    if (_timer) {
+        [_timer invalidate];
+//        [_timer release];
+        _timer = nil;
+    }
+    
 	[super dealloc];
 }
 
@@ -2250,10 +2255,10 @@ NSString *sessionsKey = @"sessions";
     [self tabView: tabView willInsertTabViewItem: tabViewItem atIndex: [tabView numberOfTabViewItems]];
 }
 
-- (void)tabView:(NSTabView *)tabView willInsertTabViewItem:(NSTabViewItem *)tabViewItem atIndex: (int) index
+- (void)tabView:(NSTabView *)tabView willInsertTabViewItem:(NSTabViewItem *)tabViewItem atIndex: (int)anIndex
 {
 #if DEBUG_METHOD_TRACE
-    NSLog(@"%s(%d):-[PseudoTerminal tabView: willInsertTabViewItem: atIndex: %d]", __FILE__, __LINE__, index);
+    NSLog(@"%s(%d):-[PseudoTerminal tabView: willInsertTabViewItem: atIndex: %d]", __FILE__, __LINE__, anIndex);
 #endif
     [[tabViewItem identifier] setParent: self];
 }
@@ -2301,8 +2306,8 @@ NSString *sessionsKey = @"sessions";
     int i;
     for (i=0;i<[aTabView numberOfTabViewItems];i++) 
     {
-        PTYSession *aSession = [[aTabView tabViewItemAtIndex: i] identifier];
-        [aSession setObjectCount:i+1];
+        PTYSession *currentSession = [[aTabView tabViewItemAtIndex: i] identifier];
+        [currentSession setObjectCount:i+1];
     }        
 }
 
@@ -2757,18 +2762,60 @@ NSString *sessionsKey = @"sessions";
 {
     [NSApp stopModal];
 }
+
+- (void)_continueSearch
+{
+    NSLog(@"PseudoTerminal continueSearch");
+    BOOL more = NO;
+    if ([[[self currentSession] TEXTVIEW] findInProgress]) {
+        more = [[[self currentSession] TEXTVIEW] continueFind];
+    }
+    if (!more) {
+        NSLog(@"invalidating timer");
+        [_timer invalidate];
+//        [_timer release];
+        _timer = nil;
+    }
+}
+
+- (void)_newSearch:(BOOL)needTimer
+{
+    if (needTimer && !_timer) {
+        NSLog(@"creating timer");
+        _timer = [NSTimer scheduledTimerWithTimeInterval:0.01
+                                                  target:self 
+                                                selector:@selector(_continueSearch) 
+                                                userInfo:nil 
+                                                 repeats:YES];
+    } else if (!needTimer && _timer) {
+        NSLog(@"destroying timer");
+        // did a search while one was in progress
+        [_timer invalidate];
+//        [_timer release];
+        _timer = nil;
+    }
+}
+
 - (IBAction)searchPrevious:(id)sender
 {
 	[[FindCommandHandler sharedInstance] setSearchString:[findBarTextField stringValue]];
 	[[FindCommandHandler sharedInstance] setIgnoresCase: [ignoreCase state]];
-	[[FindCommandHandler sharedInstance] findPrevious];
+	[self _newSearch:[[FindCommandHandler sharedInstance] findPrevious]];
 }
+
 - (IBAction)searchNext:(id)sender
 {
 	[[FindCommandHandler sharedInstance] setSearchString:[findBarTextField stringValue]];
 	[[FindCommandHandler sharedInstance] setIgnoresCase: [ignoreCase state]];
-	[[FindCommandHandler sharedInstance] findNext];
+	[self _newSearch:[[FindCommandHandler sharedInstance] findNext]];
 }
+
+- (void)findWithSelection
+{
+    FindCommandHandler* fch = [FindCommandHandler sharedInstance];
+    [self _newSearch:[fch findWithSelection]];
+}
+
 - (IBAction)closeFindBar:(id)sender
 {
 	if (![findBar isHidden]) {
@@ -2984,10 +3031,10 @@ NSString *sessionsKey = @"sessions";
 
 // accessors for to-many relationships:
 // (See NSScriptKeyValueCoding.h)
--(id)valueInSessionsAtIndex:(unsigned)index
+-(id)valueInSessionsAtIndex:(unsigned)anIndex
 {
-    // NSLog(@"PseudoTerminal: -valueInSessionsAtIndex: %d", index);
-    return ([[TABVIEW tabViewItemAtIndex:index] identifier]);
+    // NSLog(@"PseudoTerminal: -valueInSessionsAtIndex: %d", anIndex);
+    return ([[TABVIEW tabViewItemAtIndex:anIndex] identifier]);
 }
 
 -(NSArray*)sessions
@@ -3220,9 +3267,9 @@ NSString *sessionsKey = @"sessions";
     }
 }
 
--(void)replaceInSessions:(PTYSession *)object atIndex:(unsigned)index
+-(void)replaceInSessions:(PTYSession *)object atIndex:(unsigned)anIndex
 {
-    // NSLog(@"PseudoTerminal: -replaceInSessions: 0x%x atIndex: %d", object, index);
+    // NSLog(@"PseudoTerminal: -replaceInSessions: 0x%x atIndex: %d", object, anIndex);
     NSLog(@"Replace Sessions: not implemented.");
 }
 
@@ -3238,24 +3285,24 @@ NSString *sessionsKey = @"sessions";
     [self insertInSessions: object atIndex:[TABVIEW numberOfTabViewItems]];
 }
 
--(void)insertInSessions:(PTYSession *)object atIndex:(unsigned)index
+-(void)insertInSessions:(PTYSession *)object atIndex:(unsigned)anIndex
 {
-    // NSLog(@"PseudoTerminal: -insertInSessions: 0x%x atIndex: %d", object, index);
+    // NSLog(@"PseudoTerminal: -insertInSessions: 0x%x atIndex: %d", object, anIndex);
 	[self setupSession: object title: nil];
 	if ([object SCREEN]) // screen initialized ok
-        [self insertSession: object atIndex: index];
+        [self insertSession: object atIndex: anIndex];
     else {
         
         
     }
 }
 
--(void)removeFromSessionsAtIndex:(unsigned)index
+-(void)removeFromSessionsAtIndex:(unsigned)anIndex
 {
-    // NSLog(@"PseudoTerminal: -removeFromSessionsAtIndex: %d", index);
-    if(index < [TABVIEW numberOfTabViewItems])
+    // NSLog(@"PseudoTerminal: -removeFromSessionsAtIndex: %d", anIndex);
+    if(anIndex < [TABVIEW numberOfTabViewItems])
     {
-		PTYSession *aSession = [[TABVIEW tabViewItemAtIndex:index] identifier];
+		PTYSession *aSession = [[TABVIEW tabViewItemAtIndex:anIndex] identifier];
 		[self closeSession: aSession];
     }
 }
@@ -3289,14 +3336,14 @@ NSString *sessionsKey = @"sessions";
 // Object specifier
 - (NSScriptObjectSpecifier *)objectSpecifier
 {
-    NSUInteger index = 0;
+    NSUInteger anIndex = 0;
     id classDescription = nil;
     
     NSScriptObjectSpecifier *containerRef;
     
     NSArray *terminals = [[iTermController sharedInstance] terminals];
-    index = [terminals indexOfObjectIdenticalTo:self];
-    if (index != NSNotFound) {
+    anIndex = [terminals indexOfObjectIdenticalTo:self];
+    if (anIndex != NSNotFound) {
         containerRef     = [NSApp objectSpecifier];
         classDescription = [NSClassDescription classDescriptionForClass:[NSApp class]];
         //create and return the specifier
@@ -3304,7 +3351,7 @@ NSString *sessionsKey = @"sessions";
                initWithContainerClassDescription: classDescription
                               containerSpecifier: containerRef
                                              key: @ "terminals"
-                                           index: index] autorelease];
+                                           index: anIndex] autorelease];
     } 
     else
         return nil;

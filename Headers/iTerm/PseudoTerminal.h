@@ -100,6 +100,7 @@
 
 	// Needed for font size.
 	NSLayoutManager *layoutManager;
+    NSTimer* _timer;
 }
 
 
@@ -111,7 +112,7 @@
 - (void)initWindowWithAddressbook:(NSDictionary *)entry;
 - (void)initWindowWithSettingsFrom:(PseudoTerminal *)aPseudoTerminal;
 - (void)setupSession: (PTYSession *) aSession title: (NSString *)title;
-- (void) insertSession: (PTYSession *) aSession atIndex: (int) index;
+- (void) insertSession: (PTYSession *) aSession atIndex: (int) anIndex;
 - (void) closeSession: (PTYSession*) aSession;
 - (IBAction) closeCurrentSession: (id) sender;
 - (IBAction) previousSession:(id)sender;
@@ -214,6 +215,7 @@
 - (void) setSuppressContextualMenu: (BOOL) aBool;
 - (NSMenu *)tabView:(NSTabView *)aTabView menuForTabViewItem:(NSTabViewItem *)tabViewItem;
 
+- (void)findWithSelection;
 
 // Close Window
 - (BOOL)showCloseWindow;

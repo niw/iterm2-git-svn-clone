@@ -66,17 +66,17 @@
     return (obj && [obj isKindOfClass:[PTYTextView class]]) ? obj : nil;
 }
 
-- (void)findNext
+- (BOOL)findNext
 {
-    [self findSubString: _searchString forwardDirection: YES ignoringCase: _ignoresCase];
+    return [self findSubString: _searchString forwardDirection: YES ignoringCase: _ignoresCase];
 }
 
-- (void)findPrevious
+- (BOOL)findPrevious
 {
-    [self findSubString: _searchString forwardDirection: NO ignoringCase: _ignoresCase];
+    return [self findSubString: _searchString forwardDirection: NO ignoringCase: _ignoresCase];
 }
 
-- (void)findWithSelection
+- (BOOL)findWithSelection
 {
     PTYTextView* textView = [self currentTextView];
     if (textView)
@@ -85,13 +85,14 @@
         NSString *contentString = [textView selectedText];
 		if (!contentString) {
             NSBeep();
-            return;
+            return NO;
         }
         [self setSearchString: contentString];
-        [self findNext];
-    }
-    else
+        return [self findNext];
+    } else {
         NSBeep();
+        return NO;
+    }
 }
 
 - (void)jumpToSelection
@@ -105,7 +106,7 @@
         NSBeep();
 }
 
-- (void) findSubString: (NSString *) subString forwardDirection: (BOOL) direction ignoringCase: (BOOL) caseCheck
+- (BOOL)findSubString: (NSString *) subString forwardDirection: (BOOL) direction ignoringCase: (BOOL) caseCheck
 {
     PseudoTerminal* pseudoTerminal = [[iTermController sharedInstance] currentTerminal];
     PTYSession* session = [pseudoTerminal currentSession];
@@ -115,11 +116,12 @@
         if ([subString length] <= 0)
         {
             NSBeep();
-            return;
+            return NO;
         }
         
-        [textView findString:subString forwardDirection: direction ignoringCase: caseCheck];
+        return [textView findString:subString forwardDirection: direction ignoringCase: caseCheck];
     }
+    return NO;
 }
 
 - (NSString*)searchString;

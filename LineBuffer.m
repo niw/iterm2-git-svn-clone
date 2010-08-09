@@ -341,7 +341,11 @@ static char* formatsct(screen_char_t* src, int len, char* dest) {
 }
 
 // TODO: Make this more unicode friendly
-BOOL stringCaseCompare(unichar* needle, int needle_len, screen_char_t* haystack, int haystack_len, int* result_length)
+static BOOL stringCaseCompare(unichar* needle, 
+                              int needle_len, 
+                              screen_char_t* haystack, 
+                              int haystack_len, 
+                              int* result_length)
 {
 	int i;
 	if (needle_len > haystack_len) {
@@ -356,7 +360,11 @@ BOOL stringCaseCompare(unichar* needle, int needle_len, screen_char_t* haystack,
 	return YES;
 } 
 
-BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int haystack_len, int* result_length)
+static BOOL stringCompare(unichar* needle, 
+                          int needle_len, 
+                          screen_char_t* haystack, 
+                          int haystack_len, 
+                          int* result_length)
 {
 	int i;
 	if (needle_len > haystack_len) {
@@ -371,12 +379,12 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
 	return YES;
 }
 
-- (int) _lineRawOffset: (int) index
+- (int) _lineRawOffset: (int) anIndex
 {
-	if (index == first_entry) {
+	if (anIndex == first_entry) {
 		return start_offset;
 	} else {
-		return cumulative_line_lengths[index - 1];
+		return cumulative_line_lengths[anIndex - 1];
 	}
 }
 
@@ -438,15 +446,15 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
 	return -1;
 }
 				
-- (int) _lineLength: (int) index
+- (int) _lineLength: (int) anIndex
 {
 	int prev;
-	if (index == first_entry) {
+	if (anIndex == first_entry) {
 		prev = start_offset;
 	} else {
-		prev = cumulative_line_lengths[index - 1];
+		prev = cumulative_line_lengths[anIndex - 1];
 	}
-	return cumulative_line_lengths[index] - prev;
+	return cumulative_line_lengths[anIndex] - prev;
 }
 
 - (int) _findEntryBeforeOffset: (int) offset
@@ -882,7 +890,10 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
 
 - (void)releaseFind:(FindContext*)context
 {
-    [context->substring release];
+    if (context->substring) {
+        [context->substring release];
+        context->substring = nil;
+    }
 }
 
 // TODO
@@ -891,28 +902,56 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
 // remember to make client call releaseFind
 - (void)findSubstring:(FindContext*)context stopAt:(int)stopAt
 {
-    if (context->absBlockNum < num_dropped_blocks) {
-        // The next block to search was dropped. Skip ahead to the first block.
-        context->absBlockNum = num_dropped_blocks;
-    }
-    NSAssert(context->absBlockNum - num_dropped_blocks < [blocks count], @"Past end");
-    
-    LineBlock* block = [blocks objectAtIndex:context->absBlockNum - num_dropped_blocks];
-    if (context->absBlockNum - num_dropped_blocks == 0 &&
-        context->offset < [block startOffset]) {
-        if (context->dir > 0) {
-            context->offset = [block startOffset];
-        } else {
-            // This block has scrolled off.
+    if (context->dir > 0) {
+        // Search forwards
+        if (context->absBlockNum < num_dropped_blocks) {
+            // The next block to search was dropped. Skip ahead to the first block.
+            NSLog(@"Next to search was dropped. Skip to start");
+            context->absBlockNum = num_dropped_blocks;
+        }
+        if (context->absBlockNum - num_dropped_blocks >= [blocks count]) {
+            // Got to bottom
+            NSLog(@"Got to bottom");
+            context->status = NotFound;
+            return;
+        }
+    } else {
+        // Search backwards
+        if (context->absBlockNum < num_dropped_blocks) {
+            // Got to top
+            NSLog(@"Got to top");
             context->status = NotFound;
             return;
         }
     }
+
+    NSAssert(context->absBlockNum - num_dropped_blocks >= 0, @"bounds check");
+    NSAssert(context->absBlockNum - num_dropped_blocks < [blocks count], @"bounds check");
+    LineBlock* block = [blocks objectAtIndex:context->absBlockNum - num_dropped_blocks];
+    
+    if (context->absBlockNum - num_dropped_blocks == 0 &&
+        context->offset != -1 &&
+        context->offset < [block startOffset]) {
+        if (context->dir > 0) {
+            // Part of the first block has been dropped. Skip ahead to its 
+            // current beginning.
+            context->offset = [block startOffset];
+        } else {
+            // This block has scrolled off.
+            NSLog(@"offset=%d, block's startOffset=%d. give up", context->offset, [block startOffset]);
+            context->status = NotFound;
+            return;
+        }
+    }
+
+    NSLog(@"search block %d starting at offset %d", context->absBlockNum - num_dropped_blocks, context->offset);
+    
     int position = [block findSubstring:context->substring 
                                 options:context->options 
                                atOffset:context->offset 
                            resultLength:&context->matchLength];
     if (position >= 0) {
+        NSLog(@"match at position %d", position);
         position += [self _blockPosition:context->absBlockNum - num_dropped_blocks];
         if (context->dir * (position - stopAt) > 0 || 
             context->dir * (position + context->matchLength - stopAt) > 0) {
@@ -923,6 +962,8 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
         context->status = Matched;
         context->resultPosition = position;
         return;
+    } else {
+        NSLog(@"no match");
     }
     if (context->dir < 0) {
         context->offset = -1;
