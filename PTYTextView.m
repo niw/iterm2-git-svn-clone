@@ -2287,19 +2287,39 @@ static NSCursor* textViewCursor =  nil;
     return rect;
 }
 
-- (void) findString: (NSString *) aString forwardDirection: (BOOL) direction ignoringCase: (BOOL) ignoreCase
+- (void)cancelFind
 {
-	BOOL found;
-	
-	if (lastFindX == -1) {
-		lastFindX = 0;
-		lastFindY = [dataSource numberOfLines] + 1;
-	}
+    if (findInProgress) {
+        [dataSource cancelFind];
+        findInProgress = NO;
+    }
+}
 
-	
-	found = [dataSource findString: aString forwardDirection: direction ignoringCase: ignoreCase startingAtX: lastFindX staringAtY: lastFindY
-						  atStartX: &startX atStartY: &startY atEndX: &endX atEndY: &endY];
+- (BOOL)findString:(NSString *)aString 
+  forwardDirection:(BOOL)direction 
+      ignoringCase:(BOOL)ignoreCase
+{
+    BOOL more;
+    if (!findInProgress) {
+        if (lastFindX == -1) {
+            lastFindX = 0;
+            lastFindY = [dataSource numberOfLines] + 1;
+        }
 
+        [dataSource initFindString:aString 
+                  forwardDirection:direction 
+                      ignoringCase:ignoreCase 
+                       startingAtX:lastFindX 
+                       startingAtY:lastFindY];
+        findInProgress = YES;
+    }    
+    BOOL found;
+    more = [dataSource continueFindResultAtStartX:&startX 
+                                         atStartY:&startY 
+                                           atEndX:&endX 
+                                           atEndY:&endY 
+                                            found:&found];
+    
 	if (found) {
 		// Lock scrolling after finding text
 		++endX; // make it half-open
@@ -2310,6 +2330,10 @@ static NSCursor* textViewCursor =  nil;
 		lastFindX = startX;
 		lastFindY = startY;
 	}
+    if (!more) {
+        findInProgress = NO;
+    }
+    return more;
 }
 
 // transparency

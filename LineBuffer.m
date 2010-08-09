@@ -89,7 +89,7 @@ static char* formatsct(screen_char_t* src, int len, char* dest) {
     return dest;
 }
 
-- (void) dump: (int) rawOffset
+- (void)dump:(int)rawOffset
 {
     char temp[1000];
     int i;
@@ -545,6 +545,8 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
     blocks = [[NSMutableArray alloc] initWithCapacity: 1];
     [self _addBlockOfSize: block_size];
     max_lines = -1;
+    num_dropped_blocks = 0;
+    dropped_bytes = 0;
     return self;
 }
 
@@ -580,10 +582,13 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
         if (toDrop > extra_lines) {
             toDrop = extra_lines;
         }
+        int prev_offset = [block startOffset];
         int dropped = [block dropLines: toDrop withWidth: width];
+        dropped_bytes += [block startOffset] - prev_offset;
         
         if ([block isEmpty]) {
             [blocks removeObjectAtIndex:0];
+            ++num_dropped_blocks;
         }
         total_lines -= dropped;
     }
@@ -847,38 +852,84 @@ BOOL stringCompare(unichar* needle, int needle_len, screen_char_t* haystack, int
 		
 }
 
-- (int) findSubstring: (NSString*) substring startingAt: (int) start resultLength: (int*) length options: (int) options stopAt: (int) stopAt
+-(int)_toAbsPos:(int)relPos
 {
-	int i;
-	int offset;
-	if ([self _findPosition: start inBlock: &i inOffset: &offset]) {
-		int dir;
-		if (options & FindOptBackwards) {
-			dir = -1;
-		} else {
-			dir = 1;
-		}
-		while (i >= 0 && i < [blocks count]) {
-			LineBlock* block = [blocks objectAtIndex:i];
-			int position = [block findSubstring: substring options: options atOffset: offset resultLength: length];
-			if (position >= 0) {
-				position += [self _blockPosition:i];
-				if (dir * (position - stopAt) > 0 || dir * (position + *length - stopAt) > 0) {
-					return -1;
-				}
-			}
-			if (position >= 0) {
-				return position;
-			}
-			if (dir < 0) {
-				offset = -1;
-			} else {
-				offset = 0;
-			}
-			i += dir;
-		}
-	}
-	return -1;
+    return relPos + dropped_bytes;
+}
+
+-(int)_fromAbsPos:(int)absPos
+{
+    return absPos - dropped_bytes;
+}
+
+- (void)initFind:(NSString*)substring startingAt:(int)start options:(int)options withContext:(FindContext*)context
+{
+    context->substring = [[NSString alloc] initWithString:substring];
+    context->options = options;
+    context->resultPosition = -1;
+    if (options & FindOptBackwards) {
+        context->dir = -1;
+    } else {
+        context->dir = 1;
+    }
+	if ([self _findPosition:start inBlock:&context->absBlockNum inOffset:&context->offset]) {
+        context->absBlockNum += num_dropped_blocks;
+        context->status = Searching;
+    } else {
+        context->status = NotFound;
+    }
+}
+
+- (void)releaseFind:(FindContext*)context
+{
+    [context->substring release];
+}
+
+// TODO
+// change client
+// use long long for positions
+// remember to make client call releaseFind
+- (void)findSubstring:(FindContext*)context stopAt:(int)stopAt
+{
+    if (context->absBlockNum < num_dropped_blocks) {
+        // The next block to search was dropped. Skip ahead to the first block.
+        context->absBlockNum = num_dropped_blocks;
+    }
+    NSAssert(context->absBlockNum - num_dropped_blocks < [blocks count], @"Past end");
+    
+    LineBlock* block = [blocks objectAtIndex:context->absBlockNum - num_dropped_blocks];
+    if (context->absBlockNum - num_dropped_blocks == 0 &&
+        context->offset < [block startOffset]) {
+        if (context->dir > 0) {
+            context->offset = [block startOffset];
+        } else {
+            // This block has scrolled off.
+            context->status = NotFound;
+            return;
+        }
+    }
+    int position = [block findSubstring:context->substring 
+                                options:context->options 
+                               atOffset:context->offset 
+                           resultLength:&context->matchLength];
+    if (position >= 0) {
+        position += [self _blockPosition:context->absBlockNum - num_dropped_blocks];
+        if (context->dir * (position - stopAt) > 0 || 
+            context->dir * (position + context->matchLength - stopAt) > 0) {
+            context->status = NotFound;
+            return;
+        }
+
+        context->status = Matched;
+        context->resultPosition = position;
+        return;
+    }
+    if (context->dir < 0) {
+        context->offset = -1;
+    } else {
+        context->offset = 0;
+    }
+    context->absBlockNum += context->dir;
 }
 
 - (BOOL) convertPosition: (int) position withWidth: (int) width toX: (int*) x toY: (int*) y

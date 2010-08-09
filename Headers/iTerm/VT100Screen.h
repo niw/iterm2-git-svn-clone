@@ -104,6 +104,7 @@
 	
 	// Scrollback buffer
 	LineBuffer* linebuffer;
+    FindContext findContext;
 }
 
 
@@ -206,8 +207,10 @@
 // double width
 - (BOOL) isDoubleWidthCharacter:(unichar) c;
 
-// Perform a search of the screen and scrollback buffer.
-- (BOOL) findString: (NSString*) aString forwardDirection: (BOOL) direction ignoringCase: (BOOL) ignoreCase startingAtX: (int) x staringAtY: (int) y atStartX: (int*)startX atStartY: (int*)startY atEndX: (int*)endX atEndY: (int*)endY;
+// Initialize the find context.
+- (void)initFindString:(NSString*)aString forwardDirection:(BOOL)direction ignoringCase:(BOOL)ignoreCase startingAtX:(int)x startingAtY:(int)y;
+- (BOOL)continueFindResultAtStartX:(int*)startX atStartY:(int*)startY atEndX:(int*)endX atEndY:(int*)endY found:(BOOL*)found;
+- (void)cancelFind;
 
 - (void) dumpDebugLog;
 @end

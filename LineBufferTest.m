@@ -15,7 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Tests
 
-- (screen_char_t*) toSct: (char*) str length: (int*) length partial: (BOOL*) partial
+- (screen_char_t*) toSct:(const char*)str length:(int*)length partial:(BOOL*)partial
 {
 	screen_char_t* sct = (screen_char_t*) malloc(sizeof(screen_char_t)*strlen(str));
 	*partial = NO;
@@ -488,34 +488,42 @@ char* poplines9[] = {
 	}
 }
 
+- (void)appendStr:(NSString*)str buffer:(LineBuffer*)buffer
+{
+    int length;
+    BOOL partial;
+	screen_char_t* sct = [self toSct:[str UTF8String] length:&length partial: &partial];
+	[buffer appendLine:sct length:[str length] partial:NO];
+	free((void*)sct);
+}
+
 - (void) findTest
 {
 	LineBuffer* buffer = [[LineBuffer alloc] initWithBlockSize:20];
 	[buffer setMaxLines:3];
-	
-	screen_char_t* sct;
-	int length;
-	BOOL partial;
-	sct = [self toSct: "deadxx" length: &length partial: &partial];
-	[buffer appendLine:sct length:6 partial:NO];
-	free((void*)sct);
 
-	sct = [self toSct: "firstx" length: &length partial: &partial];
-	[buffer appendLine:sct length:6 partial:NO];
-	free((void*)sct);
-	
-	sct = [self toSct: "lastxx" length: &length partial: &partial];
-	[buffer appendLine:sct length:6 partial:NO];
-	free((void*)sct);
-	
-	sct = [self toSct: "xzzyzza" length: &length partial: &partial];
-	[buffer appendLine:sct length:7 partial:NO];
-	free((void*)sct);
+	[self appendStr:@"deadxx" buffer:buffer];
+	[self appendStr:@"firstx" buffer:buffer];
+	[self appendStr:@"lastxx" buffer:buffer];
+	[self appendStr:@"xzzyzza" buffer:buffer];
+
 	[buffer dropExcessLinesWithWidth:10];
 
 	[buffer dump];
-	int len;
-	int pos = [buffer findSubstring:@"zz" startingAt:0 resultLength:&len options:FindOptCaseInsensitive stopAt:[buffer lastPos]];
+    // deadxxfirstxlastxx
+    //       0     1
+    // xzzyzza
+    // 2
+    FindContext fc;
+    
+    [buffer initFind:@"zz" startingAt:[buffer firstPos] options:FindOptCaseInsensitive withContext:&fc];
+    NSAssert(fc.status == Searching, @"wrong status");
+    [buffer findSubstring:&fc stopAt:[buffer lastPos]+1];
+    NSAssert(fc.status == Searching, @"wrong status");
+    [buffer findSubstring:&fc stopAt:[buffer lastPos]+1];
+    NSAssert(fc.status == Matched, @"wrong status");
+    int pos = fc.resultPosition;
+	int len = fc.matchLength;
 	NSAssert(pos == 19, @"First match in wrong place");
 	int x=0, y=0;
 	BOOL ok = [buffer convertPosition:pos withWidth:8 toX:&x toY:&y];
@@ -526,9 +534,15 @@ char* poplines9[] = {
 	ok = [buffer convertCoordinatesAtX:x atY:y withWidth:8 toPosition:&pos offset:1];
 	NSAssert(ok, @"convertCoords failed");
 	NSAssert(pos == 20, @"Pos advanced wrong");
-	
-	pos = [buffer findSubstring:@"zz" startingAt:pos resultLength:&len options:FindOptCaseInsensitive stopAt:[buffer lastPos]];
-	NSAssert(pos == 22, @"Seond match in wrong place");
+	[buffer releaseFind:&fc];
+    
+    [buffer initFind:@"zz" startingAt:pos options:FindOptCaseInsensitive withContext:&fc];
+    NSAssert(fc.status == Searching, @"wrong status");
+    [buffer findSubstring:&fc stopAt:[buffer lastPos]];
+    NSAssert(fc.status == Matched, @"wrong status");
+    pos = fc.resultPosition;
+    len = fc.matchLength;
+	NSAssert(pos == 22, @"Second match in wrong place");
 	
 	ok = [buffer convertPosition:pos withWidth:8 toX:&x toY:&y];
 	NSAssert(ok, @"convertposition failed");
@@ -545,7 +559,36 @@ char* poplines9[] = {
 	ok = [buffer convertCoordinatesAtX:5 atY:0 withWidth:10 toPosition:&pos offset:1];
 	NSAssert(ok, @"Crossing blocks failed.");
 	NSAssert(pos == 12, @"offset crossing blocks failed");
+    [buffer releaseFind:&fc];
+    
+    // Test dropping a block between calls to findSubstring.
+    // First, begin search.
+    [buffer initFind:@"foobar" startingAt:[buffer firstPos] options:FindOptCaseInsensitive withContext:&fc];
+    [buffer findSubstring:&fc stopAt:[buffer lastPos]+1];
+    NSAssert(fc.status == Searching, @"wrong status");
+    
+    // Now add a line, causing the fist block to be dropped.
+	[self appendStr:@"filler1234567"];
+    [self appendStr:@"foobar"];
 
+	[buffer dropExcessLinesWithWidth:10];
+    // xzzyzzafiller1234567
+    // 0      1
+    // foobar
+    // 2
+	[buffer dump];
+    
+    // Search again.
+    [buffer findSubstring:&fc stopAt:[buffer lastPos]+1];
+    NSAssert(fc.status == Searching, @"wrong status");
+    
+    [buffer findSubstring:&fc stopAt:[buffer lastPos]+1];
+    NSAssert(fc.status == Matched, @"wrong status");
+    
+    pos = fc.resultPosition;
+	len = fc.matchLength;
+	NSAssert(pos == 20, @"First match in wrong place");
+    
 	[buffer release];
 }
 

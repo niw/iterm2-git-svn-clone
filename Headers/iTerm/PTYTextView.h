@@ -125,6 +125,9 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
     
 	// Needed for determining font size.
 	NSLayoutManager *layoutManager;
+    
+    // Is a find currently executing?
+    BOOL findInProgress;
 }
 
 + (NSCursor *) textViewCursor;
@@ -255,7 +258,7 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
 - (void) printContent: (NSString *) aString;
 
 // Find method
-- (void) findString: (NSString *) aString forwardDirection: (BOOL) direction ignoringCase: (BOOL) ignoreCase;
+- (BOOL)findString:(NSString *)aString forwardDirection:(BOOL)direction ignoringCase:(BOOL)ignoreCase;
 
 // NSTextInput
 - (void)insertText:(id)aString;
