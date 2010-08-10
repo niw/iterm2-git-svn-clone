@@ -94,7 +94,8 @@
 	unsigned int current_scrollback_lines;
 	// how many scrollback lines have been lost due to overflow
 	int scrollback_overflow;
-	
+	int cumulative_scrollback_overflow;
+    
 	// print to ansi...
 	BOOL printToAnsi;		// YES=ON, NO=OFF, default=NO;
 	NSMutableString *printToAnsiString;
@@ -191,6 +192,7 @@
 - (int)numberOfLines;
 
 - (int)scrollbackOverflow;
+- (int)totalScrollbackOverflow;
 - (void)resetScrollbackOverflow;
 
 - (void)resetDirty;
@@ -208,7 +210,7 @@
 - (BOOL) isDoubleWidthCharacter:(unichar) c;
 
 // Initialize the find context.
-- (void)initFindString:(NSString*)aString forwardDirection:(BOOL)direction ignoringCase:(BOOL)ignoreCase startingAtX:(int)x startingAtY:(int)y;
+- (void)initFindString:(NSString*)aString forwardDirection:(BOOL)direction ignoringCase:(BOOL)ignoreCase startingAtX:(int)x startingAtY:(int)y withOffset:(int)offsetof;
 - (BOOL)continueFindResultAtStartX:(int*)startX atStartY:(int*)startY atEndX:(int*)endX atEndY:(int*)endY found:(BOOL*)found;
 - (void)cancelFind;
 

@@ -186,6 +186,7 @@ NSString *sessionsKey = @"sessions";
 	[myWindow release];
 
 	_fullScreen = NO;
+    previousFindString = [[NSMutableString alloc] init];
 	
 	// create and set up drawer
 	myDrawer = [[NSDrawer alloc] initWithContentSize: NSMakeSize(20, 100) preferredEdge: NSMinXEdge];
@@ -253,7 +254,8 @@ NSString *sessionsKey = @"sessions";
 	[self hideMenuBar];
 	[myWindow release];
 	_fullScreen = YES;
-		
+    previousFindString = [[NSMutableString alloc] init];
+    
 	[self _commonInit];
 	
 #if DEBUG_ALLOC
@@ -902,13 +904,13 @@ NSString *sessionsKey = @"sessions";
 	[NAFONT release];
 	[oldFont release];
 	[oldNAFont release];
-        [layoutManager release];
+    [layoutManager release];
 	[findBar release];
 	
 	[_toolbarController release];
     if (_timer) {
         [_timer invalidate];
-//        [_timer release];
+        [findProgressIndicator setHidden:YES];
         _timer = nil;
     }
     
@@ -2773,7 +2775,7 @@ NSString *sessionsKey = @"sessions";
     if (!more) {
         NSLog(@"invalidating timer");
         [_timer invalidate];
-//        [_timer release];
+        [findProgressIndicator setHidden:YES];
         _timer = nil;
     }
 }
@@ -2787,12 +2789,14 @@ NSString *sessionsKey = @"sessions";
                                                 selector:@selector(_continueSearch) 
                                                 userInfo:nil 
                                                  repeats:YES];
+        [findProgressIndicator setHidden:NO];
+        [findProgressIndicator startAnimation:self];
     } else if (!needTimer && _timer) {
         NSLog(@"destroying timer");
         // did a search while one was in progress
         [_timer invalidate];
-//        [_timer release];
         _timer = nil;
+        [findProgressIndicator setHidden:YES];
     }
 }
 
@@ -2800,7 +2804,7 @@ NSString *sessionsKey = @"sessions";
 {
 	[[FindCommandHandler sharedInstance] setSearchString:[findBarTextField stringValue]];
 	[[FindCommandHandler sharedInstance] setIgnoresCase: [ignoreCase state]];
-	[self _newSearch:[[FindCommandHandler sharedInstance] findPrevious]];
+	[self _newSearch:[[FindCommandHandler sharedInstance] findPreviousWithOffset:1]];
 }
 
 - (IBAction)searchNext:(id)sender
@@ -2823,12 +2827,34 @@ NSString *sessionsKey = @"sessions";
 	}
 }
 
+- (void)controlTextDidChange:(NSNotification *)aNotification
+{
+	NSTextField *field = [aNotification object];
+    if (field != findBarTextField) {
+        return;
+    }
+
+    if ([previousFindString length] == 0) {
+        [[[self currentSession] TEXTVIEW] resetFindCursor];
+    } else {
+        NSRange range =  [[findBarTextField stringValue] rangeOfString:previousFindString];
+        if (range.location != 0) {
+            [[[self currentSession] TEXTVIEW] resetFindCursor];
+        }
+    }
+    [previousFindString setString:[findBarTextField stringValue]];
+	[[FindCommandHandler sharedInstance] setSearchString:[findBarTextField stringValue]];
+	[[FindCommandHandler sharedInstance] setIgnoresCase: [ignoreCase state]];
+	[self _newSearch:[[FindCommandHandler sharedInstance] findPreviousWithOffset:0]];
+};
+
 - (void)controlTextDidEndEditing:(NSNotification *)aNotification
 {
 	int move = [[[aNotification userInfo] objectForKey:@"NSTextMovement"] intValue];
 	NSControl *postingObject = [aNotification object]; 
 	if (postingObject == findBarTextField) {
 		// This is handled elsewhere.
+        [previousFindString setString:@""];
 		return;
 	}
 	
@@ -2854,6 +2880,11 @@ NSString *sessionsKey = @"sessions";
 		[[self window] makeFirstResponder:findBarTextField];
 		return;
 	}
+    if (hide && _timer) {
+        [_timer invalidate];
+        _timer = nil;
+        [findProgressIndicator setHidden:YES];
+    }
 	[findBar setHidden: hide];
 	[self setWindowSize];
 

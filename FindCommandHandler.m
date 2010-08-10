@@ -68,12 +68,12 @@
 
 - (BOOL)findNext
 {
-    return [self findSubString: _searchString forwardDirection: YES ignoringCase: _ignoresCase];
+    return [self findSubString: _searchString forwardDirection: YES ignoringCase: _ignoresCase withOffset:1];
 }
 
-- (BOOL)findPrevious
+- (BOOL)findPreviousWithOffset:(int)offset
 {
-    return [self findSubString: _searchString forwardDirection: NO ignoringCase: _ignoresCase];
+    return [self findSubString: _searchString forwardDirection: NO ignoringCase: _ignoresCase withOffset:offset];
 }
 
 - (BOOL)findWithSelection
@@ -106,7 +106,7 @@
         NSBeep();
 }
 
-- (BOOL)findSubString: (NSString *) subString forwardDirection: (BOOL) direction ignoringCase: (BOOL) caseCheck
+- (BOOL)findSubString: (NSString *) subString forwardDirection: (BOOL) direction ignoringCase: (BOOL) caseCheck withOffset:(int)offset
 {
     PseudoTerminal* pseudoTerminal = [[iTermController sharedInstance] currentTerminal];
     PTYSession* session = [pseudoTerminal currentSession];
@@ -119,7 +119,7 @@
             return NO;
         }
         
-        return [textView findString:subString forwardDirection: direction ignoringCase: caseCheck];
+        return [textView findString:subString forwardDirection: direction ignoringCase: caseCheck withOffset:offset];
     }
     return NO;
 }

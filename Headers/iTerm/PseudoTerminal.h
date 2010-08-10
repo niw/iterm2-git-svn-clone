@@ -56,7 +56,9 @@
 	IBOutlet NSButton*    findBarNextButton;
 	IBOutlet NSButton*    findBarPreviousButton;
 	IBOutlet NSButton*    ignoreCase;
-	
+	IBOutlet NSProgressIndicator* findProgressIndicator;
+    
+    NSMutableString* previousFindString;
 	NSView* findBar;
 
     /// tab view

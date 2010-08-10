@@ -167,6 +167,7 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
 - (void) browse:(id)sender;
 - (void) searchInBrowser:(id)sender;
 - (void) mail:(id)sender;
+- (void)resetFindCursor;
 
 //get/set methods
 - (NSFont *)font;
@@ -258,7 +259,7 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
 - (void) printContent: (NSString *) aString;
 
 // Find method
-- (BOOL)findString:(NSString *)aString forwardDirection:(BOOL)direction ignoringCase:(BOOL)ignoreCase;
+- (BOOL)findString:(NSString *)aString forwardDirection:(BOOL)direction ignoringCase:(BOOL)ignoreCase withOffset:(int)offset;
 
 // NSTextInput
 - (void)insertText:(id)aString;
@@ -304,7 +305,6 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
 - (void) _drawCharacter:(unichar)c fgColor:(int)fg AtX:(float)X Y:(float)Y doubleWidth:(BOOL) dw;
 - (BOOL) _isBlankLine: (int) y;
 - (void) _openURL: (NSString *) aURLString;
-- (BOOL) _findString: (NSString *) aString forwardDirection: (BOOL) direction ignoringCase: (BOOL) ignoreCase wrapping: (BOOL) wrapping;
 - (BOOL) _findMatchingParenthesis: (NSString *) parenthesis withX:(int)X Y:(int)Y;
 - (void) _dragText: (NSString *) aString forEvent: (NSEvent *) theEvent;
 - (BOOL) _isCharSelectedInRow:(int)row col:(int)col checkOld:(BOOL)old;

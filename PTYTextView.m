@@ -2319,7 +2319,7 @@ static NSCursor* textViewCursor =  nil;
 		[self _scrollToLine:endY];
 		[self setNeedsDisplay:YES];
 		lastFindX = startX;
-		lastFindY = startY;
+		lastFindY = startY + [dataSource totalScrollbackOverflow];
 	}
     if (!more) {
         NSLog(@"PTYTextView: done");
@@ -2328,26 +2328,31 @@ static NSCursor* textViewCursor =  nil;
     return more;
 }
 
+- (void)resetFindCursor
+{
+    lastFindX = lastFindY = -1;
+}
+
 - (BOOL)findString:(NSString *)aString 
   forwardDirection:(BOOL)direction 
-      ignoringCase:(BOOL)ignoreCase
+      ignoringCase:(BOOL)ignoreCase 
+        withOffset:(int)offset
 {
-    BOOL haveMore;
-    // TODO: cancel the running search and begin a new one
     if (_findInProgress) {
         [dataSource cancelFind];
     }
     
     if (lastFindX == -1) {
         lastFindX = 0;
-        lastFindY = [dataSource numberOfLines] + 1;
+        lastFindY = [dataSource numberOfLines] + 1 + [dataSource totalScrollbackOverflow];
     }
 
     [dataSource initFindString:aString 
               forwardDirection:direction 
                   ignoringCase:ignoreCase 
                    startingAtX:lastFindX 
-                   startingAtY:lastFindY];
+                   startingAtY:lastFindY - [dataSource totalScrollbackOverflow] 
+                    withOffset:offset];
     _findInProgress = YES;
 
     return [self continueFind];
@@ -2668,7 +2673,7 @@ static NSCursor* textViewCursor =  nil;
                        endY: (int *) endy
 {
 	NSString *aString,*wordChars;
-	int tmpX, tmpY, x1, y1, x2, y2;
+	int tmpX, tmpY, x1, yStart, x2, y2;
     screen_char_t *theLine;
 	int width = [dataSource width];
 	
@@ -2716,7 +2721,7 @@ static NSCursor* textViewCursor =  nil;
 	if(starty)
 		*starty = tmpY;
 	x1 = tmpX;
-	y1 = tmpY;
+	yStart = tmpY;
 	
 	
 	// find the end of the word
@@ -2762,7 +2767,7 @@ static NSCursor* textViewCursor =  nil;
 	x2 = tmpX+1;
 	y2 = tmpY;
     
-	return ([self contentFromX:x1 Y:y1 ToX:x2 Y:y2 pad: YES]);
+	return ([self contentFromX:x1 Y:yStart ToX:x2 Y:y2 pad: YES]);
 	
 }
 
@@ -2795,8 +2800,8 @@ static NSCursor* textViewCursor =  nil;
     // Look for a right edge
     int rightx = w-1;
     for (int xi = x+1, yi = y; xi < w; xi++) {
-        unichar c = [self _getCharacterAtX:xi Y:yi];
-        if (c == '|' &&
+        unichar theChar = [self _getCharacterAtX:xi Y:yi];
+        if (theChar == '|' &&
             ((yi > 0 && [self _getCharacterAtX:xi Y:yi-1] == '|') ||
              (yi < h-1 && [self _getCharacterAtX:xi Y:yi+1] == '|'))) {
             rightx = xi-1;
@@ -3085,136 +3090,6 @@ static NSCursor* textViewCursor =  nil;
 	else 
 		[[NSWorkspace sharedWorkspace] openURL:url];
 		
-}
-
-- (BOOL) _findString: (NSString *) aString forwardDirection: (BOOL) direction ignoringCase: (BOOL) ignoreCase wrapping: (BOOL) wrapping
-{
-	int x1, y1, x2, y2;
-	NSMutableString *searchBody;
-	NSRange foundRange;
-	int anIndex;
-	unsigned searchMask = 0;
-	
-	if([aString length] <= 0)
-	{
-		NSBeep();
-		return (NO);
-	}
-	
-	// check if we had a previous search result
-	if(lastFindX > -1)
-	{
-		if(direction)
-		{
-			x1 = lastFindX + 1;
-			y1 = lastFindY;
-			if(x1 >= [dataSource width])
-			{
-				if(y1 < [dataSource numberOfLines] - 1)
-				{
-					// advance search beginning to next line
-					x2 = 0;
-					y1++;
-				}
-				else
-				{
-					if (wrapping) {
-						// wrap around to beginning
-						x1 = y1 = 0;
-					}
-					else {
-						return NO;
-					}
-				}
-			}
-			x2 = [dataSource width] - 1;
-			y2 = [dataSource numberOfLines] - 1;
-		}
-		else
-		{
-			x1 = y1 = 0;
-			x2 = lastFindX - 1;
-			y2 = lastFindY;
-			if(x2 <= 0)
-			{
-				if(y2 > 0)
-				{
-					// stop search at end of previous line
-					x2 = [dataSource width] - 1;
-					y2--;
-				}
-				else
-				{
-					if (wrapping) {
-						// wrap around to the end
-						x2 = [dataSource width] - 1;
-						y2 = [dataSource numberOfLines] - 1;
-					}
-					else {
-						return NO;
-					}
-				}
-			}
-		}
-	}
-	else
-	{
-		// no previous search results, search from beginning
-		x1 = y1 = 0;
-		x2 = [dataSource width] - 1;
-		y2 = [dataSource numberOfLines] - 1;
-	}
-	
-	// ok, now get the search body
-	// TODO: don't call contentFromX. Its worst-case is quadratic in the size of the buffer!
-	searchBody = [NSMutableString stringWithString:[self contentFromX: x1 Y: y1 ToX: x2+1 Y: y2 pad: YES]];
-	[searchBody replaceOccurrencesOfString:@"\n" withString:@"" options:NSLiteralSearch range:NSMakeRange(0, [searchBody length])];
-	
-	if([searchBody length] <= 0)
-	{
-		NSBeep();
-		return (NO);
-	}
-	
-	// do the search
-	if(ignoreCase)
-		searchMask |= NSCaseInsensitiveSearch;
-	if(!direction)
-		searchMask |= NSBackwardsSearch;	
-	foundRange = [searchBody rangeOfString: aString options: searchMask];
-	if(foundRange.location != NSNotFound)
-	{
-		// convert index to coordinates
-		// get index of start of search body
-		if(y1 > 0)
-		{
-			anIndex = y1*[dataSource width] + x1;
-		}
-		else
-		{
-			anIndex = x1;
-		}
-
-		// calculate index of start of found range
-		anIndex += foundRange.location;
-		startX = lastFindX = anIndex % [dataSource width];
-		startY = lastFindY = anIndex/[dataSource width];
-
-		// end of found range
-		anIndex += foundRange.length - 1;
-		endX = (anIndex % [dataSource width]) + 1;
-		endY = anIndex/[dataSource width];
-
-		// Lock scrolling after finding text
-		[(PTYScroller*)([[self enclosingScrollView] verticalScroller]) setUserScroll:YES];
-
-		[self _scrollToLine:endY];
-		[self setNeedsDisplay:YES];
-
-		return (YES);
-	}
-	
-	return (NO);
 }
 
 - (void) _dragText: (NSString *) aString forEvent: (NSEvent *) theEvent
