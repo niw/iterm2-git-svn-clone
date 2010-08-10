@@ -599,15 +599,26 @@ static NSCursor* textViewCursor =  nil;
 	[super setFrameSize:frameSize];
 }
 
+static BOOL RectsEqual(NSRect* a, NSRect* b) {
+	return a->origin.x == b->origin.x &&
+		   a->origin.y == b->origin.y &&
+	       a->size.width == b->size.width &&
+       	   a->size.height == b->size.height;
+}
+
 - (void)refresh
 {
 	if(dataSource == nil) return;
 
 	// reset tracking rect
-	if(trackingRectTag) {
-		[self removeTrackingRect:trackingRectTag];
+	NSRect visibleRect = [self visibleRect];
+	if (!trackingRectTag || !RectsEqual(&visibleRect, &_trackingRect)) {
+		if (trackingRectTag) {
+			[self removeTrackingRect:trackingRectTag];
+		}
+		trackingRectTag = [self addTrackingRect:visibleRect owner:self userData:nil assumeInside:NO];
+		_trackingRect = visibleRect;
 	}
-	trackingRectTag = [self addTrackingRect:[self visibleRect] owner:self userData:nil assumeInside:NO];
 
 	// number of lines that have disappeared if circular buffer is full
 	int scrollbackOverflow = [dataSource scrollbackOverflow];

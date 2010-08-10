@@ -128,6 +128,7 @@ enum { SELECT_CHAR, SELECT_WORD, SELECT_LINE, SELECT_BOX };
     
     // Is a find currently executing?
     BOOL _findInProgress;
+	NSRect _trackingRect;
 }
 
 + (NSCursor *) textViewCursor;
