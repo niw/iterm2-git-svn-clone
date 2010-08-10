@@ -162,6 +162,7 @@
 		1D13E882120F925700909F9C /* LineBufferTest.h in Sources */ = {isa = PBXBuildFile; fileRef = 1D72477211F55E5700BD4924 /* LineBufferTest.h */; };
 		1D13E883120F925700909F9C /* LineBufferTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 1D72477311F55E5700BD4924 /* LineBufferTest.m */; };
 		1D13E887120F929F00909F9C /* testmain.m in Sources */ = {isa = PBXBuildFile; fileRef = 1D13E885120F929F00909F9C /* testmain.m */; };
+		1D13EADC12113A2D00909F9C /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1D13EADB12113A2D00909F9C /* libncurses.dylib */; };
 		1D5FDD411208E8F000C46BA3 /* NSStringITerm.h in Headers */ = {isa = PBXBuildFile; fileRef = 872EBC5304E42E320073D10E /* NSStringITerm.h */; };
 		1D5FDD421208E8F000C46BA3 /* PTYTextView.h in Headers */ = {isa = PBXBuildFile; fileRef = 872EBC5404E42E320073D10E /* PTYTextView.h */; };
 		1D5FDD431208E8F000C46BA3 /* PTYTabView.h in Headers */ = {isa = PBXBuildFile; fileRef = 872EBC5704E42E320073D10E /* PTYTabView.h */; };
@@ -386,6 +387,7 @@
 		1D13E7CB120F923600909F9C /* iTerm.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iTerm.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1D13E7CD120F923600909F9C /* iTerm copy.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "iTerm copy.plist"; sourceTree = "<group>"; };
 		1D13E885120F929F00909F9C /* testmain.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = testmain.m; sourceTree = "<group>"; };
+		1D13EADB12113A2D00909F9C /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = usr/lib/libncurses.dylib; sourceTree = SDKROOT; };
 		1D72438C11F416E500BD4924 /* LineBuffer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = LineBuffer.m; sourceTree = "<group>"; };
 		1D72438F11F416F300BD4924 /* LineBuffer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LineBuffer.h; sourceTree = "<group>"; };
 		1D72477211F55E5700BD4924 /* LineBufferTest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LineBufferTest.h; sourceTree = "<group>"; };
@@ -584,6 +586,7 @@
 				874206530564169600CFC3F1 /* AppKit.framework in Frameworks */,
 				F69E80E70ABB46F2001EC0FF /* Growl.framework in Frameworks */,
 				F6E2DEDA0AE2F67200D20B3B /* Sparkle.framework in Frameworks */,
+				1D13EADC12113A2D00909F9C /* libncurses.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -614,6 +617,7 @@
 				0464AB2E006CD2EC7F000001 /* External Frameworks and Libraries */,
 				0464AB32006CD2EC7F000001 /* Products */,
 				F69E774A0AB78CDB001EC0FF /* Growl-Info.plist */,
+				1D13EADB12113A2D00909F9C /* libncurses.dylib */,
 			);
 			name = JTerminal;
 			sourceTree = "<group>";
@@ -1872,6 +1876,7 @@
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
 					"$(SRCROOT)/build/Development",
 				);
+				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_VERSION = 4.0;
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
 				PREBINDING = NO;
