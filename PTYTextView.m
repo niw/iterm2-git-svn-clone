@@ -2330,7 +2330,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 		[self _scrollToLine:endY];
 		[self setNeedsDisplay:YES];
 		lastFindX = startX;
-		lastFindY = startY + [dataSource totalScrollbackOverflow];
+		absLastFindY = (long long)startY + [dataSource totalScrollbackOverflow];
 	}
     if (!more) {
         NSLog(@"PTYTextView: done");
@@ -2341,7 +2341,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
 - (void)resetFindCursor
 {
-    lastFindX = lastFindY = -1;
+    lastFindX = absLastFindY = -1;
 }
 
 - (BOOL)findString:(NSString *)aString 
@@ -2355,14 +2355,14 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     
     if (lastFindX == -1) {
         lastFindX = 0;
-        lastFindY = [dataSource numberOfLines] + 1 + [dataSource totalScrollbackOverflow];
+        absLastFindY = (long long)([dataSource numberOfLines] + 1) + [dataSource totalScrollbackOverflow];
     }
 
     [dataSource initFindString:aString 
               forwardDirection:direction 
                   ignoringCase:ignoreCase 
                    startingAtX:lastFindX 
-                   startingAtY:lastFindY - [dataSource totalScrollbackOverflow] 
+                   startingAtY:absLastFindY - [dataSource totalScrollbackOverflow] 
                     withOffset:offset];
     _findInProgress = YES;
 

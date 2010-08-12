@@ -174,7 +174,6 @@ typedef struct screen_char_t
     
     // The number of blocks at the head of the list that have been removed.
     int num_dropped_blocks;
-    int dropped_bytes;
 }
 
 - (LineBuffer*) initWithBlockSize: (int) bs;

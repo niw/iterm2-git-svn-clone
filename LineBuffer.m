@@ -554,7 +554,6 @@ static BOOL stringCompare(unichar* needle,
     [self _addBlockOfSize: block_size];
     max_lines = -1;
     num_dropped_blocks = 0;
-    dropped_bytes = 0;
     return self;
 }
 
@@ -592,7 +591,6 @@ static BOOL stringCompare(unichar* needle,
         }
         int prev_offset = [block startOffset];
         int dropped = [block dropLines: toDrop withWidth: width];
-        dropped_bytes += [block startOffset] - prev_offset;
         
         if ([block isEmpty]) {
             [blocks removeObjectAtIndex:0];
@@ -858,16 +856,6 @@ static BOOL stringCompare(unichar* needle,
 	}
 	return position;
 		
-}
-
--(int)_toAbsPos:(int)relPos
-{
-    return relPos + dropped_bytes;
-}
-
--(int)_fromAbsPos:(int)absPos
-{
-    return absPos - dropped_bytes;
 }
 
 - (void)initFind:(NSString*)substring startingAt:(int)start options:(int)options withContext:(FindContext*)context

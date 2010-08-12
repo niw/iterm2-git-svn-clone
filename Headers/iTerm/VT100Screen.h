@@ -94,7 +94,7 @@
 	unsigned int current_scrollback_lines;
 	// how many scrollback lines have been lost due to overflow
 	int scrollback_overflow;
-	int cumulative_scrollback_overflow;
+	long long cumulative_scrollback_overflow;
     
 	// print to ansi...
 	BOOL printToAnsi;		// YES=ON, NO=OFF, default=NO;
@@ -192,7 +192,7 @@
 - (int)numberOfLines;
 
 - (int)scrollbackOverflow;
-- (int)totalScrollbackOverflow;
+- (long long)totalScrollbackOverflow;
 - (void)resetScrollbackOverflow;
 
 - (void)resetDirty;

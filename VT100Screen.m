@@ -1380,7 +1380,7 @@ static __inline__ screen_char_t *incrementLinePointer(screen_char_t *buf_start, 
     }
 }
 
-- (int)totalScrollbackOverflow
+- (long long)totalScrollbackOverflow
 {
     return cumulative_scrollback_overflow;
 }
