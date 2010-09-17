@@ -82,12 +82,12 @@
 														 @"Key Names");
 			break;
 		case NSDeleteFunctionKey:
-			aString = NSLocalizedStringFromTableInBundle(@"del",@"iTerm", 
+			aString = NSLocalizedStringFromTableInBundle(@"delete",@"iTerm", 
 														 [NSBundle bundleForClass: [self class]], 
 														 @"Key Names");
 			break;
 		case 0x7f:
-			aString = NSLocalizedStringFromTableInBundle(@"delete",@"iTerm", 
+			aString = NSLocalizedStringFromTableInBundle(@"backspace",@"iTerm", 
 														 [NSBundle bundleForClass: [self class]], 
 														 @"Key Names");
 			break;
@@ -283,21 +283,21 @@
 			break;
 		case KEY_ACTION_ESCAPE_SEQUENCE:
 			actionString = [NSString stringWithFormat:@"%@ %@", 
-				NSLocalizedStringFromTableInBundle(@"send ^[",@"iTerm", 
+				NSLocalizedStringFromTableInBundle(@"send escape +",@"iTerm", 
 															  [NSBundle bundleForClass: [self class]], 
 															  @"Key Binding Actions"),
 				auxText];
 			break;
 		case KEY_ACTION_HEX_CODE:
 			actionString = [NSString stringWithFormat: @"%@ %@", 
-				NSLocalizedStringFromTableInBundle(@"send hex code",@"iTerm", 
+				NSLocalizedStringFromTableInBundle(@"send escaped hex code",@"iTerm", 
 															  [NSBundle bundleForClass: [self class]], 
 															  @"Key Binding Actions"),
 				auxText];
 			break;			
 		case KEY_ACTION_TEXT:
 			actionString = [NSString stringWithFormat:@"%@ \"%@\"", 
-				NSLocalizedStringFromTableInBundle(@"send",@"iTerm", 
+				NSLocalizedStringFromTableInBundle(@"send text",@"iTerm", 
 												   [NSBundle bundleForClass: [self class]], 
 												   @"Key Binding Actions"),
 				auxText];
