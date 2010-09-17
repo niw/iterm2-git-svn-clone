@@ -665,7 +665,7 @@ const int kInterWidgetMargin = 10;
 
     NSRect tableViewFrame = [tableView_ frame];
     tableViewFrame.origin.x = 0;
-    tableViewFrame.origin.y = 0;;
+    tableViewFrame.origin.y = 0;
     NSSize temp = 
         [NSScrollView contentSizeForFrameSize:scrollViewFrame.size 
                         hasHorizontalScroller:NO 
