@@ -24,6 +24,7 @@
 
 #import <Cocoa/Cocoa.h>
 #import "BookmarkModel.h"
+#import "BookmarkTableController.h"
 
 @interface BookmarkSearchField : NSSearchField
 {
@@ -55,6 +56,7 @@
     NSScrollView* scrollView_;
     BookmarkSearchField* searchField_;
     BookmarkTableView* tableView_;
+    BookmarkTableController* tableController_;
     NSTableColumn* tableColumn_;
     NSTableColumn* commandColumn_;
     NSTableColumn* shortcutColumn_;
@@ -85,6 +87,8 @@
 - (BOOL)tableView:(NSTableView *)aTableView acceptDrop:(id <NSDraggingInfo>)info
               row:(NSInteger)row dropOperation:(NSTableViewDropOperation)operation;
 
+// Sorting
+- (void)newSorting:(SEL *)selector;
 
 // Delegate methods
 - (BOOL)selectionShouldChangeInTableView:(NSTableView *)aTableView;

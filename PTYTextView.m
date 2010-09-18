@@ -83,7 +83,7 @@ static NSCursor* textViewCursor =  nil;
     dataSource=_delegate=markedTextAttributes=NULL;
 
     layoutManager = [[NSLayoutManager alloc] init];
-    
+
     [self setMarkedTextAttributes:
         [NSDictionary dictionaryWithObjectsAndKeys:
             [NSColor yellowColor], NSBackgroundColorAttributeName,
@@ -102,7 +102,7 @@ static NSCursor* textViewCursor =  nil;
         NSFilenamesPboardType,
         NSStringPboardType,
         nil]];
-    
+
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(_settingsChanged:)
                                                  name:@"iTermRefreshTerminal"
@@ -115,23 +115,23 @@ static NSCursor* textViewCursor =  nil;
 
 - (BOOL) resignFirstResponder
 {
-    
+
     //NSLog(@"0x%x: %s", self, __PRETTY_FUNCTION__);
-        
+
     return (YES);
 }
 
 - (BOOL) becomeFirstResponder
 {
-    
+
     //NSLog(@"0x%x: %s", self, __PRETTY_FUNCTION__);
-        
+
     return (YES);
 }
 
-- (void)viewWillMoveToWindow:(NSWindow *)win 
+- (void)viewWillMoveToWindow:(NSWindow *)win
 {
-    
+
     //NSLog(@"0x%x: %s, will move view from %@ to %@", self, __PRETTY_FUNCTION__, [self window], win);
     if (!win && [self window] && trackingRectTag) {
         //NSLog(@"remove tracking");
@@ -148,7 +148,7 @@ static NSCursor* textViewCursor =  nil;
         //NSLog(@"add tracking");
         trackingRectTag = [self addTrackingRect:[self frame] owner: self userData: nil assumeInside: NO];
     }
-    
+
 }
 
 - (void) dealloc
@@ -157,17 +157,17 @@ static NSCursor* textViewCursor =  nil;
     NSLog(@"%s: 0x%x", __PRETTY_FUNCTION__, self);
 #endif
     int i;
-    
+
     if (mouseDownEvent != nil) {
         [mouseDownEvent release];
         mouseDownEvent = nil;
     }
-     
+
     //NSLog(@"remove tracking");
     if(trackingRectTag)
         [self removeTrackingRect:trackingRectTag];
-    
-    [[NSNotificationCenter defaultCenter] removeObserver:self];    
+
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
     for(i=0;i<256;i++) {
         [colorTable[i] release];
     }
@@ -177,7 +177,7 @@ static NSCursor* textViewCursor =  nil;
     [selectionColor release];
     [defaultCursorColor release];
     [layoutManager release];
-    
+
     [font release];
     [nafont release];
 #ifdef PRETTY_BOLD
@@ -186,9 +186,9 @@ static NSCursor* textViewCursor =  nil;
 #endif
     [markedTextAttributes release];
     [markedText release];
-    
+
     [super dealloc];
-    
+
 #if DEBUG_ALLOC
     NSLog(@"%s: 0x%x, done", __PRETTY_FUNCTION__, self);
 #endif
@@ -277,7 +277,7 @@ static NSCursor* textViewCursor =  nil;
     [color retain];
     defaultFGColor=color;
     [self setNeedsDisplay:YES];
-    // reset our default character attributes    
+    // reset our default character attributes
 }
 
 - (void) setBGColor:(NSColor*)color
@@ -363,7 +363,7 @@ static NSCursor* textViewCursor =  nil;
 - (NSColor *)colorForCode:(int)theIndex
 {
     NSColor *color;
-    
+
     if (theIndex & DEFAULT_FG_COLOR_CODE) {
         // special colors?
         switch (theIndex) {
@@ -391,13 +391,13 @@ static NSCursor* textViewCursor =  nil;
         // bold black on black bg didn't show up. Let's try making all bold text
         // also bright and see how that works.
         // If this is unpopular, make it bright iff the foreground=background.
-        if ((theIndex & BOLD_MASK) && 
+        if ((theIndex & BOLD_MASK) &&
             (theIndex % 256 < 8)) {
             theIndex = (theIndex & ~BOLD_MASK) + 8;
         }
         color = colorTable[theIndex & 0xff];
     }
-    
+
     return color;
 }
 
@@ -407,7 +407,7 @@ static NSCursor* textViewCursor =  nil;
     NSLog(@"%s(%d):-[PTYTextView selectionColor]",
           __FILE__, __LINE__);
 #endif
-    
+
     return selectionColor;
 }
 
@@ -423,7 +423,6 @@ static NSCursor* textViewCursor =  nil;
     [self setNeedsDisplay:YES];
 }
 
-
 - (NSFont *)font
 {
     return font;
@@ -434,43 +433,67 @@ static NSCursor* textViewCursor =  nil;
     return nafont;
 }
 
-- (void)setFont:(NSFont*)aFont nafont:(NSFont *)naFont;
-{    
-#ifdef PRETTY_BOLD
-    NSFontManager* fontManager = [NSFontManager sharedFontManager];	
-#endif
++ (NSSize)charSizeForFont:(NSFont*)aFont horizontalSpacing:(float)hspace verticalSpacing:(float)vspace
+{
     NSMutableDictionary *dic = [NSMutableDictionary dictionary];
-    NSSize sz;
-    
+
     [dic setObject:aFont forKey:NSFontAttributeName];
-    sz = [@"W" sizeWithAttributes:dic];
-    
+    NSSize size = [@"W" sizeWithAttributes:dic];
+    size.width *= hspace;
+    NSLayoutManager* layoutManager = [[[NSLayoutManager alloc] init] autorelease];
+    size.height = [layoutManager defaultLineHeightForFont:aFont] * vspace;
+
+    size.width = ceil(size.width);
+    size.height = ceil(size.height);
+    return size;
+}
+
+- (float)horizontalSpacing
+{
+    return horizontalSpacing_;
+}
+
+- (float)verticalSpacing
+{
+    return verticalSpacing_;
+}
+
+- (void)setFont:(NSFont*)aFont nafont:(NSFont *)naFont horizontalSpacing:(float)horizontalSpacing verticalSpacing:(float)verticalSpacing
+{
+#ifdef PRETTY_BOLD
+    NSFontManager* fontManager = [NSFontManager sharedFontManager];
+#endif
+    NSSize sz = [PTYTextView charSizeForFont:aFont horizontalSpacing:1.0 verticalSpacing:1.0];
+
     charWidthWithoutSpacing = sz.width;
-    charHeightWithoutSpacing = [layoutManager defaultLineHeightForFont:aFont];
-    
+    charHeightWithoutSpacing = sz.height;
+    horizontalSpacing_ = horizontalSpacing;
+    verticalSpacing_ = verticalSpacing;
+    charWidth = charWidthWithoutSpacing * horizontalSpacing;
+    lineHeight = charHeightWithoutSpacing * verticalSpacing;
     [font release];
     [aFont retain];
     font=aFont;
-    
+
 #ifdef PRETTY_BOLD
     [boldFont release];
-    boldFont = [fontManager convertFont:font toHaveTrait:NSBoldFontMask];	
-    if (!([fontManager traitsOfFont:boldFont] & NSBoldFontMask)) {	
+    boldFont = [fontManager convertFont:font toHaveTrait:NSBoldFontMask];
+    if (!([fontManager traitsOfFont:boldFont] & NSBoldFontMask)) {
         boldFont = nil;
     } else {
         // may be nil at this point
         [boldFont retain];
     }
 #endif
-    
+
     [nafont release];
     [naFont retain];
     nafont=naFont;
-    
+
 #ifdef PRETTY_BOLD
     [boldNaFont release];
     boldNaFont = [fontManager convertFont:naFont toHaveTrait:NSBoldFontMask];
-    if (!([fontManager traitsOfFont:boldNaFont] & NSBoldFontMask)) {	
+    if (!([fontManager traitsOfFont:boldNaFont] & NSBoldFontMask)) {
         boldNaFont = nil;
     } else {
         // may be nil at this point
@@ -478,7 +501,7 @@ static NSCursor* textViewCursor =  nil;
     }
     [boldNaFont retain];
 #endif
-    
+
     [self setMarkedTextAttributes:
         [NSDictionary dictionaryWithObjectsAndKeys:
             [NSColor yellowColor], NSBackgroundColorAttributeName,
@@ -487,14 +510,18 @@ static NSCursor* textViewCursor =  nil;
             [NSNumber numberWithInt:2],NSUnderlineStyleAttributeName,
             NULL]];
     [self setNeedsDisplay:YES];
+
+    NSScrollView* scrollview = [self enclosingScrollView];
+    [scrollview setLineScroll:[self lineHeight]];
+    [scrollview setPageScroll:2*[self lineHeight]];
 }
 
 - (void)changeFont:(id)fontManager
 {
     if ([[PreferencePanel sharedInstance] onScreen]) {
         [[PreferencePanel sharedInstance] changeFont:fontManager];
-    } else {
-        [super changeFont:fontManager];
+    } else if ([[PreferencePanel sessionsInstance] onScreen]) {
+        [[PreferencePanel sessionsInstance] changeFont:fontManager];
     }
 }
 
@@ -516,11 +543,11 @@ static NSCursor* textViewCursor =  nil;
 - (void) setDelegate: (id) aDelegate
 {
     _delegate = aDelegate;
-}    
+}
 
-- (float) lineHeight
+- (float)lineHeight
 {
-    return (lineHeight);
+    return ceil(lineHeight);
 }
 
 - (void) setLineHeight: (float) aLineHeight
@@ -528,19 +555,9 @@ static NSCursor* textViewCursor =  nil;
     lineHeight = aLineHeight;
 }
 
-- (float) lineWidth
-{
-    return (lineWidth);
-}
-
-- (void) setLineWidth: (float) aLineWidth
-{
-    lineWidth = aLineWidth;
-}
-
 - (float) charWidth
 {
-    return (charWidth);
+    return ceil(charWidth);
 }
 
 - (void) setCharWidth: (float) width
@@ -636,21 +653,36 @@ static NSCursor* textViewCursor =  nil;
     [dataSource resetDirty];
 }
 
+- (NSRect)scrollViewContentSize
+{
+    NSRect r = NSMakeRect(0, 0, 0, 0);
+    r.size = [[self enclosingScrollView] contentSize];
+    return r;
+}
+
+- (float)excess
+{
+    NSRect visible = [self scrollViewContentSize];
+    int rows = visible.size.height / lineHeight;
+    float usablePixels = rows * lineHeight;
+    return visible.size.height - usablePixels;
+}
+
 // We override this method since both refresh and window resize can conflict
 // resulting in this happening twice So we do not allow the size to be set
 // larger than what the data source can fill
 - (void)setFrameSize:(NSSize)frameSize
 {
     // Force the height to always be correct
-    frameSize.height = [dataSource numberOfLines] * lineHeight;
+    frameSize.height = [dataSource numberOfLines] * lineHeight + [self excess];
     [super setFrameSize:frameSize];
 }
 
 static BOOL RectsEqual(NSRect* a, NSRect* b) {
-	return a->origin.x == b->origin.x &&
-		   a->origin.y == b->origin.y &&
-	       a->size.width == b->size.width &&
-       	   a->size.height == b->size.height;
+        return a->origin.x == b->origin.x &&
+                   a->origin.y == b->origin.y &&
+               a->size.width == b->size.width &&
+           a->size.height == b->size.height;
 }
 
 - (void)refresh
@@ -676,7 +708,12 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     int height = [dataSource numberOfLines] * lineHeight;
     NSRect frame = [self frame];
 
-    if (height != frame.size.height) {
+    NSRect visible = [self scrollViewContentSize];
+    int rows = visible.size.height / lineHeight;
+    float usablePixels = rows * lineHeight;
+    float excess = visible.size.height - usablePixels;
+
+    if ((int)(height + excess) != frame.size.height) {
         // The old iTerm code had a comment about a hack at this location
         // that worked around an (alleged) but in NSClipView not respecting
         // setCopiesOnScroll:YES and a gross workaround. The workaround caused
@@ -694,12 +731,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         // Resize the frame
         frame.size.height = height;
         [self setFrame:frame];
-
     } else if (scrollbackOverflow > 0) {
         // Some number of lines were lost from the head of the buffer.
-        
+
         NSScrollView* scrollView = [self enclosingScrollView];
-        NSClipView* clipView = [scrollView contentView];
         float amount = [scrollView verticalLineScroll] * scrollbackOverflow;
         BOOL userScroll = [(PTYScroller*)([scrollView verticalScroller]) userScroll];
 
@@ -725,9 +760,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 redrawAll = YES;
                 [self setNeedsDisplay:YES];
             }
-            [clipView setCopiesOnScroll:NO];
             [self scrollRectToVisible:scrollRect];
-            [clipView setCopiesOnScroll:YES];
             if (!redrawAll) {
                 return;
             }
@@ -755,7 +788,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 -(void) scrollLineUp: (id) sender
 {
     NSRect scrollRect;
-    
+
     scrollRect= [self visibleRect];
     scrollRect.origin.y-=[[self enclosingScrollView] verticalLineScroll];
     if (scrollRect.origin.y<0) scrollRect.origin.y=0;
@@ -766,7 +799,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 -(void) scrollLineDown: (id) sender
 {
     NSRect scrollRect;
-    
+
     scrollRect= [self visibleRect];
     scrollRect.origin.y+=[[self enclosingScrollView] verticalLineScroll];
     [self scrollRectToVisible: scrollRect];
@@ -775,7 +808,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 -(void) scrollPageUp: (id) sender
 {
     NSRect scrollRect;
-    
+
     scrollRect= [self visibleRect];
     scrollRect.origin.y-= scrollRect.size.height - [[self enclosingScrollView] verticalPageScroll];
     [self scrollRectToVisible: scrollRect];
@@ -784,7 +817,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 -(void) scrollPageDown: (id) sender
 {
     NSRect scrollRect;
-    
+
     scrollRect= [self visibleRect];
     scrollRect.origin.y+= scrollRect.size.height - [[self enclosingScrollView] verticalPageScroll];
     [self scrollRectToVisible: scrollRect];
@@ -793,7 +826,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 -(void) scrollHome
 {
     NSRect scrollRect;
-    
+
     scrollRect= [self visibleRect];
     scrollRect.origin.y = 0;
     [self scrollRectToVisible: scrollRect];
@@ -805,10 +838,11 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     NSLog(@"%s(%d):-[PTYTextView scrollEnd]", __FILE__, __LINE__ );
 #endif
 
-    if([dataSource numberOfLines] <= 0) return;
-
+    if ([dataSource numberOfLines] <= 0) {
+      return;
+    }
     NSRect lastLine = [self visibleRect];
-    lastLine.origin.y = ([dataSource numberOfLines] - 1) * lineHeight;
+    lastLine.origin.y = ([dataSource numberOfLines] - 1) * lineHeight + [self excess];
     lastLine.size.height = lineHeight;
     [self scrollRectToVisible:lastLine];
 }
@@ -821,7 +855,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     aFrame.size.width = [self frame].size.width;
     aFrame.size.height = (endY - startY + 1) *lineHeight;
     [self scrollRectToVisible: aFrame];
-    [(PTYScroller*)([[self enclosingScrollView] verticalScroller]) setUserScroll:YES];    
+    [(PTYScroller*)([[self enclosingScrollView] verticalScroller]) setUserScroll:YES];
 }
 
 -(void) hideCursor
@@ -870,7 +904,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 count = 1;
             }
         }
-        
+
         DebugLog(line);
     }
     [self unlockFocus];
@@ -889,7 +923,8 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         [self frame].origin.x, [self frame].origin.y, [self frame].size.width, [self frame].size.height);
 #endif
 
-    if (lineHeight <= 0 || lineWidth <= 0) {
+    float curLineWidth = [dataSource width] * charWidth;
+    if (lineHeight <= 0 || curLineWidth <= 0) {
         DebugLog(@"height or width too small");
         return;
     }
@@ -905,6 +940,13 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     // Ensure valid line ranges
     if(lineStart < 0) lineStart = 0;
     if(lineEnd > [dataSource numberOfLines]) lineEnd = [dataSource numberOfLines];
+    NSRect visible = [self scrollViewContentSize];
+    int vh = visible.size.height;
+    int lh = lineHeight;
+    int visibleRows = vh/lh;
+    if (lineEnd > lineStart + visibleRows) {
+        lineEnd = lineStart + visibleRows;
+    }
 
     DebugLog([NSString stringWithFormat:@"Draw lines in [%d, %d)", lineStart, lineEnd]);
     // Draw each line
@@ -917,6 +959,24 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             [self _drawLine:line AtY:line*lineHeight];
         }
     }
+
+    NSRect excessRect;
+    excessRect.origin.x = 0;
+    excessRect.origin.y = lineEnd*lineHeight; //lineEnd * lineHeight;
+    excessRect.size.width = [[self enclosingScrollView] contentSize].width;
+    excessRect.size.height = 15; //[self excess];
+#if 0
+    // Draws the excess bar in a different color each time
+    static int i;
+    i++;
+    float r = ((float)((i + 0) % 100)) / 100;
+    float g = ((float)((i + 33) % 100)) / 100;
+    float b = ((float)((i + 66) % 100)) / 100;
+    [[NSColor colorWithDeviceRed:r green:g blue:b alpha:1] set];
+#endif
+
+    [defaultBGColor set];
+    NSRectFill(excessRect);
 
 #if 0
     // Draws a different-colored rectangle around each drawn area. Useful for
@@ -932,7 +992,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #endif
     // Draw cursor
     [self _drawCursor];
-    
+
     if (gDebugLogging) {
         [self _debugLogScreenContents];
     }
@@ -968,8 +1028,8 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     [self interpretKeyEvents:[NSArray arrayWithObject:event]];
 
     // If the IME didn't want it, pass it on to the delegate
-    if (!prev && 
-        !IM_INPUT_INSERT && 
+    if (!prev &&
+        !IM_INPUT_INSERT &&
         ![self hasMarkedText]) {
         [delegate keyDown:event];
     }
@@ -988,12 +1048,12 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
     NSPoint locationInWindow, locationInTextView;
     locationInWindow = [event locationInWindow];
-    locationInTextView = [self convertPoint: locationInWindow fromView: nil]; 
-    
+    locationInTextView = [self convertPoint: locationInWindow fromView: nil];
+
     NSRect visibleRect = [[self enclosingScrollView] documentVisibleRect];
-    if (([[self delegate] xtermMouseReporting]) 
+    if (([[self delegate] xtermMouseReporting])
         && (locationInTextView.y > visibleRect.origin.y) && !([event modifierFlags] & NSAlternateKeyMask))
-        //        && ([event modifierFlags] & NSCommandKeyMask == 0)) 
+        //        && ([event modifierFlags] & NSCommandKeyMask == 0))
     {
         int rx, ry;
         rx = (locationInTextView.x-MARGIN - visibleRect.origin.x)/charWidth;
@@ -1005,7 +1065,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
         int bnum = [event buttonNumber];
         if (bnum == 2) bnum = 1;
-        
+
         switch ([terminal mouseMode]) {
             case MOUSE_REPORTING_NORMAL:
             case MOUSE_REPORTING_BUTTON_MOTION:
@@ -1020,7 +1080,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 break;
         }
     }
-    
+
     if([[PreferencePanel sharedInstance] pasteFromClipboard])
         [self paste: nil];
     else
@@ -1031,10 +1091,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     NSPoint locationInWindow, locationInTextView;
     locationInWindow = [event locationInWindow];
-    locationInTextView = [self convertPoint: locationInWindow fromView: nil]; 
-    
+    locationInTextView = [self convertPoint: locationInWindow fromView: nil];
+
     NSRect visibleRect = [[self enclosingScrollView] documentVisibleRect];
-    if (([[self delegate] xtermMouseReporting]) 
+    if (([[self delegate] xtermMouseReporting])
         && reportingMouseDown && !([event modifierFlags] & NSAlternateKeyMask))
     {
         reportingMouseDown = NO;
@@ -1045,7 +1105,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         if (ry < 0) ry = -1;
         VT100Terminal *terminal = [dataSource terminal];
         PTYSession* session = [dataSource session];
-        
+
         switch ([terminal mouseMode]) {
             case MOUSE_REPORTING_NORMAL:
             case MOUSE_REPORTING_BUTTON_MOTION:
@@ -1058,7 +1118,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 // fall through
                 break;
         }
-    }    
+    }
     [super otherMouseUp:event];
 }
 
@@ -1066,10 +1126,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     NSPoint locationInWindow, locationInTextView;
     locationInWindow = [event locationInWindow];
-    locationInTextView = [self convertPoint: locationInWindow fromView: nil]; 
-    
+    locationInTextView = [self convertPoint: locationInWindow fromView: nil];
+
     NSRect visibleRect = [[self enclosingScrollView] documentVisibleRect];
-    if (([[self delegate] xtermMouseReporting]) 
+    if (([[self delegate] xtermMouseReporting])
         && (locationInTextView.y > visibleRect.origin.y)
         && reportingMouseDown && !([event modifierFlags] & NSAlternateKeyMask))
     {
@@ -1080,10 +1140,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         if (ry < 0) ry = -1;
         VT100Terminal *terminal = [dataSource terminal];
         PTYSession* session = [dataSource session];
-        
+
         int bnum = [event buttonNumber];
         if (bnum == 2) bnum = 1;
-        
+
         switch ([terminal mouseMode]) {
             case MOUSE_REPORTING_NORMAL:
             case MOUSE_REPORTING_BUTTON_MOTION:
@@ -1105,15 +1165,15 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s: %@]", __PRETTY_FUNCTION__, event);
 #endif
-    
+
     NSPoint locationInWindow, locationInTextView;
     locationInWindow = [event locationInWindow];
-    locationInTextView = [self convertPoint: locationInWindow fromView: nil]; 
-    
+    locationInTextView = [self convertPoint: locationInWindow fromView: nil];
+
     NSRect visibleRect = [[self enclosingScrollView] documentVisibleRect];
-    if (([[self delegate] xtermMouseReporting]) 
+    if (([[self delegate] xtermMouseReporting])
         && (locationInTextView.y > visibleRect.origin.y) && !([event modifierFlags] & NSAlternateKeyMask))
-        //        && ([event modifierFlags] & NSCommandKeyMask == 0)) 
+        //        && ([event modifierFlags] & NSCommandKeyMask == 0))
     {
         int rx, ry;
         rx = (locationInTextView.x-MARGIN - visibleRect.origin.x)/charWidth;
@@ -1122,7 +1182,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         if (ry < 0) ry = -1;
         VT100Terminal *terminal = [dataSource terminal];
         PTYSession* session = [dataSource session];
-        
+
         switch ([terminal mouseMode]) {
             case MOUSE_REPORTING_NORMAL:
             case MOUSE_REPORTING_BUTTON_MOTION:
@@ -1144,10 +1204,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     NSPoint locationInWindow, locationInTextView;
     locationInWindow = [event locationInWindow];
-    locationInTextView = [self convertPoint: locationInWindow fromView: nil]; 
-    
+    locationInTextView = [self convertPoint: locationInWindow fromView: nil];
+
     NSRect visibleRect = [[self enclosingScrollView] documentVisibleRect];
-    if (([[self delegate] xtermMouseReporting]) 
+    if (([[self delegate] xtermMouseReporting])
         && reportingMouseDown && !([event modifierFlags] & NSAlternateKeyMask))
     {
         reportingMouseDown = NO;
@@ -1158,7 +1218,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         if (ry < 0) ry = -1;
         VT100Terminal *terminal = [dataSource terminal];
         PTYSession* session = [dataSource session];
-        
+
         switch ([terminal mouseMode]) {
             case MOUSE_REPORTING_NORMAL:
             case MOUSE_REPORTING_BUTTON_MOTION:
@@ -1171,7 +1231,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 // fall through
                 break;
         }
-    }    
+    }
     [super rightMouseUp:event];
 }
 
@@ -1179,10 +1239,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     NSPoint locationInWindow, locationInTextView;
     locationInWindow = [event locationInWindow];
-    locationInTextView = [self convertPoint: locationInWindow fromView: nil]; 
-    
+    locationInTextView = [self convertPoint: locationInWindow fromView: nil];
+
     NSRect visibleRect = [[self enclosingScrollView] documentVisibleRect];
-    if (([[self delegate] xtermMouseReporting]) 
+    if (([[self delegate] xtermMouseReporting])
         && (locationInTextView.y > visibleRect.origin.y)
         && reportingMouseDown && !([event modifierFlags] & NSAlternateKeyMask))
     {
@@ -1193,7 +1253,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         if (ry < 0) ry = -1;
         VT100Terminal *terminal = [dataSource terminal];
         PTYSession* session = [dataSource session];
-        
+
         switch ([terminal mouseMode]) {
             case MOUSE_REPORTING_NORMAL:
             case MOUSE_REPORTING_BUTTON_MOTION:
@@ -1215,15 +1275,15 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s: %@]", __PRETTY_FUNCTION__, event);
 #endif
-    
+
     NSPoint locationInWindow, locationInTextView;
     locationInWindow = [event locationInWindow];
-    locationInTextView = [self convertPoint: locationInWindow fromView: nil]; 
-    
+    locationInTextView = [self convertPoint: locationInWindow fromView: nil];
+
     NSRect visibleRect = [[self enclosingScrollView] documentVisibleRect];
-    if (([[self delegate] xtermMouseReporting]) 
+    if (([[self delegate] xtermMouseReporting])
         && (locationInTextView.y > visibleRect.origin.y) && !([event modifierFlags] & NSAlternateKeyMask))
-        //        && ([event modifierFlags] & NSCommandKeyMask == 0)) 
+        //        && ([event modifierFlags] & NSCommandKeyMask == 0))
     {
         int rx, ry;
         rx = (locationInTextView.x-MARGIN - visibleRect.origin.x)/charWidth;
@@ -1232,7 +1292,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         if (ry < 0) ry = -1;
         VT100Terminal *terminal = [dataSource terminal];
         PTYSession* session = [dataSource session];
-        
+
         switch ([terminal mouseMode]) {
             case MOUSE_REPORTING_NORMAL:
             case MOUSE_REPORTING_BUTTON_MOTION:
@@ -1248,8 +1308,8 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 break;
         }
     }
-    
-    [super scrollWheel:event];    
+
+    [super scrollWheel:event];
 }
 
 - (void)mouseExited:(NSEvent *)event
@@ -1261,42 +1321,42 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 - (void)mouseEntered:(NSEvent *)event
 {
     //NSLog(@"%s: 0x%x", __PRETTY_FUNCTION__, self);
-    
+
     if([[PreferencePanel sharedInstance] focusFollowsMouse])
         [[self window] makeKeyWindow];
 }
 
 - (void)mouseDown:(NSEvent *)event
 {
-    
+
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView mouseDown:%@]",
           __FILE__, __LINE__, event );
 #endif
-    
+
     NSPoint locationInWindow, locationInTextView;
     int x, y;
     int width = [dataSource width];
-    
+
     locationInWindow = [event locationInWindow];
-    locationInTextView = [self convertPoint: locationInWindow fromView: nil]; 
-    
+    locationInTextView = [self convertPoint: locationInWindow fromView: nil];
+
     x = (locationInTextView.x - MARGIN + charWidth/2)/charWidth;
     //NSLog(@"Down on to pixel %d -> x=%d (charWidth=%d)", (int) locationInTextView.x-MARGIN, x, (int)charWidth);
     if (x < 0) {
         x = 0;
     }
     y = locationInTextView.y/lineHeight;
-    
+
     if (x >= width) {
         x = width  - 1;
     }
-    
+
     NSRect visibleRect = [[self enclosingScrollView] documentVisibleRect];
-    if (([[self delegate] xtermMouseReporting]) && 
-        (locationInTextView.y > visibleRect.origin.y) && 
+    if (([[self delegate] xtermMouseReporting]) &&
+        (locationInTextView.y > visibleRect.origin.y) &&
         !([event modifierFlags] & NSAlternateKeyMask)) {
-        
+
         int rx, ry;
         rx = (locationInTextView.x-MARGIN - visibleRect.origin.x)/charWidth;
         ry = (locationInTextView.y - visibleRect.origin.y)/lineHeight;
@@ -1304,7 +1364,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         if (ry < 0) ry = -1;
         VT100Terminal *terminal = [dataSource terminal];
         PTYSession* session = [dataSource session];
-        
+
         switch ([terminal mouseMode]) {
             case MOUSE_REPORTING_NORMAL:
             case MOUSE_REPORTING_BUTTON_MOTION:
@@ -1326,18 +1386,18 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     if(mouseDownEvent != nil) {
         [mouseDownEvent release];
         mouseDownEvent = nil;
-    }    
+    }
     [event retain];
     mouseDownEvent = event;
-    
-    
+
+
     mouseDragged = NO;
     mouseDown = YES;
     mouseDownOnSelection = NO;
-    
+
     if ([event clickCount] < 2) {
         // single click
-        if (([event modifierFlags] & NSAlternateKeyMask) || 
+        if (([event modifierFlags] & NSAlternateKeyMask) ||
             (selectMode == SELECT_BOX && ([event modifierFlags] & NSCommandKeyMask))) {
             selectMode = SELECT_BOX;
         } else {
@@ -1359,7 +1419,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             endX = x;
             endY = y;
             // startX and endX may be reversed, but mouseUp fixes it.
-        } else if (startX > -1 && 
+        } else if (startX > -1 &&
                    [self _isCharSelectedInRow:y col:x checkOld:NO]) {
             // not holding down shift key but there is an existing selection.
             // Possibly a drag coming up.
@@ -1370,10 +1430,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             // start a new selection
             endX = startX = x;
             endY = startY = y;
-        }    
+        }
     } else if ([event clickCount] == 2) {
         int tmpX1, tmpY1, tmpX2, tmpY2;
-        
+
         // double-click; select word
         selectMode = SELECT_WORD;
         NSString *selectedWord = [self _getWordForX: x y: y startX: &tmpX1 startY: &tmpY1 endX: &tmpX2 endY: &tmpY2];
@@ -1385,7 +1445,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             if (startX + startY * width < tmpX1 + tmpY1 * width) {
                 // extend end of selection
                 endX = tmpX2;
-                endY = tmpY2;    
+                endY = tmpY2;
             } else {
                 // extend start of selection
                 startX = endX;
@@ -1398,7 +1458,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             startX = tmpX1;
             startY = tmpY1;
             endX = tmpX2;
-            endY = tmpY2;    
+            endY = tmpY2;
         }
     } else if ([event clickCount] >= 3) {
         // triple-click; select line
@@ -1424,18 +1484,18 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             startX = 0;
             endX = width;
             startY = endY = y;
-        }            
+        }
     }
 
     DebugLog([NSString stringWithFormat:@"Mouse down. startx=%d starty=%d, endx=%d, endy=%d", startX, startY, endX, endY]);
     if([_delegate respondsToSelector: @selector(willHandleEvent:)] && [_delegate willHandleEvent: event])
         [_delegate handleEvent: event];
     [self updateDirtyRects];
-    
+
 }
 
 - (void)mouseUp:(NSEvent *)event
-{    
+{
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView mouseUp:%@]",
           __FILE__, __LINE__, event );
@@ -1444,7 +1504,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     NSPoint locationInTextView = [self convertPoint: locationInWindow fromView: nil];
     int x, y;
     int width = [dataSource width];
-    
+
     x = (locationInTextView.x - MARGIN) / charWidth;
     if (x < 0) {
         x = 0;
@@ -1452,9 +1512,9 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     if (x>=width) {
         x = width - 1;
     }
-    
+
     y = locationInTextView.y / lineHeight;
-    
+
     // Send mouse up event to host if xterm mouse reporting is on
     if ([[self delegate] xtermMouseReporting]
         && reportingMouseDown && !([event modifierFlags] & NSAlternateKeyMask)) {
@@ -1471,7 +1531,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         }
         VT100Terminal *terminal = [dataSource terminal];
         PTYSession* session = [dataSource session];
-        
+
         switch ([terminal mouseMode]) {
             case MOUSE_REPORTING_NORMAL:
             case MOUSE_REPORTING_BUTTON_MOTION:
@@ -1492,14 +1552,14 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     }
 
     if (mouseDown == NO) {
-        DebugLog([NSString stringWithFormat:@"Mouse up. startx=%d starty=%d, endx=%d, endy=%d", startX, startY, endX, endY]);        
+        DebugLog([NSString stringWithFormat:@"Mouse up. startx=%d starty=%d, endx=%d, endy=%d", startX, startY, endX, endY]);
         return;
     }
     mouseDown = NO;
-        
+
     // make sure we have key focus
     [[self window] makeFirstResponder: self];
-    
+
     if (startY > endY ||
         (startY == endY && startX > endX)) {
         // Make sure the start is before the end.
@@ -1507,13 +1567,13 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         t = startY; startY = endY; endY = t;
         t = startX; startX = endX; endX = t;
     } else if ([mouseDownEvent locationInWindow].x == [event locationInWindow].x &&
-               [mouseDownEvent locationInWindow].y == [event locationInWindow].y && 
+               [mouseDownEvent locationInWindow].y == [event locationInWindow].y &&
                !([event modifierFlags] & NSShiftKeyMask) &&
-               [event clickCount] < 2 && 
-               !mouseDragged) {  
+               [event clickCount] < 2 &&
+               !mouseDragged) {
         // Just a click in the window.
         startX=-1;
-        if (([event modifierFlags] & NSCommandKeyMask) && 
+        if (([event modifierFlags] & NSCommandKeyMask) &&
             [[PreferencePanel sharedInstance] cmdSelection] &&
             [mouseDownEvent locationInWindow].x == [event locationInWindow].x &&
             [mouseDownEvent locationInWindow].y == [event locationInWindow].y) {
@@ -1529,23 +1589,23 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             NSLog(@"Reset find position to %d,%d", lastFindX, absLastFindY);
         }
     }
-    
+
     // if we are on an empty line, we select the current line to the end
     //if([self _isBlankLine: y] && y >= 0)
     //  endX = [dataSource width] - 1;
-    
+
     if (startX > -1 && _delegate) {
         // if we want to copy our selection, do so
         if ([[PreferencePanel sharedInstance] copySelection]) {
             [self copy: self];
         }
     }
-    
+
     if (selectMode != SELECT_BOX) {
         selectMode = SELECT_CHAR;
     }
     DebugLog([NSString stringWithFormat:@"Mouse up. startx=%d starty=%d, endx=%d, endy=%d", startX, startY, endX, endY]);
-    
+
     [self updateDirtyRects];
 }
 
@@ -1561,7 +1621,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     int x, y, tmpX1, tmpX2, tmpY1, tmpY2;
     int width = [dataSource width];
     NSString *theSelectedText;
-    
+
     float logicalX = locationInTextView.x - MARGIN - charWidth/2;
     if (logicalX >= 0) {
         x = logicalX / charWidth;
@@ -1571,10 +1631,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     //NSLog(@"Drag to pixel %d -> x=%d (charWidth=%d) logical=%f", (int) locationInTextView.x-MARGIN, x, (int)charWidth, logicalX);
     if (x < -1) x = -1;
     if (x >= width) x = width - 1;
-    
-    
+
+
     y = locationInTextView.y/lineHeight;
-    
+
     if (([[self delegate] xtermMouseReporting])
         && reportingMouseDown&& !([event modifierFlags] & NSAlternateKeyMask)) {
         int rx, ry;
@@ -1585,7 +1645,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         if (ry < 0) ry = -1;
         VT100Terminal *terminal = [dataSource terminal];
         PTYSession* session = [dataSource session];
-        
+
         switch ([terminal mouseMode]) {
             case MOUSE_REPORTING_BUTTON_MOTION:
             case MOUSE_REPORTING_ALL_MOTION:
@@ -1600,10 +1660,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 break;
         }
     }
-    
+
     mouseDragged = YES;
-    
-    if (mouseDownOnSelection == YES && 
+
+    if (mouseDownOnSelection == YES &&
         ([event modifierFlags] & NSCommandKeyMask)) {
         // Drag and drop a selection
         if (selectMode == SELECT_BOX) {
@@ -1617,8 +1677,8 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             return;
         }
     }
-    
-    // NSLog(@"(%f,%f)->(%f,%f)",locationInWindow.x,locationInWindow.y,locationInTextView.x,locationInTextView.y); 
+
+    // NSLog(@"(%f,%f)->(%f,%f)",locationInWindow.x,locationInWindow.y,locationInTextView.x,locationInTextView.y);
     if (locationInTextView.y < rectInTextView.origin.y) {
         // Scroll window up to show selection
         rectInTextView.origin.y = locationInTextView.y;
@@ -1628,12 +1688,12 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         rectInTextView.origin.y += locationInTextView.y - rectInTextView.origin.y - rectInTextView.size.height;
         [self scrollRectToVisible:rectInTextView];
     }
-    
+
     // if we are on an empty line, we select the current line to the end
     if (y >= 0 && [self _isBlankLine: y]) {
         x = width;
     }
-    
+
     if (locationInTextView.x < MARGIN && startY < y) {
         // complete selection of previous line
         x = width;
@@ -1645,7 +1705,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     if (y >= [dataSource numberOfLines]) {
         y=[dataSource numberOfLines] - 1;
     }
-    
+
     switch (selectMode) {
         case SELECT_CHAR:
         case SELECT_BOX:
@@ -1653,7 +1713,6 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             endY = y;
             break;
         case SELECT_WORD:
-            // TODO(georgen): test this with x=01
             [self _getWordForX:x y:y startX:&tmpX1 startY:&tmpY1 endX:&tmpX2 endY:&tmpY2];
             if ((startX + (startY * width)) < (tmpX2 + (tmpY2 * width))) {
                 // We go forwards in our selection session... and...
@@ -1743,19 +1802,19 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     screen_char_t *theLine;
     BOOL endOfLine;
     int i;
-    
+
     width = [dataSource width];
     temp = (unichar *) malloc(((endy-starty+1)*(width+1)+(endx-startx+1))*sizeof(unichar));
     j = 0;
-    for (y = starty; y <= endy; y++) 
+    for (y = starty; y <= endy; y++)
     {
         theLine = [dataSource getLineAtIndex:y];
 
         x1 = y == starty ? startx : 0;
         x2 = y == endy ? endx : width-1;
-        for(; x1 <= x2; x1++) 
+        for(; x1 <= x2; x1++)
         {
-            if (theLine[x1].ch != 0xffff) 
+            if (theLine[x1].ch != 0xffff)
             {
                 temp[j] = theLine[x1].ch;
                 if(theLine[x1].ch == 0) // end of line?
@@ -1787,12 +1846,12 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 }
                 j++;
             }
-        }        
+        }
     }
-    
+
     str=[NSString stringWithCharacters:temp length:j];
     free(temp);
-    
+
     return str;
 }
 
@@ -1821,11 +1880,11 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
 - (NSString *) selectedTextWithPad: (BOOL) pad
 {
-    
+
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s]", __PRETTY_FUNCTION__);
 #endif
-    
+
     if (startX <= -1) return nil;
     if (selectMode == SELECT_BOX) {
         return [self contentInBoxFromX: startX Y: startY ToX: endX Y: endY pad: pad];
@@ -1836,11 +1895,11 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
 - (NSString *) content
 {
-    
+
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView content]", __FILE__, __LINE__);
 #endif
-        
+
     return [self contentFromX:0 Y:0 ToX:[dataSource width] Y:[dataSource numberOfLines]-1 pad: NO];
 }
 
@@ -1848,13 +1907,13 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     NSPasteboard *pboard = [NSPasteboard generalPasteboard];
     NSString *copyString;
-    
+
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView copy:%@]", __FILE__, __LINE__, sender );
 #endif
-    
+
     copyString=[self selectedText];
-    
+
     if (copyString && [copyString length]>0) {
         [pboard declareTypes: [NSArray arrayWithObject: NSStringPboardType] owner: self];
         [pboard setString: copyString forType: NSStringPboardType];
@@ -1866,7 +1925,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView paste:%@]", __FILE__, __LINE__, sender );
 #endif
-    
+
     if ([_delegate respondsToSelector:@selector(paste:)])
         [_delegate paste:sender];
 }
@@ -1876,10 +1935,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s: %@]", __PRETTY_FUNCTION__, sender );
 #endif
-    
+
     if (startX > -1 && [_delegate respondsToSelector:@selector(pasteString:)])
         [_delegate pasteString:[self selectedText]];
-    
+
 }
 
 
@@ -1888,18 +1947,18 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView validateMenuItem:%@; supermenu = %@]", __FILE__, __LINE__, item, [[item menu] supermenu] );
 #endif
-        
+
     if ([item action] == @selector(paste:))
     {
         NSPasteboard *pboard = [NSPasteboard generalPasteboard];
-        
+
         // Check if there is a string type on the pasteboard
         return ([pboard stringForType:NSStringPboardType] != nil);
     }
     else if ([item action ] == @selector(cut:))
         return NO;
     else if ([item action]==@selector(saveDocumentAs:) ||
-             [item action] == @selector(selectAll:) || 
+             [item action] == @selector(selectAll:) ||
              ([item action] == @selector(print:) && [item tag] != 1))
     {
         // We always validate the above commands
@@ -1909,7 +1968,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
              [item action]==@selector(browse:) ||
              [item action]==@selector(searchInBrowser:) ||
              [item action]==@selector(copy:) ||
-             [item action]==@selector(pasteSelection:) || 
+             [item action]==@selector(pasteSelection:) ||
              ([item action]==@selector(print:) && [item tag] == 1)) // print selection
     {
         //        NSLog(@"selected range:%d",[self selectedRange].length);
@@ -1922,10 +1981,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 - (NSMenu *)menuForEvent:(NSEvent *)theEvent
 {
     NSMenu *theMenu;
-    
+
     // Allocate a menu
     theMenu = [[NSMenu alloc] initWithTitle:@"Contextual Menu"];
-    
+
     // Menu items for acting on text selections
     [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"-> Browser",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(browse:) keyEquivalent:@""];
@@ -1933,10 +1992,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                      action:@selector(searchInBrowser:) keyEquivalent:@""];
     [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"-> Mail",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(mail:) keyEquivalent:@""];
-    
+
     // Separator
     [theMenu addItem:[NSMenuItem separatorItem]];
-    
+
     // Copy,  paste, and save
     [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Copy",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(copy:) keyEquivalent:@""];
@@ -1944,19 +2003,19 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                      action:@selector(paste:) keyEquivalent:@""];
     [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Save",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(saveDocumentAs:) keyEquivalent:@""];
-    
+
     // Separator
     [theMenu addItem:[NSMenuItem separatorItem]];
-    
+
     // Select all
     [theMenu addItemWithTitle:NSLocalizedStringFromTableInBundle(@"Select All",@"iTerm", [NSBundle bundleForClass: [self class]], @"Context menu")
                      action:@selector(selectAll:) keyEquivalent:@""];
-    
-    
+
+
     // Ask the delegae if there is anything to be added
     if ([[self delegate] respondsToSelector:@selector(menuForEvent: menu:)])
         [[self delegate] menuForEvent:theEvent menu: theMenu];
-    
+
     return [theMenu autorelease];
 }
 
@@ -1987,10 +2046,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView draggingEntered:%@]", __FILE__, __LINE__, sender );
 #endif
-    
+
     // Always say YES; handle failure later.
     bExtendedDragNDrop = YES;
-    
+
     return bExtendedDragNDrop;
 }
 
@@ -2003,14 +2062,14 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView draggingUpdated:%@]", __FILE__, __LINE__, sender );
 #endif
-    
+
     // Let's see if our parent NSTextView knows what to do
     iResult = [super draggingUpdated: sender];
-    
+
     // If parent class does not know how to deal with this drag type, check if we do.
     if (iResult == NSDragOperationNone) // Parent NSTextView does not support this drag type.
         return [self _checkForSupportedDragTypes: sender];
-    
+
     return iResult;
 }
 
@@ -2022,10 +2081,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView draggingExited:%@]", __FILE__, __LINE__, sender );
 #endif
-    
+
     // We don't do anything special, so let the parent NSTextView handle this.
     [super draggingExited: sender];
-    
+
     // Reset our handler flag
     bExtendedDragNDrop = NO;
 }
@@ -2039,14 +2098,14 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView prepareForDragOperation:%@]", __FILE__, __LINE__, sender );
 #endif
-    
+
     // Check if parent NSTextView knows how to handle this.
     bResult = [super prepareForDragOperation: sender];
-    
+
     // If parent class does not know how to deal with this drag type, check if we do.
     if ( bResult != YES && [self _checkForSupportedDragTypes: sender] != NSDragOperationNone )
         bResult = YES;
-    
+
     return bResult;
 }
 
@@ -2058,11 +2117,11 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     unsigned int dragOperation;
     BOOL bResult = NO;
     PTYSession *delegate = [self delegate];
-    
+
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView performDragOperation:%@]", __FILE__, __LINE__, sender );
 #endif
-    
+
     // If parent class does not know how to deal with this drag type, check if we do.
     if (bExtendedDragNDrop)
     {
@@ -2070,9 +2129,9 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         NSArray *propertyList;
         NSString *aString;
         int i;
-        
+
         dragOperation = [self _checkForSupportedDragTypes: sender];
-        
+
         switch (dragOperation)
         {
             case NSDragOperationCopy:
@@ -2083,12 +2142,12 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                     if ([delegate respondsToSelector:@selector(pasteString:)])
                         [delegate pasteString: aString];
                 }
-                    
+
                     // Check for file names
                     propertyList = [pb propertyListForType: NSFilenamesPboardType];
                 for(i = 0; i < [propertyList count]; i++)
                 {
-                    
+
                     // Ignore text clippings
                     NSString *filename = (NSString*)[propertyList objectAtIndex: i]; // this contains the POSIX path to a file
                     NSDictionary *filenamesAttributes = [[NSFileManager defaultManager] fileAttributesAtPath:filename traverseLink:YES];
@@ -2098,12 +2157,12 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                     {
                         continue;
                     }
-                    
+
                     // Just paste the file names into the shell after escaping special characters.
                     if ([delegate respondsToSelector:@selector(pasteString:)])
                     {
                         NSMutableString *aMutableString;
-                        
+
                         aMutableString = [[NSMutableString alloc] initWithString: (NSString*)[propertyList objectAtIndex: i]];
                         // get rid of special characters
                         [aMutableString replaceOccurrencesOfString: @"\\" withString: @"\\\\" options: 0 range: NSMakeRange(0, [aMutableString length])];
@@ -2121,7 +2180,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
                 }
                 bResult = YES;
-                break;                
+                break;
         }
 
     }
@@ -2137,12 +2196,12 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView concludeDragOperation:%@]", __FILE__, __LINE__, sender );
 #endif
-    
+
     // If we did no handle the drag'n'drop, ask our parent to clean up
     // I really wish the concludeDragOperation would have a useful exit value.
     if (!bExtendedDragNDrop)
         [super concludeDragOperation: sender];
-    
+
     bExtendedDragNDrop = NO;
 }
 
@@ -2155,15 +2214,15 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 // Save method
 - (void) saveDocumentAs: (id) sender
 {
-    
+
     NSData *aData;
     NSSavePanel *aSavePanel;
     NSString *aString;
-    
+
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView saveDocumentAs:%@]", __FILE__, __LINE__, sender );
 #endif
-    
+
     // We get our content of the textview or selection, if any
     aString = [self selectedText];
     if (!aString) aString = [self content];
@@ -2172,12 +2231,12 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
          allowLossyConversion: YES];
     // retain here so that is does not go away...
     [aData retain];
-    
+
     // initialize a save panel
     aSavePanel = [NSSavePanel savePanel];
     [aSavePanel setAccessoryView: nil];
     [aSavePanel setRequiredFileType: @""];
-    
+
     // Run the save panel as a sheet
     [aSavePanel beginSheetForDirectory: @""
                                   file: @"Unknown"
@@ -2193,16 +2252,16 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     NSRect visibleRect;
     int lineOffset, numLines;
     int type = sender ? [sender tag] : 0;
-    
+
     switch (type)
     {
         case 0: // visible range
             visibleRect = [[self enclosingScrollView] documentVisibleRect];
             // Starting from which line?
-            lineOffset = visibleRect.origin.y/lineHeight;            
+            lineOffset = visibleRect.origin.y/lineHeight;
             // How many lines do we need to draw?
             numLines = visibleRect.size.height/lineHeight;
-            [self printContent: [self contentFromX: 0 Y: lineOffset 
+            [self printContent: [self contentFromX: 0 Y: lineOffset
                                                ToX: [dataSource width] Y: lineOffset + numLines - 1
                                         pad: NO]];
             break;
@@ -2218,29 +2277,29 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 - (void) printContent: (NSString *) aString
 {
     NSPrintInfo *aPrintInfo;
-        
+
     aPrintInfo = [NSPrintInfo sharedPrintInfo];
     [aPrintInfo setHorizontalPagination: NSFitPagination];
     [aPrintInfo setVerticalPagination: NSAutoPagination];
     [aPrintInfo setVerticallyCentered: NO];
-    
+
     // create a temporary view with the contents, change to black on white, and print it
     NSTextView *tempView;
     NSMutableAttributedString *theContents;
-    
+
     tempView = [[NSTextView alloc] initWithFrame: [[self enclosingScrollView] documentVisibleRect]];
     theContents = [[NSMutableAttributedString alloc] initWithString: aString];
     [theContents addAttributes: [NSDictionary dictionaryWithObjectsAndKeys:
         [NSColor textBackgroundColor], NSBackgroundColorAttributeName,
-        [NSColor textColor], NSForegroundColorAttributeName, 
+        [NSColor textColor], NSForegroundColorAttributeName,
         [NSFont userFixedPitchFontOfSize: 0], NSFontAttributeName, NULL]
                          range: NSMakeRange(0, [theContents length])];
     [[tempView textStorage] setAttributedString: theContents];
     [theContents release];
-    
+
     // now print the temporary view
     [[NSPrintOperation printOperationWithView: tempView  printInfo: aPrintInfo] runOperation];
-    [tempView release];    
+    [tempView release];
 }
 
 /// NSTextInput stuff
@@ -2250,10 +2309,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     NSLog(@"%s(%d):-[PTYTextView doCommandBySelector:...]",
           __FILE__, __LINE__);
 #endif
-    
+
 #if GREED_KEYDOWN == 0
     id delegate = [self delegate];
-    
+
     if ([delegate respondsToSelector:aSelector]) {
         [delegate performSelector:aSelector withObject:nil];
     }
@@ -2266,7 +2325,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     NSLog(@"%s(%d):-[PTYTextView insertText:%@]",
           __FILE__, __LINE__, aString);
 #endif
-    
+
     if ([self hasMarkedText]) {
         IM_INPUT_MARKEDRANGE = NSMakeRange(0, 0);
         [markedText release];
@@ -2275,7 +2334,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     if (startX == -1) {
         [self resetFindCursor];
     }
-    
+
     if ([(NSString*)aString length]>0) {
         if ([_delegate respondsToSelector:@selector(insertText:)])
             [_delegate insertText:aString];
@@ -2289,7 +2348,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
 - (void)setMarkedText:(id)aString selectedRange:(NSRange)selRange
 {
-    
+
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView setMarkedText:%@ selectedRange:(%d,%d)]",
           __FILE__, __LINE__, aString, selRange.location, selRange.length);
@@ -2317,7 +2376,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 - (BOOL)hasMarkedText
 {
     BOOL result;
-    
+
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView hasMarkedText]", __FILE__, __LINE__ );
 #endif
@@ -2325,7 +2384,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         result = YES;
     else
         result = NO;
-    
+
     return result;
 }
 
@@ -2334,7 +2393,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView markedRange]", __FILE__, __LINE__);
 #endif
-    
+
     //return IM_INPUT_MARKEDRANGE;
     if (IM_INPUT_MARKEDRANGE.length > 0) {
         return NSMakeRange([dataSource cursorX]-1, IM_INPUT_MARKEDRANGE.length);
@@ -2368,7 +2427,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView attributedSubstringFromRange:(%d,%d)]", __FILE__, __LINE__, theRange.location, theRange.length);
 #endif
-    
+
     return [markedText attributedSubstringFromRange:NSMakeRange(0,theRange.length)];
 }
 
@@ -2377,7 +2436,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYTextView characterIndexForPoint:(%f,%f)]", __FILE__, __LINE__, thePoint.x, thePoint.y);
 #endif
-    
+
     return thePoint.x/charWidth;
 }
 
@@ -2396,12 +2455,12 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #endif
     int y=[dataSource cursorY]-1;
     int x=[dataSource cursorX]-1;
-    
+
     NSRect rect=NSMakeRect(x*charWidth+MARGIN,(y+[dataSource numberOfLines] - [dataSource height]+1)*lineHeight,charWidth*theRange.length,lineHeight);
     //NSLog(@"(%f,%f)",rect.origin.x,rect.origin.y);
     rect.origin=[[self window] convertBaseToScreen:[self convertPoint:rect.origin toView:nil]];
     //NSLog(@"(%f,%f)",rect.origin.x,rect.origin.y);
-    
+
     return rect;
 }
 
@@ -2409,28 +2468,28 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     return _findInProgress;
 }
-    
-- (BOOL) continueFind 
+
+- (BOOL) continueFind
 {
     BOOL more;
     BOOL found;
     // NSLog(@"PTYTextView continueFind");
-    more = [dataSource continueFindResultAtStartX:&startX 
-                                         atStartY:&startY 
-                                           atEndX:&endX 
-                                           atEndY:&endY 
+    more = [dataSource continueFindResultAtStartX:&startX
+                                         atStartY:&startY
+                                           atEndX:&endX
+                                           atEndY:&endY
                                             found:&found];
-    
-	if (found) {
-		// Lock scrolling after finding text
-		++endX; // make it half-open
-		[(PTYScroller*)([[self enclosingScrollView] verticalScroller]) setUserScroll:YES];
-		
-		[self _scrollToLine:endY];
-		[self setNeedsDisplay:YES];
-		lastFindX = startX;
-		absLastFindY = (long long)startY + [dataSource totalScrollbackOverflow];
-	}
+
+        if (found) {
+                // Lock scrolling after finding text
+                ++endX; // make it half-open
+                [(PTYScroller*)([[self enclosingScrollView] verticalScroller]) setUserScroll:YES];
+
+                [self _scrollToLine:endY];
+                [self setNeedsDisplay:YES];
+                lastFindX = startX;
+                absLastFindY = (long long)startY + [dataSource totalScrollbackOverflow];
+        }
     if (!more) {
         // NSLog(@"PTYTextView: done");
         _findInProgress = NO;
@@ -2443,25 +2502,25 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     lastFindX = absLastFindY = -1;
 }
 
-- (BOOL)findString:(NSString *)aString 
-  forwardDirection:(BOOL)direction 
-      ignoringCase:(BOOL)ignoreCase 
+- (BOOL)findString:(NSString *)aString
+  forwardDirection:(BOOL)direction
+      ignoringCase:(BOOL)ignoreCase
         withOffset:(int)offset
 {
     if (_findInProgress) {
         [dataSource cancelFind];
     }
-    
+
     if (lastFindX == -1) {
         lastFindX = 0;
         absLastFindY = (long long)([dataSource numberOfLines] + 1) + [dataSource totalScrollbackOverflow];
     }
 
-    [dataSource initFindString:aString 
-              forwardDirection:direction 
-                  ignoringCase:ignoreCase 
-                   startingAtX:lastFindX 
-                   startingAtY:absLastFindY - [dataSource totalScrollbackOverflow] 
+    [dataSource initFindString:aString
+              forwardDirection:direction
+                  ignoringCase:ignoreCase
+                   startingAtX:lastFindX
+                   startingAtY:absLastFindY - [dataSource totalScrollbackOverflow]
                     withOffset:offset];
     _findInProgress = YES;
 
@@ -2495,10 +2554,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 - (id)validRequestorForSendType:(NSString *)sendType returnType:(NSString *)returnType
 {
     //NSLog(@"%s: %@, %@", __PRETTY_FUNCTION__, sendType, returnType);
-    
+
     if(sendType != nil && [sendType isEqualToString: NSStringPboardType])
         return (self);
-    
+
     return ([super validRequestorForSendType: sendType returnType: returnType]);
 }
 
@@ -2506,15 +2565,15 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     //NSLog(@"%s", __PRETTY_FUNCTION__);
     NSString *copyString;
-        
+
     copyString=[self selectedText];
-    
+
     if (copyString && [copyString length]>0) {
         [pboard declareTypes: [NSArray arrayWithObject: NSStringPboardType] owner: self];
         [pboard setString: copyString forType: NSStringPboardType];
         return (YES);
     }
-    
+
     return (NO);
 }
 
@@ -2531,7 +2590,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 //
 @implementation PTYTextView (Private)
 
-- (void) _drawLine:(int)line AtY:(float)curY
+- (void)_drawLine:(int)line AtY:(float)curY
 {
     int screenstartline = [self frame].origin.y / lineHeight;
     DebugLog([NSString stringWithFormat:@"Draw line %d (%d on screen)", line, (line - screenstartline)]);
@@ -2543,11 +2602,16 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     float alpha = useTransparency ? 1.0 - transparency : 1.0;
     BOOL reversed = [[dataSource terminal] screenMode];
     NSColor *aColor = nil;
-    
+
     // Redraw margins
     NSRect leftMargin = NSMakeRect(0, curY, MARGIN, lineHeight);
-    NSRect rightMargin = leftMargin;
-    leftMargin.origin.x = [self visibleRect].size.width - MARGIN;
+    NSRect rightMargin;
+    NSRect visibleRect = [self visibleRect];
+    rightMargin.origin.x = charWidth * WIDTH;
+    rightMargin.origin.y = curY;
+    rightMargin.size.width = visibleRect.size.width - rightMargin.origin.x;
+    rightMargin.size.height = lineHeight;
+
     aColor = [self colorForCode:DEFAULT_BG_COLOR_CODE];
     aColor = [aColor colorWithAlphaComponent:alpha];
     [aColor set];
@@ -2558,7 +2622,8 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         NSRectFill(leftMargin);
         NSRectFill(rightMargin);
     }
-    
+    [aColor set];
+
     // Contiguous sections of background with the same colour
     // are combined into runs and draw as one operation
     int bgstart = -1;
@@ -2572,7 +2637,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         }
 
         BOOL selected = [self _isCharSelectedInRow:line col:j checkOld:NO];
-        BOOL double_width = j<WIDTH-1 && (theLine[j+1].ch == 0xffff);
+        BOOL double_width = j < WIDTH - 1 && (theLine[j+1].ch == 0xffff);
 
         if(j != WIDTH && bgstart < 0) {
             // Start new run
@@ -2583,7 +2648,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
         if(j != WIDTH && bgselected == selected && theLine[j].bg_color == bgcode) {
             // Continue the run
-            j+=(double_width?2:1);
+            j += (double_width ? 2 : 1);
         }
         else if(bgstart >= 0) {
             // This run is finished, draw it
@@ -2604,7 +2669,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
             for(int k = bgstart; k < j; k++) {
                 if(theLine[k].ch == 0xffff) continue;
-                double_width = k<WIDTH-1 && (theLine[k+1].ch == 0xffff);
+                double_width = k < WIDTH - 1 && (theLine[k+1].ch == 0xffff);
 
                 if(bgselected && ((theLine[k].fg_color & 0x3ff) == DEFAULT_FG_COLOR_CODE))
                     fgcode = SELECTED_TEXT | (theLine[k].fg_color & BOLD_MASK); // check for bold
@@ -2613,14 +2678,17 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                         (DEFAULT_BG_COLOR_CODE | (theLine[k].fg_color & BOLD_MASK)) : theLine[k].fg_color & 0x3ff;
 
                 if (blinkShow || !(theLine[k].fg_color & BLINK_MASK)) {
-                    [self _drawCharacter:theLine[k].ch fgColor:fgcode AtX:curX Y:curY doubleWidth: double_width overrideColor:nil];
+                    [self _drawCharacter:theLine[k].ch fgColor:fgcode AtX:curX Y:curY doubleWidth:double_width overrideColor:nil];
                     //draw underline
                     if (theLine[k].fg_color & UNDER_MASK && theLine[k].ch) {
                         [[self colorForCode:fgcode] set];
-                        NSRectFill(NSMakeRect(curX,curY+lineHeight-2,double_width?charWidth*2:charWidth,1));
+                        NSRectFill(NSMakeRect(curX,
+                                              curY + lineHeight - 2,
+                                              double_width ? charWidth * 2 : charWidth,
+                                              1));
                     }
                 }
-                curX+=charWidth*(double_width?2:1);
+                curX += charWidth * (double_width ? 2 : 1);
             }
 
             bgstart = -1;
@@ -2629,7 +2697,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         }
         else {
             // Don't need to draw and not on a run, move to next char
-            j+=(double_width?2:1);
+            j += (double_width ? 2 : 1);
         }
     }
 }
@@ -2653,7 +2721,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         cursorWidth = charWidth;
     else
         cursorWidth = charWidthWithoutSpacing;
-    
+
     if(lineHeight < charHeightWithoutSpacing)
         cursorHeight = lineHeight;
     else
@@ -2679,7 +2747,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 }
                 double_width = (x1 < WIDTH-1) && (theLine[x1+1].ch == 0xffff);
             }
-  
+
             NSColor *bgColor;
             if (colorInvertedCursor) {
                 bgColor = [self colorForCode: (theLine[x1].fg_color)];
@@ -2687,16 +2755,22 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 [bgColor set];
             } else {
                 bgColor = [self defaultCursorColor];
-                [[bgColor colorWithAlphaComponent: alpha] set];                
+                [[bgColor colorWithAlphaComponent: alpha] set];
             }
 
             switch ([[PreferencePanel sharedInstance] cursorType]) {
                 case CURSOR_BOX:
                     // draw the box
                     if([[self window] isKeyWindow]) {
-                        NSRectFill(NSMakeRect(curX, curY, ceil(cursorWidth*(double_width?2:1)), cursorHeight));
+                        NSRectFill(NSMakeRect(curX,
+                                              curY,
+                                              ceil(cursorWidth * (double_width ? 2 : 1)),
+                                              cursorHeight));
                     } else {
-                        NSFrameRect(NSMakeRect(curX, curY, ceil(cursorWidth*(double_width?2:1)), cursorHeight));
+                        NSFrameRect(NSMakeRect(curX,
+                                               curY,
+                                               ceil(cursorWidth * (double_width ? 2 : 1)),
+                                               cursorHeight));
                     }
                     // draw any character on cursor if we need to
                     if (aChar) {
@@ -2708,7 +2782,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                                 fgColor = theLine[x1].bg_color;
                             } else {
                                 // Draw an outline in the foreground color
-                                fgColor = theLine[x1].fg_color; 
+                                fgColor = theLine[x1].fg_color;
                             }
                             NSColor* proposedForeground = [[self colorForCode:fgColor] colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
                             CGFloat fgBrightness = [proposedForeground brightnessComponent];
@@ -2727,7 +2801,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                                          fgColor:[[self window] isKeyWindow] ? theLine[x1].bg_color : theLine[x1].fg_color
                                              AtX:x1 * charWidth + MARGIN
                                                Y:(yStart + [dataSource numberOfLines] - HEIGHT) * lineHeight
-                                     doubleWidth:double_width  
+                                     doubleWidth:double_width
                                    overrideColor:overrideColor];
                         } else {
                             // Non-inverted cursor
@@ -2735,7 +2809,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                                          fgColor:[[self window] isKeyWindow]?CURSOR_TEXT:theLine[x1].fg_color
                                              AtX:x1 * charWidth + MARGIN
                                                Y:(yStart + [dataSource numberOfLines] - HEIGHT) * lineHeight
-                                     doubleWidth:double_width  
+                                     doubleWidth:double_width
                                    overrideColor:nil];
                         }
                     }
@@ -2747,7 +2821,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                     break;
 
                 case CURSOR_UNDERLINE:
-                    NSRectFill(NSMakeRect(curX, curY+lineHeight-2, ceil(cursorWidth*(double_width?2:1)), 2));
+                    NSRectFill(NSMakeRect(curX,
+                                          curY + lineHeight - 2,
+                                          ceil(cursorWidth * (double_width ? 2 : 1)),
+                                          2));
                     break;
             }
         }
@@ -2765,7 +2842,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         [markedText drawInRect:NSMakeRect(floor(x1 * charWidth + MARGIN),
                 (yStart + [dataSource numberOfLines] - HEIGHT) * lineHeight + (lineHeight - cursorHeight),
                 ceil((WIDTH-x1)*cursorWidth),cursorHeight)];
-        memset([dataSource dirty] + yStart * WIDTH + x1, 
+        memset([dataSource dirty] + yStart * WIDTH + x1,
                1,
                WIDTH - x1 > len*2 ? len*2 : WIDTH-x1); //len*2 is an over-estimation, but safe
     }
@@ -2810,7 +2887,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     renderBold = isBold;
     theFont = dw ? naFont : font;
 #endif
-    
+
     NSColor* color = overrideColor ? overrideColor : [self colorForCode:fg];
 
     if (overrideColor || oldfg != fg) {
@@ -2823,7 +2900,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     Y += lineHeight + [theFont descender];
     NSString* charToDraw = [NSString stringWithCharacters:&code length:1];
     [charToDraw drawWithRect:NSMakeRect(X,Y, 0, 0) options:0 attributes:attrib];
-    
+
     // redraw the character offset by 1 pixel, this is faster than real bold
     if (renderBold) {
         [charToDraw drawWithRect:NSMakeRect(X+1,Y, 0, 0) options:0 attributes:attrib];
@@ -2845,33 +2922,33 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     screen_char_t *theLine;
     theLine = [dataSource getLineAtIndex:y];
-        
+
     return theLine[x].ch;
 }
 
-- (NSString *) _getWordForX: (int) x 
-                          y: (int) y 
-                     startX: (int *) startx 
-                     startY: (int *) starty 
-                       endX: (int *) endx 
+- (NSString *) _getWordForX: (int) x
+                          y: (int) y
+                     startX: (int *) startx
+                     startY: (int *) starty
+                       endX: (int *) endx
                        endY: (int *) endy
 {
     NSString *aString,*wordChars;
     int tmpX, tmpY, x1, yStart, x2, y2;
     screen_char_t *theLine;
     int width = [dataSource width];
-    
+
     // grab our preference for extra characters to be included in a word
     wordChars = [[PreferencePanel sharedInstance] wordChars];
     if(wordChars == nil)
-        wordChars = @"";        
+        wordChars = @"";
     // find the beginning of the word
     tmpX = x;
     tmpY = y;
     while(tmpX >= 0)
     {
         aString = [self contentFromX:tmpX Y:tmpY ToX:tmpX+1 Y:tmpY pad: YES];
-        if(([aString length] == 0 || 
+        if(([aString length] == 0 ||
             [aString rangeOfCharacterFromSet: [NSCharacterSet alphanumericCharacterSet]].length == 0) &&
            [wordChars rangeOfString: aString].length == 0)
             break;
@@ -2888,7 +2965,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     }
     if(tmpX != x)
         tmpX++;
-    
+
     if(tmpX < 0)
         tmpX = 0;
     if(tmpY < 0)
@@ -2899,22 +2976,22 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         tmpY++;
     }
     if(tmpY >= [dataSource numberOfLines])
-        tmpY = [dataSource numberOfLines] - 1;    
+        tmpY = [dataSource numberOfLines] - 1;
     if(startx)
         *startx = tmpX;
     if(starty)
         *starty = tmpY;
     x1 = tmpX;
     yStart = tmpY;
-    
-    
+
+
     // find the end of the word
     tmpX = x;
     tmpY = y;
     while(tmpX < width)
     {
         aString = [self contentFromX:tmpX Y:tmpY ToX:tmpX+1 Y:tmpY pad: YES];
-        if(([aString length] == 0 || 
+        if(([aString length] == 0 ||
             [aString rangeOfCharacterFromSet: [NSCharacterSet alphanumericCharacterSet]].length == 0) &&
            [wordChars rangeOfString: aString].length == 0)
             break;
@@ -2923,7 +3000,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         {
             theLine = [dataSource getLineAtIndex:tmpY];
             if (theLine[width].ch) // check if there's a hard line break
-            {            
+            {
                 tmpY++;
                 tmpX = 0;
             }
@@ -2931,14 +3008,14 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     }
     if(tmpX != x)
         tmpX--;
-    
+
     if(tmpX < 0)
     {
         tmpX = width - 1;
         tmpY--;
     }
     if(tmpY < 0)
-        tmpY = 0;        
+        tmpY = 0;
     if(tmpX >= width)
         tmpX = width - 1;
     if(tmpY >= [dataSource numberOfLines])
@@ -2947,15 +3024,15 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         *endx = tmpX+1;
     if(endy)
         *endy = tmpY;
-    
+
     x2 = tmpX+1;
     y2 = tmpY;
-    
+
     return ([self contentFromX:x1 Y:yStart ToX:x2 Y:y2 pad: YES]);
 }
 
-- (NSString *) _getURLForX: (int) x 
-                    y: (int) y 
+- (NSString *) _getURLForX: (int) x
+                    y: (int) y
 {
     static char *urlSet = ".?/:;%=&_-,+~#@!*'()";
     int w = [dataSource width];
@@ -2971,7 +3048,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     int leftx = 0;
     for (int xi = x-1, yi = y; 0 <= xi; xi--) {
         unichar curChar = [self _getCharacterAtX:xi Y:yi];
-        if (curChar == '|' && 
+        if (curChar == '|' &&
             ((yi > 0 && [self _getCharacterAtX:xi Y:yi-1] == '|') ||
              (yi < h-1 && [self _getCharacterAtX:xi Y:yi+1] == '|'))) {
             leftx = xi+1;
@@ -3067,12 +3144,12 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         }
     }
     //NSLog(@"%s: url-whole: %@", __PRETTY_FUNCTION__, url);
-    
+
     // Grab the addressbook command
     [url replaceOccurrencesOfString:@"\n" withString:@"" options:NSLiteralSearch range:NSMakeRange(0, [url length])];
-    
+
     return (url);
-    
+
 }
 
 - (BOOL) _findMatchingParenthesis: (NSString *) parenthesis withX:(int)X Y:(int)Y
@@ -3082,10 +3159,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     int x1, yStart;
     int w = [dataSource width];
     int h = [dataSource numberOfLines];
-    
-    if (!parenthesis || [parenthesis length]<1)  
+
+    if (!parenthesis || [parenthesis length]<1)
         return NO;
-    
+
     [parenthesis getCharacters:&sameParenthesis range:NSMakeRange(0,1)];
     switch (sameParenthesis) {
         case '(':
@@ -3115,7 +3192,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         default:
             return NO;
     }
-    
+
     if (direction) {
         x1 = X -1;
         yStart = Y;
@@ -3138,14 +3215,14 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
             return YES;
         }
-        else 
+        else
             return NO;
     }
     else {
         x1 = X +1;
         yStart = Y;
         if (x1>=w) yStart++, x1=0;
-        
+
         for (; x1 < w && yStart < h; ) {
             c = [self _getCharacterAtX:x1 Y:yStart];
             if (c == sameParenthesis) level++;
@@ -3161,31 +3238,31 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             startY = Y;
             endX = x1+1;
             endY = yStart;
-            
+
             return YES;
         }
-        else 
+        else
             return NO;
     }
-    
+
 }
 
 - (unsigned int) _checkForSupportedDragTypes:(id <NSDraggingInfo>) sender
 {
     NSString *sourceType;
     BOOL iResult;
-    
+
     iResult = NSDragOperationNone;
-    
+
     // We support the FileName drag type for attching files
     sourceType = [[sender draggingPasteboard] availableTypeFromArray: [NSArray arrayWithObjects:
         NSFilenamesPboardType,
         NSStringPboardType,
         nil]];
-    
+
     if (sourceType)
         iResult = NSDragOperationCopy;
-    
+
     return iResult;
 }
 
@@ -3206,29 +3283,29 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 - (BOOL) _isBlankLine: (int) y
 {
     NSString *lineContents, *blankLine;
-    char blankString[1024];    
-    
-    
+    char blankString[1024];
+
+
     lineContents = [self contentFromX: 0 Y: y ToX: [dataSource width] Y: y pad: YES];
     memset(blankString, ' ', 1024);
     blankString[[dataSource width]] = 0;
     blankLine = [NSString stringWithUTF8String: (const char*)blankString];
-    
+
     return ([lineContents isEqualToString: blankLine]);
-    
+
 }
 
 - (void) _openURL: (NSString *) aURLString
 {
     NSURL *url;
     NSString* trimmedURLString;
-    
+
     trimmedURLString = [aURLString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    
+
     // length returns an unsigned value, so couldn't this just be ==? [TRE]
     if([trimmedURLString length] <= 0)
         return;
-        
+
     // Check for common types of URLs
 
     NSRange range = [trimmedURLString rangeOfString:@"://"];
@@ -3262,20 +3339,20 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
             }
         }
     }
-    
+
     url = [NSURL URLWithString:trimmedURLString];
 
     Bookmark *bm = [[PreferencePanel sharedInstance] handlerBookmarkForURL:[url scheme]];
-    
+
     //NSLog(@"Got the URL:%@\n%@", [url scheme], bm);
     if (bm != nil)  {
-        [[iTermController sharedInstance] launchBookmark:bm 
-                                              inTerminal:[[iTermController sharedInstance] currentTerminal] 
+        [[iTermController sharedInstance] launchBookmark:bm
+                                              inTerminal:[[iTermController sharedInstance] currentTerminal]
                                                  withURL:trimmedURLString];
     } else {
         [[NSWorkspace sharedWorkspace] openURL:url];
     }
-        
+
 }
 
 - (void) _dragText: (NSString *) aString forEvent: (NSEvent *) theEvent
@@ -3291,11 +3368,11 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
     //NSLog(@"%s: %@", __PRETTY_FUNCTION__, aString);
 
-    
+
     length = [aString length];
     if([aString length] > 15)
         length = 15;
-    
+
     imageSize = NSMakeSize(charWidth*length, lineHeight);
     anImage = [[NSImage alloc] initWithSize: imageSize];
     [anImage lockFocus];
@@ -3303,30 +3380,30 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         tmpString = [NSString stringWithFormat: @"%@...", [aString substringWithRange: NSMakeRange(0, 12)]];
     else
         tmpString = [aString substringWithRange: NSMakeRange(0, length)];
-        
+
     [tmpString drawInRect: NSMakeRect(0, 0, charWidth*length, lineHeight) withAttributes: nil];
     [anImage unlockFocus];
     [anImage autorelease];
-    
+
     // get the pasteboard
     pboard = [NSPasteboard pasteboardWithName:NSDragPboard];
-    
+
     // Declare the types and put our tabViewItem on the pasteboard
     pbtypes = [NSArray arrayWithObjects: NSStringPboardType, nil];
     [pboard declareTypes: pbtypes owner: self];
     [pboard setString: aString forType: NSStringPboardType];
-    
+
     // tell our app not switch windows (currently not working)
     [NSApp preventWindowOrdering];
-    
+
     // drag from center of the image
     dragPoint = [self convertPoint: [theEvent locationInWindow] fromView: nil];
     dragPoint.x -= imageSize.width/2;
-    
+
     // start the drag
     [self dragImage:anImage at: dragPoint offset:dragOffset
               event: mouseDownEvent pasteboard:pboard source:self slideBack:YES];
-        
+
 }
 
 - (BOOL) _isCharSelectedInRow:(int)row col:(int)col checkOld:(BOOL)old

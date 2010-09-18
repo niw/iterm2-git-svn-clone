@@ -212,6 +212,11 @@ const int kInterWidgetMargin = 10;
 
 // End Drag drop -------------------------------
 
+// Sorting -------------------------------------
+- (void)newSorting:(SEL *)selector {
+}
+// End Sorting ---------------------------------
+
 - (void)_addTag:(id)sender
 {
     int itemTag = [sender tag];
