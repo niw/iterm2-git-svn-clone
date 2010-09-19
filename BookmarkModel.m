@@ -126,23 +126,42 @@
 
 - (Bookmark*)bookmarkAtIndex:(int)i
 {
+    NSLog (@"Calling func w/ more parameters.");
+    return [self bookmarkAtIndex:i forwardSort:YES];
+}
+
+- (Bookmark*)bookmarkAtIndex:(int)i
+                 forwardSort:(BOOL)sort
+{
     if (i < 0 || i >= [bookmarks_ count]) {
         return nil;
     }
-    return [bookmarks_ objectAtIndex:i];
+    NSLog (@"i: %d, with sort: %d", i, ([bookmarks_ count] - 1 - i));
+    return [bookmarks_ objectAtIndex:(sort ? i : ([bookmarks_ count] - 1 - i))];
 }
 
-- (Bookmark*)bookmarkAtIndex:(int)theIndex withFilter:(NSString*)filter
+- (Bookmark*)bookmarkAtIndex:(int)theIndex
+                  withFilter:(NSString*)filter
+{
+    NSLog (@"redirecting fltered output.");
+    return [self bookmarkAtIndex:theIndex
+                      withFilter:filter
+                     forwardSort:YES];
+}
+
+- (Bookmark*)bookmarkAtIndex:(int)theIndex
+                  withFilter:(NSString*)filter
+                     forwardSort:(BOOL)sort
 {
     NSArray* tokens = [self parseFilter:filter];
     int count = [bookmarks_ count];
     int n = 0;
     for (int i = 0; i < count; ++i) {
-        if ([self doesBookmarkAtIndex:i matchFilter:tokens]) {
+        if ([self doesBookmarkAtIndex:(sort ? i : (count - 1 - i)) matchFilter:tokens]) {
             if (n == theIndex) {
                 return [self bookmarkAtIndex:i];
             }
-            ++n;
+            n = (sort ? (n + 1) : (count - 1 - n));
         }
     }
     return nil;

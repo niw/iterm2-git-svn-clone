@@ -95,7 +95,13 @@
               row:(NSInteger)row dropOperation:(NSTableViewDropOperation)operation;
 
 // Sorting
-- (void)newSorting:(SEL *)selector;
+- (NSComparisonResult)defaultComparison:(NSString *)other;
+- (NSComparisonResult)nameComparison:(NSMutableString *)other;
+- (NSComparisonResult)tagsComparison:(NSMutableString *)other;
+- (NSComparisonResult)shortcutComparison:(NSMutableString *)other;
+- (NSComparisonResult)commandComparison:(NSMutableString *)other;
+
+- (void)newSorting:(SEL)selector;
 - (void)      tableView:(NSTableView *)aTableView
     didClickTableColumn:(NSTableColumn *)aTableColumn;
 
