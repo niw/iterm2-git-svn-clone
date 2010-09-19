@@ -124,6 +124,10 @@
     return n;
 }
 
+-(void)sortUsingDescriptors:(NSSortDescriptor *)desc {
+    [bookmarks_ sortUsingDescriptors:desc];
+} 
+
 - (Bookmark*)bookmarkAtIndex:(int)i
 {
     //NSLog (@"Calling func w/ more parameters.");

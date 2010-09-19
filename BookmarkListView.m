@@ -260,6 +260,13 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
                     inTableColumn:aTableColumn];
     [aTableView reloadData];
 }
+
+- (void)tableView:(NSTableView *)aTableView sortDescriptorsDidChange:(NSArray *)oldDescriptors
+{
+    NSLog (@"called");
+    [dataSource_ sortUsingDescriptors:[aTableView sortDescriptors]];
+    [aTableView reloadData];
+}
 // End Sorting ---------------------------------
 
 - (void)_addTag:(id)sender
