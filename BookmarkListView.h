@@ -67,6 +67,15 @@
     NSSet* selectedGuids_;
     BOOL debug;
     BookmarkModel* dataSource_;
+    
+    // The most recent clicked column.
+    NSTableColumn* prevCol;
+    
+    // Defines our sort order. NO (0) will be reverse sorting, YES (1) normal sorting.
+    BOOL sortOrder;
+    
+    // Defines the column we want to sort by.
+    SEL sortColumn;
 }
 
 - (void)awakeFromNib;
@@ -89,6 +98,8 @@
 
 // Sorting
 - (void)newSorting:(SEL *)selector;
+- (void)      tableView:(NSTableView *)aTableView
+    didClickTableColumn:(NSTableColumn *)aTableColumn;
 
 // Delegate methods
 - (BOOL)selectionShouldChangeInTableView:(NSTableView *)aTableView;

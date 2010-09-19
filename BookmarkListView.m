@@ -215,6 +215,47 @@ const int kInterWidgetMargin = 10;
 // Sorting -------------------------------------
 - (void)newSorting:(SEL *)selector {
 }
+
+- (void)  tableView:(NSTableView *)aTableView
+didClickTableColumn:(NSTableColumn *)aTableColumn {
+    
+    NSLog (@"function called!");
+    
+    // The user clicked on a different column than before, thus use normal sorting
+    // for this column.
+    if ((prevCol == nil) || (prevCol != aTableColumn)) {
+        sortOrder = (BOOL)YES;
+        
+        if (prevCol) {
+            [aTableView setIndicatorImage:nil
+                            inTableColumn:prevCol];
+            [prevCol release];
+        }
+        
+        prevCol = [aTableColumn retain];
+        
+        // FIXME: implement order-by here.
+        [aTableView
+         newSorting:
+         NSSelectorFromString (
+                               [NSString stringWithFormat:@"%@Comparision:",
+                                [aTableColumn identifier]
+                                ]
+                               )
+         
+         ];
+    }
+    else {
+        // Current column clicked again, reverse the sort order now.
+        sortOrder = !sortOrder;
+    }
+    
+    [aTableView setIndicatorImage:(sortOrder ? 
+                                   [NSImage imageNamed:@"NSAscendingSortIndicator"] :
+                                   [NSImage imageNamed:@"NSDescendingSortIndicator"])
+                    inTableColumn:aTableColumn];
+    [aTableView reloadData];
+}
 // End Sorting ---------------------------------
 
 - (void)_addTag:(id)sender
