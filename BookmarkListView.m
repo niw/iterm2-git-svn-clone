@@ -213,26 +213,6 @@ const int kInterWidgetMargin = 10;
 // End Drag drop -------------------------------
 
 // Sorting -------------------------------------
-- (NSComparisonResult)defaultComparison:(NSString *)other {
-    
-}
-- (NSComparisonResult)nameComparison:(NSMutableString *)other {
-    //return [???NAME??? compare:other options:NSCaseInsensitiveSearch];
-}
-- (NSComparisonResult)tagsComparison:(NSMutableString *)other {
-    
-}
-- (NSComparisonResult)shortcutComparison:(NSMutableString *)other {
-    
-}
-- (NSComparisonResult)commandComparison:(NSMutableString *)other {
-    
-}
-
-- (void)newSorting:(SEL)selector {
-    NSLog (@"sorting called - selector: %@", NSStringFromSelector (selector));
-}
-
 - (void)  tableView:(NSTableView *)aTableView
 didClickTableColumn:(NSTableColumn *)aTableColumn {
     
@@ -251,16 +231,23 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
         
         prevCol = [aTableColumn retain];
         
+        SEL selector;
+        if ([aTableColumn identifier] == @"default")
+            selector = @selector(compare:);
+        else
+            selector = @selector(localizedCaseInsensitiveCompare:);
+        
         // FIXME: implement order-by here.
-        [self
-         newSorting:
-         NSSelectorFromString (
-                               [NSString stringWithFormat:@"%@Comparision:",
-                                [aTableColumn identifier]
-                                ]
-                               )
+        [tableView_ setSortDescriptors:
+         [NSArray arrayWithObjects:
+          [[NSSortDescriptor alloc] initWithKey:[aTableColumn identifier]
+                              ascending:sortOrder
+                               selector:selector
+          ], nil
+            
+         ]
          
-         ];
+        ];
     }
     else {
         // Current column clicked again, reverse the sort order now.
@@ -434,17 +421,17 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
 
 - (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex
 {
-    NSLog (@"Calling bookmarkAtIndexwithFilter");
+    //NSLog (@"Calling bookmarkAtIndexwithFilter");
     Bookmark* bookmark = 
     [dataSource_ bookmarkAtIndex:rowIndex
                       withFilter:[searchField_ stringValue]
                      forwardSort:sortOrder];
-    NSLog (@"Call done.");
+    //NSLog (@"Call done.");
 
     if (aTableColumn == tableColumn_) {
         return [bookmark objectForKey:KEY_NAME];
     } else if (aTableColumn == commandColumn_) {
-        NSLog (@"Returning shell");
+        //NSLog (@"Returning shell");
         if (![[bookmark objectForKey:KEY_CUSTOM_COMMAND] isEqualToString:@"Yes"]) {
             return @"Login shell";
         } else {
@@ -452,7 +439,7 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
         }
     } else if (aTableColumn == shortcutColumn_) {
         NSString* key = [bookmark objectForKey:KEY_SHORTCUT];
-        NSLog (@"returning shortcut");
+        //NSLog (@"returning shortcut");
         if ([key length]) {
             return [NSString stringWithFormat:@"^⌘%@", [bookmark objectForKey:KEY_SHORTCUT]];
         } else {
@@ -460,7 +447,7 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
         }
     } else if (aTableColumn == tagsColumn_) {
         NSArray* tags = [bookmark objectForKey:KEY_TAGS];
-        NSLog (@"returning tags");
+        //NSLog (@"returning tags");
         return (tags == nil) ? @"" : [NSString stringWithString:[tags componentsJoinedByString:@", "]];
     } else if (aTableColumn == starColumn_) {
         static NSImage* starImage;
@@ -489,7 +476,7 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
             [starImage drawAtPoint:destPoint fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
         }
         [image unlockFocus];
-        NSLog (@"Returning star");
+        //NSLog (@"Returning star");
         return image;
     }
     

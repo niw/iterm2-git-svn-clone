@@ -126,7 +126,7 @@
 
 - (Bookmark*)bookmarkAtIndex:(int)i
 {
-    NSLog (@"Calling func w/ more parameters.");
+    //NSLog (@"Calling func w/ more parameters.");
     return [self bookmarkAtIndex:i forwardSort:YES];
 }
 
@@ -136,14 +136,14 @@
     if (i < 0 || i >= [bookmarks_ count]) {
         return nil;
     }
-    NSLog (@"i: %d, with sort: %d", i, ([bookmarks_ count] - 1 - i));
+    //NSLog (@"i: %d, with sort: %d", i, ([bookmarks_ count] - 1 - i));
     return [bookmarks_ objectAtIndex:(sort ? i : ([bookmarks_ count] - 1 - i))];
 }
 
 - (Bookmark*)bookmarkAtIndex:(int)theIndex
                   withFilter:(NSString*)filter
 {
-    NSLog (@"redirecting fltered output.");
+    //NSLog (@"redirecting fltered output.");
     return [self bookmarkAtIndex:theIndex
                       withFilter:filter
                      forwardSort:YES];
