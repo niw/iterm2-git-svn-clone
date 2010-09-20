@@ -235,7 +235,7 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
         if ([aTableColumn identifier] == @"default")
             selector = @selector(compare:);
         else
-            selector = @selector(localizedCaseInsensitiveCompare:);
+            selector = @selector(compareNames:);
         
         // FIXME: implement order-by here.
         [tableView_ setSortDescriptors:

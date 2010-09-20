@@ -27,9 +27,14 @@
 #define BMKEY_BOOKMARKS_ARRAY @"Bookmarks Array"
 
 typedef NSDictionary Bookmark;
-@interface BookmarkImpl : NSDictionary {
+@interface BookmarkImpl : NSObject {
+    NSDictionary* dict_;
 }
-- (NSComparisonResult)compareNames:(Bookmark*)aBookmark;
++ (BookmarkImpl*)bookmarkImplFromDictionary:(NSDictionary*)dict;
+- (Bookmark*)bookmark;
+- (void)dealloc;
+- (NSComparisonResult)compareNames:(BookmarkImpl*)aBookmark;
+- (NSString*)name;
 @end
 
 @interface BookmarkModel : NSObject {
