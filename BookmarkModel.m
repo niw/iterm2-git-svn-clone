@@ -25,9 +25,9 @@
 #import <iTerm/ITAddressBookMgr.h>
 #import <iTerm/BookmarkModel.h>
 
-@implementation Bookmark
+@implementation BookmarkImpl
 
-- (NSComparisonResult)compareNames:(Bookmark*)aBookmark {
+- (NSComparisonResult)compareNames:(BookmarkImpl*)aBookmark {
     return [[self name] localizedCaseInsensitiveCompare:[aBookmark name]];
 }
 
