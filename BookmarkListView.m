@@ -218,6 +218,12 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
     
     NSLog (@"function called!");
     
+    SEL selector;
+    if ([aTableColumn identifier] == @"default")
+        selector = @selector(compare:);
+    else
+        selector = @selector(compareNames:);
+    
     // The user clicked on a different column than before, thus use normal sorting
     // for this column.
     if ((prevCol == nil) || (prevCol != aTableColumn)) {
@@ -230,29 +236,23 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
         }
         
         prevCol = [aTableColumn retain];
-        
-        SEL selector;
-        if ([aTableColumn identifier] == @"default")
-            selector = @selector(compare:);
-        else
-            selector = @selector(compareNames:);
-        
-        // FIXME: implement order-by here.
-        [tableView_ setSortDescriptors:
-         [NSArray arrayWithObjects:
-          [[NSSortDescriptor alloc] initWithKey:[aTableColumn identifier]
-                              ascending:sortOrder
-                               selector:selector
-          ], nil
-            
-         ]
-         
-        ];
     }
     else {
         // Current column clicked again, reverse the sort order now.
         sortOrder = !sortOrder;
     }
+    
+    [tableView_ setSortDescriptors:
+     [NSArray arrayWithObjects:
+      [[NSSortDescriptor alloc] initWithKey:[aTableColumn identifier]
+                                  ascending:sortOrder
+                                   selector:selector
+       ], nil
+      
+      ]
+     
+     ];
+    
     
     [aTableView setIndicatorImage:(sortOrder ? 
                                    [NSImage imageNamed:@"NSAscendingSortIndicator"] :
@@ -431,8 +431,7 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
     //NSLog (@"Calling bookmarkAtIndexwithFilter");
     Bookmark* bookmark = 
     [dataSource_ bookmarkAtIndex:rowIndex
-                      withFilter:[searchField_ stringValue]
-                     forwardSort:sortOrder];
+                      withFilter:[searchField_ stringValue]];
     //NSLog (@"Call done.");
 
     if (aTableColumn == tableColumn_) {
