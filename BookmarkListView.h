@@ -1,5 +1,5 @@
 /*
- **  BookmarkTableController.m
+ **  BookmarkListView.h
  **  iTerm
  **
  **  Created by George Nachman on 8/26/10.
@@ -97,6 +97,8 @@
 // Sorting
 - (void)      tableView:(NSTableView *)aTableView
     didClickTableColumn:(NSTableColumn *)aTableColumn;
+- (void)           tableView:(NSTableView *)aTableView
+    sortDescriptorsDidChange:(NSArray *)oldDescriptors;
 
 // Delegate methods
 - (BOOL)selectionShouldChangeInTableView:(NSTableView *)aTableView;

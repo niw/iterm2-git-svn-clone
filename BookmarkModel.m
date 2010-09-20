@@ -25,6 +25,13 @@
 #import <iTerm/ITAddressBookMgr.h>
 #import <iTerm/BookmarkModel.h>
 
+@implementation Bookmark
+
+- (NSComparisonResult)compareNames:(Bookmark*)aBookmark {
+    return [[self name] localizedCaseInsensitiveCompare:[aBookmark name]];
+}
+
+@end
 
 @implementation BookmarkModel
 
@@ -78,7 +85,7 @@
 }
 - (BOOL)doesBookmarkAtIndex:(int)theIndex matchFilter:(NSArray*)tokens
 {
-    Bookmark* bookmark = [self bookmarkAtIndex:theIndex];
+    BookmarkImpl* bookmark = [self bookmarkAtIndex:theIndex];
     NSArray* tags = [bookmark objectForKey:KEY_TAGS];
     NSArray* nameWords = [[bookmark objectForKey:KEY_NAME] componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
     for (int i = 0; i < [tokens count]; ++i) {
@@ -124,8 +131,8 @@
     return n;
 }
 
--(void)sortUsingDescriptors:(NSSortDescriptor *)desc {
-    [bookmarks_ sortUsingDescriptors:desc];
+-(void)sortUsingDescriptors:(NSArray *)descs {
+    [bookmarks_ sortUsingDescriptors:descs];
 } 
 
 - (Bookmark*)bookmarkAtIndex:(int)i
@@ -216,7 +223,7 @@
         NSString* newName = [bookmark objectForKey:KEY_NAME];
         BOOL hasBonjour = [self bookmark:bookmark hasTag:@"bonjour"];
         for (int i = 0; i < [bookmarks_ count]; ++i) {
-            Bookmark* bookmarkAtI = [bookmarks_ objectAtIndex:i];
+            BookmarkImpl* bookmarkAtI = [bookmarks_ objectAtIndex:i];
             NSComparisonResult order = NSOrderedSame;
             BOOL currentHasBonjour = [self bookmark:bookmarkAtI hasTag:@"bonjour"];
             if (hasBonjour != currentHasBonjour) {
@@ -235,12 +242,12 @@
             }
         }
         if (insertionPoint == -1) {
-            [bookmarks_ addObject:[NSDictionary dictionaryWithDictionary:bookmark]];
+            [bookmarks_ addObject:[BookmarkImpl dictionaryWithDictionary:bookmark]];
         } else {
-            [bookmarks_ insertObject:[NSDictionary dictionaryWithDictionary:bookmark] atIndex:insertionPoint];
+            [bookmarks_ insertObject:[BookmarkImpl dictionaryWithDictionary:bookmark] atIndex:insertionPoint];
         }
     } else {
-        [bookmarks_ addObject:[NSDictionary dictionaryWithDictionary:bookmark]];
+        [bookmarks_ addObject:[BookmarkImpl dictionaryWithDictionary:bookmark]];
     }
     NSString* isDeprecatedDefaultBookmark = [bookmark objectForKey:KEY_DEFAULT_BOOKMARK];
     if (![self defaultBookmark] || (isDeprecatedDefaultBookmark && [isDeprecatedDefaultBookmark isEqualToString:@"Yes"])) {
@@ -296,7 +303,7 @@
 
 - (void)setBookmark:(Bookmark*)bookmark atIndex:(int)i
 {
-    Bookmark* orig = [bookmarks_ objectAtIndex:i];
+    BookmarkImpl* orig = [bookmarks_ objectAtIndex:i];
     BOOL isDefault = NO;
     if ([[orig objectForKey:KEY_GUID] isEqualToString:defaultBookmarkGuid_]) {
         isDefault = YES;
@@ -332,7 +339,7 @@
 {
     [bookmarks_ removeAllObjects];
     for (int i = 0; i < [prefs count]; ++i) {
-        Bookmark* bookmark = [prefs objectAtIndex:i];
+        BookmarkImpl* bookmark = [prefs objectAtIndex:i];
         NSArray* tags = [bookmark objectForKey:KEY_TAGS];
         if (![tags containsObject:@"bonjour"]) {
             [self addBookmark:bookmark];
@@ -414,7 +421,7 @@
 {
     NSMutableDictionary* temp = [[[NSMutableDictionary alloc] init] autorelease];
     for (int i = 0; i < [self numberOfBookmarks]; ++i) {
-        Bookmark* bookmark = [self bookmarkAtIndex:i];
+        BookmarkImpl* bookmark = [self bookmarkAtIndex:i];
         NSArray* tags = [bookmark objectForKey:KEY_TAGS];
         for (int j = 0; j < [tags count]; ++j) {
             NSString* tag = [tags objectAtIndex:j];
@@ -429,7 +436,7 @@
     NSMutableDictionary* newDict = [NSMutableDictionary dictionaryWithDictionary:bookmark];
     [newDict setObject:object forKey:key];
     NSString* guid = [bookmark objectForKey:KEY_GUID];
-    [self setBookmark:[NSDictionary dictionaryWithDictionary:newDict] 
+    [self setBookmark:[BookmarkImpl dictionaryWithDictionary:newDict] 
              withGuid:guid];
 }
 
@@ -450,7 +457,7 @@
     if (sourceRow < 0) {
         return;
     }
-    Bookmark* bookmark = [bookmarks_ objectAtIndex:sourceRow];
+    BookmarkImpl* bookmark = [bookmarks_ objectAtIndex:sourceRow];
     [bookmark retain];
     [bookmarks_ removeObjectAtIndex:sourceRow];
     if (sourceRow < destinationRow) {
@@ -463,7 +470,7 @@
 - (void)dump
 {
     for (int i = 0; i < [self numberOfBookmarks]; ++i) {
-        Bookmark* bookmark = [self bookmarkAtIndex:i];
+        BookmarkImpl* bookmark = [self bookmarkAtIndex:i];
         NSLog(@"%d: %@ %@", i, [bookmark objectForKey:KEY_NAME], [bookmark objectForKey:KEY_GUID]);
     }
 }

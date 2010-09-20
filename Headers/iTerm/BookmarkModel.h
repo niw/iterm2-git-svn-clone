@@ -27,6 +27,10 @@
 #define BMKEY_BOOKMARKS_ARRAY @"Bookmarks Array"
 
 typedef NSDictionary Bookmark;
+@interface BookmarkImpl : NSDictionary {
+}
+- (NSComparisonResult)compareNames:(Bookmark*)aBookmark;
+@end
 
 @interface BookmarkModel : NSObject {
     NSMutableArray* bookmarks_;
@@ -41,6 +45,7 @@ typedef NSDictionary Bookmark;
 - (int)numberOfBookmarksWithFilter:(NSString*)filter;
 - (int)indexOfBookmarkWithGuid:(NSString*)guid;
 - (int)indexOfBookmarkWithGuid:(NSString*)guid withFilter:(NSString*)filter;
+- (void)sortUsingDescriptors:(NSArray *)descs;
 - (Bookmark*)bookmarkAtIndex:(int)index;
 - (Bookmark*)bookmarkAtIndex:(int)index forwardSort:(BOOL)sort;
 - (Bookmark*)bookmarkAtIndex:(int)index withFilter:(NSString*)filter;

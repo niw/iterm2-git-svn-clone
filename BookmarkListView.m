@@ -1,5 +1,5 @@
 /*
- **  BookmarkTableController.m
+ **  BookmarkListView.m
  **  iTerm
  **
  **  Created by George Nachman on 8/26/10.
@@ -265,7 +265,7 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
 {
     NSLog (@"called");
     [dataSource_ sortUsingDescriptors:[aTableView sortDescriptors]];
-    [aTableView reloadData];
+    [tableView_ reloadData];
 }
 // End Sorting ---------------------------------
 
