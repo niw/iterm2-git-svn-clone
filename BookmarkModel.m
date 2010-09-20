@@ -32,8 +32,16 @@
     BookmarkImpl* impl = [BookmarkImpl alloc];
     impl->dict_ = dict;
     [dict retain];
-    [impl autorelease];
+    //[impl autorelease];
     return impl;
+}
+
++ (NSDictionary*)dictionaryFromBookmarkImpl:(BookmarkImpl*)impl {
+    NSDictionary* dict = [NSDictionary alloc];
+    dict = impl->dict_;
+    [impl retain];
+    //[dict autorelease];
+    return dict;
 }
 
 - (void)dealloc
@@ -51,8 +59,54 @@
     return [[dict_ objectForKey:KEY_NAME] localizedCaseInsensitiveCompare:[[aBookmark bookmark] objectForKey:KEY_NAME]];
 }
 
-- (NSString*)name
+- (NSComparisonResult)compareDefaults:(BookmarkImpl*)aBookmark {
+    if ([[dict_ objectForKey:KEY_GUID] isEqualTo:[[[BookmarkModel sharedInstance] defaultBookmark] objectForKey:KEY_GUID]])
+        return NSOrderedAscending;
+    else
+        return NSOrderedDescending;
+}
+
+- (NSComparisonResult)compareShortcuts:(BookmarkImpl*)aBookmark {
+    return [[dict_ objectForKey:KEY_SHORTCUT] localizedCaseInsensitiveCompare:[[aBookmark bookmark] objectForKey:KEY_SHORTCUT]];
+}
+
+- (NSComparisonResult)compareCommands:(BookmarkImpl*)aBookmark {
+    if (![[dict_ objectForKey:KEY_CUSTOM_COMMAND] isEqualToString:@"Yes"])
+        return NSOrderedSame;
+    else
+        return [[dict_ objectForKey:KEY_COMMAND] localizedCaseInsensitiveCompare:[[aBookmark bookmark] objectForKey:KEY_COMMAND]];
+}
+
+- (NSComparisonResult)compareTags:(BookmarkImpl*)aBookmark {
+    uint64_t count1 = [[dict_ objectForKey:KEY_TAGS] count];
+    uint64_t count2 = [[[aBookmark bookmark] objectForKey:KEY_TAGS] count];
+    
+    if (count1 < count2)
+        return NSOrderedAscending;
+    else if (count1 == count2)
+        return NSOrderedSame;
+    else
+        return NSOrderedDescending;
+}
+
+- (BookmarkImpl*)name
 {
+    return self;
+}
+
+- (BookmarkImpl*)shortcut {
+    return self;
+}
+
+- (BookmarkImpl*)command {
+    return self;
+}
+
+- (BookmarkImpl*)tags {
+    return self;
+}
+
+- (BookmarkImpl*)std {
     return self;
 }
 
@@ -340,7 +394,16 @@
 
 - (NSArray*)rawData
 {
-    return bookmarks_;
+    NSArray* ret;
+    NSMutableArray* tmparr = [[NSMutableArray alloc] init];
+    for (int i = 0; i < [bookmarks_ count]; ++i) {
+        [tmparr addObject:[BookmarkImpl dictionaryFromBookmarkImpl:[bookmarks_ objectAtIndex:i]]];
+    }
+    
+    ret = [NSArray arrayWithArray:tmparr];
+    [tmparr release];
+    
+    return ret;
 }
 
 - (void)load:(NSArray*)prefs

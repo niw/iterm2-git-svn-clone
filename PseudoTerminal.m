@@ -572,16 +572,15 @@ NSString *sessionsKey = @"sessions";
 
 - (void)windowDidResize:(NSNotification *)aNotification
 {
-    NSRect frame;
-
 
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PseudoTerminal windowDidResize: width = %f, height = %f]",
           __FILE__, __LINE__, [[self window] frame].size.width, [[self window] frame].size.height);
 #endif
 
-    frame = [[[self currentSession] SCROLLVIEW] documentVisibleRect];
 #if 0
+    NSRect frame = [[[self currentSession] SCROLLVIEW] documentVisibleRect];
+    
     NSLog(@"scrollview content size %.1f, %.1f, %.1f, %.1f",
           frame.origin.x, frame.origin.y,
           frame.size.width, frame.size.height);
@@ -802,6 +801,8 @@ NSString *sessionsKey = @"sessions";
                                      inBookmark:bookmark];
     [session setAddressBookEntry:[[BookmarkModel sessionsInstance] bookmarkWithGuid:guid]];
     [[PreferencePanel sessionsInstance] openToBookmark:guid];
+    
+    [guid release];
 }
 
 - (void)menuForEvent:(NSEvent *)theEvent menu:(NSMenu *)theMenu
@@ -1217,7 +1218,6 @@ NSString *sessionsKey = @"sessions";
         }
         [theMenu setSubmenu: tabMenu forItem: [theMenu itemAtIndex: nextIndex]];
         [tabMenu release];
-        ++nextIndex;
         [theMenu addItem: [NSMenuItem separatorItem]];
    }
 

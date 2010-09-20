@@ -219,11 +219,19 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
     NSLog (@"function called!");
     
     SEL selector;
-    if ([aTableColumn identifier] == @"default")
-        selector = @selector(compare:);
+    if ([[aTableColumn identifier] isEqualToString:@"std"])
+        selector = @selector(compareDefaults:);
+    else if ([[aTableColumn identifier] isEqualToString:@"name"])
+        selector = @selector(compareNames:);
+    else if ([[aTableColumn identifier] isEqualToString:@"shortcut"])
+        selector = @selector(compareShortcuts:);
+    else if ([[aTableColumn identifier] isEqualToString:@"tags"])
+        selector = @selector(compareTags:);
+    else if ([[aTableColumn identifier] isEqualToString:@"command"])
+        selector = @selector(compareCommands:);
     else
         selector = @selector(compareNames:);
-    
+
     // The user clicked on a different column than before, thus use normal sorting
     // for this column.
     if ((prevCol == nil) || (prevCol != aTableColumn)) {
@@ -242,12 +250,13 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
         sortOrder = !sortOrder;
     }
     
+    NSLog (@"identifier: %@\nselector: %@", [aTableColumn identifier], NSStringFromSelector (selector));
     [tableView_ setSortDescriptors:
      [NSArray arrayWithObjects:
-      [[NSSortDescriptor alloc] initWithKey:[aTableColumn identifier]
+      [[[NSSortDescriptor alloc] initWithKey:[aTableColumn identifier]
                                   ascending:sortOrder
                                    selector:selector
-       ], nil
+       ] autorelease], nil
       
       ]
      
@@ -361,9 +370,9 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
     [tableView_ setAllowsTypeSelect:NO];
     [tableView_ setBackgroundColor:[NSColor whiteColor]];
     
-    starColumn_ = [[NSTableColumn alloc] initWithIdentifier:@"default"];
+    starColumn_ = [[NSTableColumn alloc] initWithIdentifier:@"std"];
     [starColumn_ setEditable:NO];
-    [starColumn_ setDataCell:[[NSImageCell alloc] initImageCell:nil]];
+    [starColumn_ setDataCell:[[[NSImageCell alloc] initImageCell:nil] autorelease]];
     [starColumn_ setWidth:34];
     [tableView_ addTableColumn:starColumn_];
 
@@ -386,6 +395,7 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
 
     NSTableHeaderView* header = [[NSTableHeaderView alloc] init];
     [tableView_ setHeaderView:header];
+    [header release];
     [[tableColumn_ headerCell] setStringValue:@"Name"];
     [[starColumn_ headerCell] setStringValue:@"Default"];
     [starColumn_ setWidth:[[starColumn_ headerCell] cellSize].width];
@@ -454,7 +464,7 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
     } else if (aTableColumn == tagsColumn_) {
         NSArray* tags = [bookmark objectForKey:KEY_TAGS];
         //NSLog (@"returning tags");
-        return (tags == nil) ? @"" : [NSString stringWithString:[tags componentsJoinedByString:@", "]];
+        return [NSString stringWithString:[tags componentsJoinedByString:@", "]];
     } else if (aTableColumn == starColumn_) {
         static NSImage* starImage;
         if (!starImage) {
@@ -600,7 +610,7 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
         [tableView_ 
          setSelectionHighlightStyle:NSTableViewSelectionHighlightStyleRegular];
         [tableView_ removeTableColumn:starColumn_];
-        [tableColumn_ setDataCell:[[NSTextFieldCell alloc] initTextCell:@""]];
+        [tableColumn_ setDataCell:[[[NSTextFieldCell alloc] initTextCell:@""] autorelease]];
     } else {
         [tableView_ setUsesAlternatingRowBackgroundColors:NO];
         [tableView_ 

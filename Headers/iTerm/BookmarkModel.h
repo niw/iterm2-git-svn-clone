@@ -31,10 +31,19 @@ typedef NSDictionary Bookmark;
     NSDictionary* dict_;
 }
 + (BookmarkImpl*)bookmarkImplFromDictionary:(NSDictionary*)dict;
++ (NSDictionary*)dictionaryFromBookmarkImpl:(BookmarkImpl*)impl;
 - (Bookmark*)bookmark;
 - (void)dealloc;
 - (NSComparisonResult)compareNames:(BookmarkImpl*)aBookmark;
-- (NSString*)name;
+- (NSComparisonResult)compareDefaults:(BookmarkImpl*)aBookmark;
+- (NSComparisonResult)compareShortcuts:(BookmarkImpl*)aBookmark;
+- (NSComparisonResult)compareCommands:(BookmarkImpl*)aBookmark;
+- (NSComparisonResult)compareTags:(BookmarkImpl*)aBookmark;
+- (BookmarkImpl*)name;
+- (BookmarkImpl*)shortcut;
+- (BookmarkImpl*)command;
+- (BookmarkImpl*)tags;
+- (BookmarkImpl*)std;
 @end
 
 @interface BookmarkModel : NSObject {

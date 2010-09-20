@@ -253,8 +253,8 @@ URL_TYPE createURLByMakingDirectoryAtURLWithName(URL_TYPE parent, STRING_TYPE na
 			}
 
 			CFRelease(parent);
+            CFRelease(name);
 		} //if (name)
-		CFRelease(name);
 	} //if (parent)
 
 end:

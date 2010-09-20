@@ -106,15 +106,16 @@ extern void NSLog(CFStringRef format, ...);
 #pragma mark Public API
 
 Boolean Growl_SetDelegate(struct Growl_Delegate *newDelegate) {
-	if (delegate != newDelegate) {
-		if (delegate && (delegate->release))
-			delegate->release(delegate);
-		if (newDelegate && (newDelegate->retain))
-			newDelegate = newDelegate->retain(newDelegate);
-		delegate = newDelegate;
-	}
-
-	CFStringRef appName = delegate->applicationName;
+    if ((newDelegate) && (newDelegate->retain))
+        if ((delegate) && (delegate != newDelegate) && (delegate->release)) {
+            delegate->release(delegate);
+            newDelegate = newDelegate->retain(newDelegate);
+        }
+    delegate = newDelegate;
+    
+	CFStringRef appName;
+    if (delegate)
+        appName = delegate->applicationName;
 	if ((!appName) && (delegate->registrationDictionary))
 		appName = CFDictionaryGetValue(delegate->registrationDictionary, GROWL_APP_NAME);
 	if (!appName) {
