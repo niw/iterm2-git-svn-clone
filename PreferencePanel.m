@@ -57,7 +57,7 @@ static float versionNumber;
     
     if (!shared) {
         shared = [[self alloc] initWithDataSource:[BookmarkModel sessionsInstance] 
-                                     userDefaults:[[NSUserDefaults alloc] init]];
+                                     userDefaults:[[[NSUserDefaults alloc] init] autorelease]];
         shared->oneBookmarkMode = YES;
     }
     
@@ -795,7 +795,7 @@ static float versionNumber;
 
 - (NSString*)formattedKeyCombinationForRow:(int)rowIndex
 {
-    return [[iTermKeyBindingMgr formatKeyCombination:[self keyComboAtIndex:rowIndex]] autorelease];
+    return [iTermKeyBindingMgr formatKeyCombination:[self keyComboAtIndex:rowIndex]];
 }
 
 - (NSString*)formattedActionForRow:(int)rowIndex
@@ -959,7 +959,7 @@ static float versionNumber;
         imageFilename = @"";
     }
     [backgroundImage setState:[imageFilename length] > 0 ? NSOnState : NSOffState];
-    [backgroundImagePreview setImage:[[NSImage alloc] initByReferencingFile:imageFilename]];
+    [backgroundImagePreview setImage:[[[NSImage alloc] initByReferencingFile:imageFilename] autorelease]];
     backgroundImageFilename = imageFilename;
     
         // Terminal tab
@@ -1557,7 +1557,7 @@ static float versionNumber;
 
 - (IBAction)addBookmark:(id)sender
 {
-    NSMutableDictionary* newDict = [[NSMutableDictionary alloc] init];
+    NSMutableDictionary* newDict = [[[NSMutableDictionary alloc] init] autorelease];
     // Copy the default bookmark's settings in
     Bookmark* prototype = [dataSource defaultBookmark];
     if (!prototype) {
@@ -1583,6 +1583,7 @@ static float versionNumber;
     [bookmarksTableView reloadData];
     [bookmarksTableView eraseQuery];
     [bookmarksTableView selectRowByGuid:guid];
+    [guid release];
 }
 
 - (IBAction)removeBookmark:(id)sender
@@ -1622,7 +1623,7 @@ static float versionNumber;
     NSString* newName = [NSString stringWithFormat:@"Copy of %@", [newDict objectForKey:KEY_NAME]];
     
     [newDict setObject:newName forKey:KEY_NAME];
-    [newDict setObject:[BookmarkModel newGuid] forKey:KEY_GUID];
+    [newDict setObject:[[BookmarkModel newGuid] autorelease] forKey:KEY_GUID];
     [newDict setObject:@"No" forKey:KEY_DEFAULT_BOOKMARK];
     [dataSource addBookmark:newDict];
     [bookmarksTableView reloadData];

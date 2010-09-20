@@ -809,7 +809,6 @@ NSString *sessionsKey = @"sessions";
 {
     // Constructs the context menu for right-clicking on a terminal when
     // right click does not paste.
-    unsigned int modflag = 0;
     int nextIndex;
     NSMenuItem *aMenuItem;
 
@@ -820,8 +819,6 @@ NSString *sessionsKey = @"sessions";
     if (theMenu == nil) {
         return;
     }
-
-    modflag = [theEvent modifierFlags];
 
     // Bookmarks
     [theMenu insertItemWithTitle:NSLocalizedStringFromTableInBundle(@"New",
@@ -1246,7 +1243,7 @@ NSString *sessionsKey = @"sessions";
     }
 
     // create a new terminal window
-    term = [[PseudoTerminal alloc] init];
+    term = [[[PseudoTerminal alloc] init] retain];
     if (term == nil) {
         return nil;
     }
@@ -1880,17 +1877,13 @@ NSString *sessionsKey = @"sessions";
                title:(NSString *)title
 {
     NSDictionary *tempPrefs;
-    ITAddressBookMgr *bookmarkManager;
 
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PseudoTerminal setupSession]",
           __FILE__, __LINE__);
 #endif
 
-    NSParameterAssert(aSession != nil);    
-
-    // get our shared managers
-    bookmarkManager = [ITAddressBookMgr sharedInstance];    
+    NSParameterAssert(aSession != nil); 
 
     // Init the rest of the session
     [aSession setParent:self];
@@ -1898,15 +1891,15 @@ NSString *sessionsKey = @"sessions";
     // set some default parameters
     if ([aSession addressBookEntry] == nil) {
         // get the default entry
-        NSMutableDictionary* dict = [[NSMutableDictionary alloc] init];
+        NSMutableDictionary* dict = [[[NSMutableDictionary alloc] init] autorelease];
         [ITAddressBookMgr setDefaultsInBookmark:dict];
         [aSession setAddressBookEntry:dict];
         tempPrefs = dict;
     } else {
         tempPrefs = [aSession addressBookEntry];
     }
-    int rows = [[tempPrefs objectForKey:KEY_ROWS] intValue];
-    int columns = [[tempPrefs objectForKey:KEY_COLUMNS] intValue];
+    int rows;
+    int columns;
     // rows, columns are set to the bookmark defaults. Make sure they'll fit.
 
     NSSize charSize = [PTYTextView charSizeForFont:[ITAddressBookMgr fontWithDesc:[tempPrefs objectForKey:KEY_NORMAL_FONT]] 
@@ -2263,7 +2256,7 @@ NSString *sessionsKey = @"sessions";
     }
 
     // create a new terminal window
-    term = [[PseudoTerminal alloc] init];
+    term = [[[PseudoTerminal alloc] init] retain];
     if (term == nil) {
         return;
     }
@@ -2272,7 +2265,6 @@ NSString *sessionsKey = @"sessions";
 
     [[iTermController sharedInstance] addInTerminals: term];
     [term release];
-
 
     // temporarily retain the tabViewItem
     [aTabViewItem retain];

@@ -178,7 +178,7 @@
 
 	if ([data objectForKey:KEY_COMMAND]) {
         // Not just a folder if it has a command.
-        NSMutableDictionary* temp = [NSMutableDictionary dictionaryWithDictionary:data];
+        NSMutableDictionary* temp = [[NSMutableDictionary dictionaryWithDictionary:data] autorelease];
         [self copyProfileToBookmark:temp];
         [temp setObject:[BookmarkModel newGuid] forKey:KEY_GUID];
         [temp setObject:path forKey:KEY_TAGS];
@@ -196,7 +196,7 @@
     
     NSArray* entries = [node objectForKey:@"Entries"];
     for (int i = 0; i < [entries count]; ++i) {
-        NSMutableArray* childPath = [NSMutableArray arrayWithArray:path];
+        NSMutableArray* childPath = [[NSMutableArray arrayWithArray:path] autorelease];
         NSDictionary* dataDict = [node objectForKey:@"Data"];
         if (dataDict) {
             NSString* name = [dataDict objectForKey:@"Name"];

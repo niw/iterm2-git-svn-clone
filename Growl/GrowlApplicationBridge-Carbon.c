@@ -113,7 +113,7 @@ Boolean Growl_SetDelegate(struct Growl_Delegate *newDelegate) {
         }
     delegate = newDelegate;
     
-	CFStringRef appName;
+    CFStringRef appName;
     if (delegate)
         appName = delegate->applicationName;
 	if ((!appName) && (delegate->registrationDictionary))

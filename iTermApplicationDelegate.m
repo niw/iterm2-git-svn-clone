@@ -416,12 +416,12 @@ void DebugLog(NSString* value)
 
     [AUTHORS setLinkTextAttributes: linkTextViewAttributes];
     [[AUTHORS textStorage] deleteCharactersInRange: NSMakeRange(0, [[AUTHORS textStorage] length])];
-    [[AUTHORS textStorage] appendAttributedString: [[NSAttributedString alloc] initWithString: versionString]];
-    [[AUTHORS textStorage] appendAttributedString: [[NSAttributedString alloc] initWithString: @"\n\n"]];
+    [[AUTHORS textStorage] appendAttributedString: [[[NSAttributedString alloc] initWithString: versionString] autorelease]];
+    [[AUTHORS textStorage] appendAttributedString: [[[NSAttributedString alloc] initWithString: @"\n\n"] autorelease]];
     [[AUTHORS textStorage] appendAttributedString: webAString];
-    [[AUTHORS textStorage] appendAttributedString: [[NSAttributedString alloc] initWithString: @"\n"]];
+    [[AUTHORS textStorage] appendAttributedString: [[[NSAttributedString alloc] initWithString: @"\n"] autorelease]];
     [[AUTHORS textStorage] appendAttributedString: bugsAString];
-    [[AUTHORS textStorage] appendAttributedString: [[NSAttributedString alloc] initWithString: @"\n\n"]];
+    [[AUTHORS textStorage] appendAttributedString: [[[NSAttributedString alloc] initWithString: @"\n\n"] autorelease]];
     [[AUTHORS textStorage] appendAttributedString: creditsAString]; 
     [AUTHORS setAlignment: NSCenterTextAlignment range: NSMakeRange(0, [[AUTHORS textStorage] length])];
 
@@ -639,9 +639,9 @@ void DebugLog(NSString* value)
     // add new menu item
     if (count) {
         [[NSApp mainMenu] insertItem: scriptMenuItem atIndex: 5];
-        [scriptMenuItem release];
         [scriptMenuItem setTitle: NSLocalizedStringFromTableInBundle(@"Script",@"iTerm", [NSBundle bundleForClass: [iTermController class]], @"Script")];
     }
+    [scriptMenuItem release];
 }
 
 // TODO(georgen): Disable "Edit Current Session..." when there are no current sessions.

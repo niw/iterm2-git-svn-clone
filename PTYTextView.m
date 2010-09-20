@@ -66,6 +66,8 @@ static NSCursor* textViewCursor =  nil;
     [reverseCursorImage compositeToPoint:NSMakePoint(2,0) operation:NSCompositePlusLighter];
     [aCursorImage unlockFocus];
     textViewCursor = [[NSCursor alloc] initWithImage:aCursorImage hotSpot:hotspot];
+    [aCursorImage release];
+    [reverseCursorImage release];
 }
 
 + (NSCursor *) textViewCursor
@@ -1590,7 +1592,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         } else {
             lastFindX = endX;
             absLastFindY = endY + [dataSource totalScrollbackOverflow];
-            NSLog(@"Reset find position to %d,%d", lastFindX, absLastFindY);
+            NSLog(@"Reset find position to %d,%lld", lastFindX, absLastFindY);
         }
     }
 
@@ -1791,7 +1793,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         if (i < endy-1) {
             [result appendString:@"\n"];
         }
-//        [line release];
+       //[line release];
     }
     return result;
 }
@@ -3412,8 +3414,8 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
 - (BOOL) _isCharSelectedInRow:(int)row col:(int)col checkOld:(BOOL)old
 {
-    int _startX=startX, _startY=startY, _endX=endX, _endY=endY;
-    char _selectMode = selectMode;
+    int _startX, _startY, _endX, _endY;
+    char _selectMode;
     if(!old) {
         _startY=startY; _startX=startX; _endY=endY; _endX=endX; _selectMode = selectMode;
     } else {

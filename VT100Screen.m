@@ -513,7 +513,7 @@ static __inline__ screen_char_t *incrementLinePointer(screen_char_t *buf_start, 
 
 - (void)resizeWidth:(int)new_width height:(int)new_height
 {
-    int i, total_height;
+    int i;
     screen_char_t *new_buffer_lines;
 
 #ifdef DEBUG_RESIZEDWIDTH
@@ -528,7 +528,6 @@ static __inline__ screen_char_t *incrementLinePointer(screen_char_t *buf_start, 
     if (WIDTH == 0 || HEIGHT == 0 || (new_width==WIDTH && new_height==HEIGHT)) {
         return;
     }
-    total_height = max_scrollback_lines + HEIGHT;
 
     // create a new buffer and fill it with the default line.
     new_buffer_lines = (screen_char_t*)malloc(new_height*(new_width+1)*sizeof(screen_char_t));

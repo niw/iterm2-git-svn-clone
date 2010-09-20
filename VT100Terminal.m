@@ -729,7 +729,6 @@ static VT100TCC decode_xterm(unsigned char *datap,
                 }
             }
             else {
-                *datap++;
                 datalen--;
                 (*rmlen)++;
             }
@@ -782,14 +781,13 @@ static VT100TCC decode_other(unsigned char *datap,
                              size_t *rmlen)
 {
     VT100TCC result;
-    int c1, c2, c3;
+    int c1, c2;
 
     NSCParameterAssert(datap[0] == ESC);
     NSCParameterAssert(datalen > 1);
 
     c1 = (datalen >= 2 ? datap[1]: -1);
     c2 = (datalen >= 3 ? datap[2]: -1);
-    c3 = (datalen >= 4 ? datap[3]: -1);
 
     switch (c1) {
         case '#':

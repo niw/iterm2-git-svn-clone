@@ -154,7 +154,7 @@
                         action:@selector(openBookmarkInWindow:) 
                  keyEquivalent:@""];
     }
-    return menu;
+    return [menu autorelease];
 }
 
 

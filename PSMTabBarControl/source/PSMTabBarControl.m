@@ -894,7 +894,6 @@
 				if (!_useOverflowMenu) {
 					int j, averageWidth = (availableWidth / cellCount);
 					
-					numberOfVisibleCells = cellCount;
 					[newWidths removeAllObjects];
 					
 					for (j = 0; j < cellCount; j++) {
@@ -980,7 +979,6 @@
 							[newWidths replaceObjectAtIndex:0 withObject:[NSNumber numberWithFloat:availableWidth - [cellWidth floatValue]]];
 						}
 						
-						numberOfVisibleCells = 2;
 					}
 					
 					break; // done assigning widths; remaining cells go in overflow menu

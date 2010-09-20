@@ -32,15 +32,14 @@
     BookmarkImpl* impl = [BookmarkImpl alloc];
     impl->dict_ = dict;
     [dict retain];
-    //[impl autorelease];
+    [impl autorelease];
     return impl;
 }
 
 + (NSDictionary*)dictionaryFromBookmarkImpl:(BookmarkImpl*)impl {
-    NSDictionary* dict = [NSDictionary alloc];
+    NSDictionary* dict;
     dict = impl->dict_;
     [impl retain];
-    //[dict autorelease];
     return dict;
 }
 
@@ -249,32 +248,32 @@
 {
     // Ensure required fields are present
     if (![bookmark objectForKey:KEY_NAME]) {
-        NSMutableDictionary* aDict = [[NSMutableDictionary alloc] initWithDictionary:bookmark];
+        NSMutableDictionary* aDict = [[[NSMutableDictionary alloc] initWithDictionary:bookmark] autorelease];
         [aDict setObject:@"Bookmark" forKey:KEY_NAME];
         bookmark = aDict;
     }
     if (![bookmark objectForKey:KEY_TAGS]) {
-        NSMutableDictionary* aDict = [[NSMutableDictionary alloc] initWithDictionary:bookmark];
+        NSMutableDictionary* aDict = [[[NSMutableDictionary alloc] initWithDictionary:bookmark] autorelease];
         [aDict setObject:[NSArray arrayWithObjects:nil] forKey:KEY_TAGS];
         bookmark = aDict;
     }
     if (![bookmark objectForKey:KEY_CUSTOM_COMMAND]) {
-        NSMutableDictionary* aDict = [[NSMutableDictionary alloc] initWithDictionary:bookmark];
+        NSMutableDictionary* aDict = [[[NSMutableDictionary alloc] initWithDictionary:bookmark] autorelease];
         [aDict setObject:@"No" forKey:KEY_CUSTOM_COMMAND];
         bookmark = aDict;
     }
     if (![bookmark objectForKey:KEY_COMMAND]) {
-        NSMutableDictionary* aDict = [[NSMutableDictionary alloc] initWithDictionary:bookmark];
+        NSMutableDictionary* aDict = [[[NSMutableDictionary alloc] initWithDictionary:bookmark] autorelease];
         [aDict setObject:@"/bin/bash --login" forKey:KEY_COMMAND];
         bookmark = aDict;
     }
     if (![bookmark objectForKey:KEY_GUID]) {
-        NSMutableDictionary* aDict = [[NSMutableDictionary alloc] initWithDictionary:bookmark];
-        [aDict setObject:[BookmarkModel newGuid] forKey:KEY_GUID];
+        NSMutableDictionary* aDict = [[[NSMutableDictionary alloc] initWithDictionary:bookmark] autorelease];
+        [aDict setObject:[[BookmarkModel newGuid] autorelease] forKey:KEY_GUID];
         bookmark = aDict;
     }
     if (![bookmark objectForKey:KEY_DEFAULT_BOOKMARK]) {
-        NSMutableDictionary* aDict = [[NSMutableDictionary alloc] initWithDictionary:bookmark];
+        NSMutableDictionary* aDict = [[[NSMutableDictionary alloc] initWithDictionary:bookmark] autorelease];
         [aDict setObject:@"No" forKey:KEY_DEFAULT_BOOKMARK];
         bookmark = aDict;
     }
@@ -425,7 +424,7 @@
     //get the string representation of the UUID
     NSString *uuidString = (NSString*)CFUUIDCreateString(nil, uuidObj);
     CFRelease(uuidObj);
-    return [uuidString autorelease];
+    return uuidString;
 }
 
 - (int)indexOfBookmarkWithGuid:(NSString*)guid

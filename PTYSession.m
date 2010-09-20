@@ -405,19 +405,14 @@ static NSImage *warningImage;
 - (BOOL) hasKeyMappingForEvent: (NSEvent *) event highPriority: (BOOL) priority
 {
     unsigned int modflag;
-    unsigned short keycode;
-    NSString *keystr;
     NSString *unmodkeystr;
-    unichar unicode, unmodunicode;
+    unichar  unmodunicode;
     int keyBindingAction;
     NSString *keyBindingText;
     BOOL keyBindingPriority;
 
     modflag = [event modifierFlags];
-    keycode = [event keyCode];
-    keystr  = [event characters];
     unmodkeystr = [event charactersIgnoringModifiers];
-    unicode = [keystr length]>0?[keystr characterAtIndex:0]:0;
     unmodunicode = [unmodkeystr length]>0?[unmodkeystr characterAtIndex:0]:0;
 
     //NSLog(@"event:%@ (%x+%x)[%@][%@]:%x(%c) <%d>", event,modflag,keycode,keystr,unmodkeystr,unicode,unicode,(modflag & NSNumericPadKeyMask));
@@ -445,9 +440,7 @@ static NSImage *warningImage;
     int keyBindingAction;
     NSString *keyBindingText;
     BOOL priority;
-
     unsigned int modflag;
-    unsigned short keycode;
     NSString *keystr;
     NSString *unmodkeystr;
     unichar unicode, unmodunicode;
@@ -460,7 +453,6 @@ static NSImage *warningImage;
     if (EXIT) return;
 
     modflag = [event modifierFlags];
-    keycode = [event keyCode];
     keystr  = [event characters];
     unmodkeystr = [event charactersIgnoringModifiers];
     unicode = [keystr length]>0?[keystr characterAtIndex:0]:0;
@@ -1098,10 +1090,6 @@ static NSImage *warningImage;
     NSColor *colorTable[2][8];
     int i;
     NSDictionary *aDict;
-    ITAddressBookMgr *bookmarkManager;
-
-    // get our shared managers
-    bookmarkManager = [ITAddressBookMgr sharedInstance];
 
     aDict = aePrefs;
     if (aDict == nil) {
