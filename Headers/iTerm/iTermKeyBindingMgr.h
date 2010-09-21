@@ -100,7 +100,8 @@
 @interface iTermKeyBindingMgr : NSObject {
 }
 
-+ (NSString *) formatKeyCombination:(NSString *)theKeyCombination;
++ (NSString *) formatKeyCombination:(NSString *)theKeyCombination
+                                           __attribute__((ns_returns_retained));
 + (NSString *)formatAction:(NSDictionary *)keyInfo;
 + (int) actionForKeyCode: (unichar)keyCode 
                  modifiers: (unsigned int) keyMods 
