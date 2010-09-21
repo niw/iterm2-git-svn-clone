@@ -1243,7 +1243,7 @@ NSString *sessionsKey = @"sessions";
     }
 
     // create a new terminal window
-    term = [[[PseudoTerminal alloc] init] retain];
+    term = [[[PseudoTerminal alloc] init] autorelease];
     if (term == nil) {
         return nil;
     }
@@ -1955,7 +1955,8 @@ NSString *sessionsKey = @"sessions";
 - (NSRect)visibleContentRect
 {
     NSRect current = [[[self currentSession] SCROLLVIEW] documentVisibleRect];
-    if (([TABVIEW numberOfTabViewItems] + tabViewItemsBeingAdded) > 1 && 
+    if (!_fullScreen &&
+        ([TABVIEW numberOfTabViewItems] + tabViewItemsBeingAdded) > 1 && 
         [tabBarControl isHidden] &&
         [[PreferencePanel sharedInstance] hideTab]) {
         // A tab bar control is about to be shown.
@@ -2256,7 +2257,7 @@ NSString *sessionsKey = @"sessions";
     }
 
     // create a new terminal window
-    term = [[[PseudoTerminal alloc] init] retain];
+    term = [[[PseudoTerminal alloc] init] autorelease];
     if (term == nil) {
         return;
     }

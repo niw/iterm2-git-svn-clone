@@ -311,7 +311,7 @@ static BOOL initDone = NO;
     
     // Where do we execute this command?
     if (theTerm == nil) {
-        term = [[[PseudoTerminal alloc] init] retain];
+        term = [[PseudoTerminal alloc] init];
         [term initWithSmartLayout:YES fullScreen:nil];
         [self addInTerminals:term];
         [term release];
@@ -341,7 +341,7 @@ static BOOL initDone = NO;
     
     // Where do we execute this command?
     if (theTerm == nil) {
-        term = [[[PseudoTerminal alloc] init] retain];
+        term = [[PseudoTerminal alloc] init];
         [term initWithSmartLayout:YES fullScreen:nil];
         [self addInTerminals: term];
         [term release];
@@ -402,7 +402,7 @@ static BOOL initDone = NO;
     
     // Where do we execute this command?
     if (theTerm == nil) {
-        term = [[[PseudoTerminal alloc] init] retain];
+        term = [[PseudoTerminal alloc] init];
         [term initWithSmartLayout:YES fullScreen:nil];
         [self addInTerminals: term];
         [term release];
