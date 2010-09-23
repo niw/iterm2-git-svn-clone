@@ -283,14 +283,14 @@
 			break;
 		case KEY_ACTION_ESCAPE_SEQUENCE:
 			actionString = [NSString stringWithFormat:@"%@ %@", 
-				NSLocalizedStringFromTableInBundle(@"send escape sequence (^[)",@"iTerm", 
+				NSLocalizedStringFromTableInBundle(@"send escape (^[) +",@"iTerm", 
 															  [NSBundle bundleForClass: [self class]], 
 															  @"Key Binding Actions"),
 				auxText];
 			break;
 		case KEY_ACTION_HEX_CODE:
-			actionString = [NSString stringWithFormat: @"%@ %@", 
-				NSLocalizedStringFromTableInBundle(@"send escaped hex code",@"iTerm", 
+			actionString = [NSString stringWithFormat: @"%@ 0x%@", 
+				NSLocalizedStringFromTableInBundle(@"send byte",@"iTerm", 
 															  [NSBundle bundleForClass: [self class]], 
 															  @"Key Binding Actions"),
 				auxText];

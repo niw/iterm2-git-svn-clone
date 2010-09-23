@@ -140,21 +140,21 @@
 "Default" = "Default";
 
 /* Key Binding Actions */
-"next tab"              = "next tab";
-"next window"           = "next window";
-"previous tab"          = "previous tab";
-"previous window"       = "previous window";
-"scroll end"            = "scroll end";
-"scroll home"           = "scroll home";
-"scroll line down"      = "scroll line down";
-"scroll line up"        = "scroll line up";
-"scroll page down"      = "scroll page down";
-"scroll page up"        = "scroll page up";
-"send escape +"         = "send escape +";
-"send escaped hex code" = "send escaped hex code";
-"send text"             = "send text";
-"ignore"                = "ignore";
-"unknown action ID"     = "unknown action ID";
+"next tab"           = "next tab";
+"next window"        = "next window";
+"previous tab"       = "previous tab";
+"previous window"    = "previous window";
+"scroll end"         = "scroll end";
+"scroll home"        = "scroll home";
+"scroll line down"   = "scroll line down";
+"scroll line up"     = "scroll line up";
+"scroll page down"   = "scroll page down";
+"scroll page up"     = "scroll page up";
+"send escape (^[) +" = "send escape (^[) +";
+"send byte"          = "send byte";
+"send text"          = "send text";
+"ignore"             = "ignore";
+"unknown action ID"  = "unknown action ID";
 
 /* Key Names */
 "cursor down"  = "cursor down";

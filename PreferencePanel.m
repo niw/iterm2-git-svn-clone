@@ -57,7 +57,7 @@ static float versionNumber;
     
     if (!shared) {
         shared = [[self alloc] initWithDataSource:[BookmarkModel sessionsInstance] 
-                                     userDefaults:[[[NSUserDefaults alloc] init] autorelease]];
+                                     userDefaults:[[NSUserDefaults alloc] init]];
         shared->oneBookmarkMode = YES;
     }
     

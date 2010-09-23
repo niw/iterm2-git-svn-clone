@@ -62,7 +62,6 @@ const int kInterWidgetMargin = 10;
     unsigned short keycode;
     modflag = [theEvent modifierFlags];
     keycode = [theEvent keyCode];
-    NSLog(@"Keycode %d", keycode);
     
     const int mask = NSShiftKeyMask | NSControlKeyMask | NSAlternateKeyMask | NSCommandKeyMask;
     // TODO(georgen): Not getting normal keycodes here, but 125 and 126 are up and down arrows.
@@ -216,8 +215,6 @@ const int kInterWidgetMargin = 10;
 - (void)  tableView:(NSTableView *)aTableView
 didClickTableColumn:(NSTableColumn *)aTableColumn {
     
-    NSLog (@"function called!");
-    
     SEL selector;
     if ([[aTableColumn identifier] isEqualToString:@"std"])
         selector = @selector(compareDefaults:);
@@ -235,7 +232,7 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
     // The user clicked on a different column than before, thus use normal sorting
     // for this column.
     if ((prevCol == nil) || (prevCol != aTableColumn)) {
-        sortOrder = (BOOL)YES;
+        sortOrder = YES;
         
         if (prevCol) {
             [aTableView setIndicatorImage:nil
@@ -250,17 +247,11 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
         sortOrder = !sortOrder;
     }
     
-    NSLog (@"identifier: %@\nselector: %@", [aTableColumn identifier], NSStringFromSelector (selector));
-    [tableView_ setSortDescriptors:
-     [NSArray arrayWithObjects:
-      [[[NSSortDescriptor alloc] initWithKey:[aTableColumn identifier]
-                                  ascending:sortOrder
-                                   selector:selector
-       ] autorelease], nil
-      
-      ]
-     
-     ];
+    [tableView_ setSortDescriptors:[NSArray arrayWithObjects:
+                                     [[[NSSortDescriptor alloc]
+                                            initWithKey:[aTableColumn identifier]
+                                              ascending:sortOrder
+                                               selector:selector] autorelease], nil]];
     
     
     [aTableView setIndicatorImage:(sortOrder ? 
@@ -272,7 +263,6 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
 
 - (void)tableView:(NSTableView *)aTableView sortDescriptorsDidChange:(NSArray *)oldDescriptors
 {
-    NSLog (@"called");
     [dataSource_ sortUsingDescriptors:[aTableView sortDescriptors]];
     [tableView_ reloadData];
 }
@@ -438,16 +428,13 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
 
 - (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex
 {
-    //NSLog (@"Calling bookmarkAtIndexwithFilter");
     Bookmark* bookmark = 
     [dataSource_ bookmarkAtIndex:rowIndex
                       withFilter:[searchField_ stringValue]];
-    //NSLog (@"Call done.");
 
     if (aTableColumn == tableColumn_) {
         return [bookmark objectForKey:KEY_NAME];
     } else if (aTableColumn == commandColumn_) {
-        //NSLog (@"Returning shell");
         if (![[bookmark objectForKey:KEY_CUSTOM_COMMAND] isEqualToString:@"Yes"]) {
             return @"Login shell";
         } else {
@@ -455,7 +442,6 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
         }
     } else if (aTableColumn == shortcutColumn_) {
         NSString* key = [bookmark objectForKey:KEY_SHORTCUT];
-        //NSLog (@"returning shortcut");
         if ([key length]) {
             return [NSString stringWithFormat:@"^⌘%@", [bookmark objectForKey:KEY_SHORTCUT]];
         } else {
@@ -463,7 +449,6 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
         }
     } else if (aTableColumn == tagsColumn_) {
         NSArray* tags = [bookmark objectForKey:KEY_TAGS];
-        //NSLog (@"returning tags");
         return [NSString stringWithString:[tags componentsJoinedByString:@", "]];
     } else if (aTableColumn == starColumn_) {
         static NSImage* starImage;
@@ -492,7 +477,6 @@ didClickTableColumn:(NSTableColumn *)aTableColumn {
             [starImage drawAtPoint:destPoint fromRect:NSZeroRect operation:NSCompositeSourceOver fraction:1.0];
         }
         [image unlockFocus];
-        //NSLog (@"Returning star");
         return image;
     }
     

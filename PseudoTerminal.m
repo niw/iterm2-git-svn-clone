@@ -1243,7 +1243,7 @@ NSString *sessionsKey = @"sessions";
     }
 
     // create a new terminal window
-    term = [[[PseudoTerminal alloc] init] autorelease];
+    term = [[PseudoTerminal alloc] init];
     if (term == nil) {
         return nil;
     }
@@ -2257,7 +2257,7 @@ NSString *sessionsKey = @"sessions";
     }
 
     // create a new terminal window
-    term = [[[PseudoTerminal alloc] init] autorelease];
+    term = [[PseudoTerminal alloc] init];
     if (term == nil) {
         return;
     }
