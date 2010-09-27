@@ -86,10 +86,11 @@ static NSCursor* textViewCursor =  nil;
 
     [self setMarkedTextAttributes:
         [NSDictionary dictionaryWithObjectsAndKeys:
-            [NSColor yellowColor], NSBackgroundColorAttributeName,
-            [NSColor blackColor], NSForegroundColorAttributeName,
+            defaultBGColor, NSBackgroundColorAttributeName,
+            defaultFGColor, NSForegroundColorAttributeName,
             nafont, NSFontAttributeName,
-            [NSNumber numberWithInt:2],NSUnderlineStyleAttributeName,
+            [NSNumber numberWithInt:(NSUnderlineStyleSingle|NSUnderlineByWordMask)],
+                NSUnderlineStyleAttributeName,
             NULL]];
     CURSOR=YES;
     lastFindX = oldStartX = startX = -1;
@@ -506,10 +507,11 @@ static NSCursor* textViewCursor =  nil;
 
     [self setMarkedTextAttributes:
         [NSDictionary dictionaryWithObjectsAndKeys:
-            [NSColor yellowColor], NSBackgroundColorAttributeName,
-            [NSColor blackColor], NSForegroundColorAttributeName,
+            defaultBGColor, NSBackgroundColorAttributeName,
+            defaultFGColor, NSForegroundColorAttributeName,
             nafont, NSFontAttributeName,
-            [NSNumber numberWithInt:2],NSUnderlineStyleAttributeName,
+            [NSNumber numberWithInt:(NSUnderlineStyleSingle|NSUnderlineByWordMask)],
+                NSUnderlineStyleAttributeName,
             NULL]];
     [self setNeedsDisplay:YES];
 
@@ -2504,7 +2506,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         // NSLog(@"PTYTextView: done");
         _findInProgress = NO;
         if (!found) {
-	    // Clear the selection.
+        // Clear the selection.
             startX = startY = endX = endY = -1;
             absLastFindY = -1;
             [self setNeedsDisplay:YES];
@@ -2734,7 +2736,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     }
 }
 
-- (void) _drawCursor
+- (void)_drawCursor
 {
     int WIDTH, HEIGHT;
     screen_char_t* theLine;
@@ -2770,10 +2772,36 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     else
         showCursor = YES;
 
+    // draw any text for NSTextInput
+    if ([self hasMarkedText]) {
+        // The following mod is brought to you by Zonble.
+        int len = [markedText length];
+        if (len > WIDTH - x1) {
+          len = WIDTH - x1;
+        }
+        int descender = [nafont descender];
+
+        NSRect inputFrame = NSMakeRect(floor(x1 * charWidth + MARGIN),
+                                       (yStart + [dataSource numberOfLines] - HEIGHT) * lineHeight + (lineHeight - cursorHeight) + descender,
+                                       ceil((WIDTH-x1)*cursorWidth),
+                                       cursorHeight - descender);
+        [markedText drawInRect:inputFrame];
+
+        NSAttributedString *attributedStringBeforeCursor = [markedText attributedSubstringFromRange:NSMakeRange(0, IM_INPUT_SELRANGE.location)];
+        NSRect spaceFrame = [attributedStringBeforeCursor boundingRectWithSize:inputFrame.size options:0];
+        NSRect cursorFrame = NSMakeRect(inputFrame.origin.x + spaceFrame.size.width, inputFrame.origin.y, 2.0, inputFrame.size.height);
+        [[NSColor yellowColor] set];
+        NSRectFill(cursorFrame);
+
+        memset([dataSource dirty] + yStart * WIDTH + x1,
+               1,
+               WIDTH - x1 > len*2 ? len*2 : WIDTH-x1); //len*2 is an over-estimation, but safe
+        return;
+    }
+
+
     if (CURSOR) {
         if (showCursor && x1 < WIDTH && x1 >= 0 && yStart >= 0 && yStart < HEIGHT) {
-            curX = floor(x1 * charWidth + MARGIN);
-            curY = (yStart + [dataSource numberOfLines] - HEIGHT + 1) * lineHeight - cursorHeight;
             // get the cursor line
             theLine = [dataSource getLineAtScreenIndex:yStart];
             double_width = 0;
@@ -2785,6 +2813,8 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                 }
                 double_width = (x1 < WIDTH-1) && (theLine[x1+1].ch == 0xffff);
             }
+            curX = floor(x1 * charWidth + MARGIN);
+            curY = (yStart + [dataSource numberOfLines] - HEIGHT + 1) * lineHeight - cursorHeight;
 
             NSColor *bgColor;
             if (colorInvertedCursor) {
@@ -2872,19 +2902,6 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
     oldCursorX = x1;
     oldCursorY = yStart;
-
-    // draw any text for NSTextInput
-    if([self hasMarkedText]) {
-        int len=[markedText length];
-        if (len>WIDTH-x1) len=WIDTH-x1;
-        [markedText drawInRect:NSMakeRect(floor(x1 * charWidth + MARGIN),
-                (yStart + [dataSource numberOfLines] - HEIGHT) * lineHeight + (lineHeight - cursorHeight),
-                ceil((WIDTH-x1)*cursorWidth),cursorHeight)];
-        memset([dataSource dirty] + yStart * WIDTH + x1,
-               1,
-               WIDTH - x1 > len*2 ? len*2 : WIDTH-x1); //len*2 is an over-estimation, but safe
-    }
-
 }
 
 - (void)_drawCharacter:(unichar)code fgColor:(int)fg AtX:(float)X Y:(float)Y doubleWidth:(BOOL)dw overrideColor:(NSColor*)overrideColor
@@ -2937,14 +2954,14 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         [attrib setObject:theFont forKey: NSFontAttributeName];
     }
 
-    char ascii_char = (char)code;
-    if (!renderBold && ascii_char == code) {
+    if (code < 128) {
+        char ascii_char = (char)code;
         // if we can safely convert to an ascii character, we can use the faster CoreGraphics api.
         CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
 
-        CGContextSelectFont(ctx, 
-                            [[theFont fontName] UTF8String], 
-                            [theFont pointSize], 
+        CGContextSelectFont(ctx,
+                            [[theFont fontName] UTF8String],
+                            [theFont pointSize],
                             kCGEncodingMacRoman);
 
         CGContextSetFillColorSpace(ctx, [[color colorSpace] CGColorSpace]);
@@ -2956,16 +2973,24 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         }
         CGContextSetTextMatrix(ctx, CGAffineTransformMakeScale(1.0, -1.0));
         CGContextSetTextDrawingMode(ctx, kCGTextFill);
-        CGContextSetShouldAntialias(ctx, YES);
+        CGContextSetShouldAntialias(ctx, [self antiAlias]);
 
         Y += lineHeight + [theFont descender];
+        Y = (int)Y;
+        X = (int)X;
         CGContextShowTextAtPoint(ctx, X, Y, &ascii_char, 1);
         CGContextFillPath(ctx);
+        if (renderBold) {
+            CGContextShowTextAtPoint(ctx, X+1, Y, &ascii_char, 1);
+            CGContextFillPath(ctx);
+        }
     } else {
         Y += lineHeight + [theFont descender];
+        Y = (int)Y;
+        X = (int)X;
         NSString* charToDraw = [NSString stringWithCharacters:&code length:1];
         [charToDraw drawWithRect:NSMakeRect(X,Y, 0, 0) options:0 attributes:attrib];
-        
+
         // redraw the character offset by 1 pixel, this is faster than real bold
         if (renderBold) {
             [charToDraw drawWithRect:NSMakeRect(X+1,Y, 0, 0) options:0 attributes:attrib];

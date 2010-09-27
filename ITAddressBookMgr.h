@@ -37,23 +37,23 @@
 #define KEY_NEW_BOOKMARKS               @"New Bookmarks"
 
 // Bookmark-level keys
-#define KEY_CHILDREN					@"Children"
-#define KEY_NAME						@"Name"
-#define KEY_DESCRIPTION					@"Description"
+#define KEY_CHILDREN                    @"Children"
+#define KEY_NAME                        @"Name"
+#define KEY_DESCRIPTION                 @"Description"
 #define KEY_CUSTOM_COMMAND              @"Custom Command"
-#define KEY_COMMAND						@"Command"
+#define KEY_COMMAND                     @"Command"
 #define KEY_CUSTOM_DIRECTORY            @"Custom Directory"  // values are Yes, No, Recycle
-#define KEY_WORKING_DIRECTORY			@"Working Directory"
-#define KEY_TERMINAL_PROFILE			@"Terminal Profile"
-#define KEY_KEYBOARD_PROFILE			@"Keyboard Profile"
-#define KEY_DISPLAY_PROFILE				@"Display Profile"
-#define KEY_SHORTCUT					@"Shortcut"
-#define KEY_BONJOUR_GROUP			@"Bonjour Group"
-#define KEY_BONJOUR_SERVICE			@"Bonjour Service"
+#define KEY_WORKING_DIRECTORY           @"Working Directory"
+#define KEY_TERMINAL_PROFILE            @"Terminal Profile"
+#define KEY_KEYBOARD_PROFILE            @"Keyboard Profile"
+#define KEY_DISPLAY_PROFILE             @"Display Profile"
+#define KEY_SHORTCUT                    @"Shortcut"
+#define KEY_BONJOUR_GROUP           @"Bonjour Group"
+#define KEY_BONJOUR_SERVICE         @"Bonjour Service"
 #define KEY_BONJOUR_SERVICE_ADDRESS  @"Bonjour Service Address"
 #define KEY_TAGS                              @"Tags"
 #define KEY_GUID                              @"Guid"
-#define KEY_DEFAULT_BOOKMARK			@"Default Bookmark"  // deprecated
+#define KEY_DEFAULT_BOOKMARK            @"Default Bookmark"  // deprecated
 
 // Per-bookmark keys ----------------------------------------------------------
 // IMPORATANT: If you add keys, also modify doCopyFrom in PreferencePanel.m.
@@ -102,7 +102,8 @@
 #define KEY_DISABLE_WINDOW_RESIZING           @"Disable Window Resizing"
 #define KEY_SYNC_TITLE                        @"Sync Title"
 #define KEY_CLOSE_SESSIONS_ON_END             @"Close Sessions On End"
-#define KEY_TREAT_NON_ASCII_AS_DOUBLE_WIDTH   @"Non Ascii Double Width"
+#define KEY_TREAT_NON_ASCII_AS_DOUBLE_WIDTH   @"Non Ascii Double Width"  // DEPRECATED
+#define KEY_AMBIGUOUS_DOUBLE_WIDTH            @"Ambiguous Double Width"
 #define KEY_SILENCE_BELL                      @"Silence Bell"
 #define KEY_VISUAL_BELL                       @"Visual Bell"
 #define KEY_XTERM_MOUSE_REPORTING             @"Mouse Reporting"
@@ -118,12 +119,12 @@
 #define KEY_OPTION_KEY_SENDS                  @"Option Key Sends"
 
 
-@interface ITAddressBookMgr : NSObject 
+@interface ITAddressBookMgr : NSObject
 {
-	NSNetServiceBrowser *sshBonjourBrowser;
-	NSNetServiceBrowser *ftpBonjourBrowser;
-	NSNetServiceBrowser *telnetBonjourBrowser;
-	NSMutableArray *bonjourServices;
+    NSNetServiceBrowser *sshBonjourBrowser;
+    NSNetServiceBrowser *ftpBonjourBrowser;
+    NSNetServiceBrowser *telnetBonjourBrowser;
+    NSMutableArray *bonjourServices;
 }
 
 
@@ -142,6 +143,7 @@
 - (void)copyProfileToBookmark:(NSMutableDictionary *)dict;
 - (void)recursiveMigrateBookmarks:(NSDictionary*)node path:(NSArray*)array;
 + (NSFont *)fontWithDesc:(NSString *)fontDesc;
++ (NSString*)descFromFont:(NSFont*)font;
 - (void)setBookmarks:(NSArray*)newBookmarksArray defaultGuid:(NSString*)guid;
 - (BookmarkModel*)model;
 - (void)netServiceBrowser:(NSNetServiceBrowser *)aNetServiceBrowser didFindService:(NSNetService *)aNetService moreComing:(BOOL)moreComing;
