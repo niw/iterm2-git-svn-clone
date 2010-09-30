@@ -123,27 +123,32 @@
 + (BookmarkModel*)sharedInstance
 {
     static BookmarkModel* shared = nil;
-    
+
     if (!shared) {
         shared = [[BookmarkModel alloc] init];
         shared->prefs_ = [NSUserDefaults standardUserDefaults];
     }
-    
+
     return shared;
 }
 
 + (BookmarkModel*)sessionsInstance
 {
     static BookmarkModel* shared = nil;
-    
+
     if (!shared) {
         shared = [[BookmarkModel alloc] init];
         shared->prefs_ = nil;
     }
-    
+
     return shared;
 }
 
+- (void)dealloc
+{
+    [super dealloc];
+    NSLog(@"Deallocating bookmark model!");
+}
 
 - (int)numberOfBookmarks
 {
@@ -173,10 +178,10 @@
         }
         // Search each word in tag until one has this token as a prefix.
         bool found;
-        
+
         // First see if this token occurs in the title
         found = [self _document:nameWords containsToken:token];
-        
+
         // If not try each tag.
         for (int j = 0; !found && j < [tags count]; ++j) {
             // Expand the jth tag into an array of the words in the tag
@@ -277,7 +282,7 @@
         [aDict setObject:@"No" forKey:KEY_DEFAULT_BOOKMARK];
         bookmark = aDict;
     }
-    
+
     if (sort) {
         // Insert alphabetically. Sort so that objects with the "bonjour" tag come after objects without.
         int insertionPoint = -1;
@@ -314,7 +319,7 @@
     if (![self defaultBookmark] || (isDeprecatedDefaultBookmark && [isDeprecatedDefaultBookmark isEqualToString:@"Yes"])) {
         [self setDefaultByGuid:[bookmark objectForKey:KEY_GUID]];
     }
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];    		    
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
 }
 
 - (BOOL)bookmark:(Bookmark*)bookmark hasTag:(NSString*)tag
@@ -346,7 +351,7 @@
     if (![self defaultBookmark] && [bookmarks_ count]) {
         [self setDefaultByGuid:[[[bookmarks_ objectAtIndex:0] bookmark] objectForKey:KEY_GUID]];
     }
-	[[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];    		
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
 }
 
 - (void)removeBookmarkAtIndex:(int)i withFilter:(NSString*)filter
@@ -373,7 +378,7 @@
     if (isDefault) {
         [self setDefaultByGuid:[bookmark objectForKey:KEY_GUID]];
     }
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];    		
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
 }
 
 - (void)setBookmark:(Bookmark*)bookmark withGuid:(NSString*)guid
@@ -388,7 +393,7 @@
 {
     [bookmarks_ removeAllObjects];
     defaultBookmarkGuid_ = @"";
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];    		
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
 }
 
 - (NSArray*)rawData
@@ -510,14 +515,14 @@
 }
 
 - (void)setDefaultByGuid:(NSString*)guid
-{    
+{
     [guid retain];
     [defaultBookmarkGuid_ release];
     defaultBookmarkGuid_ = guid;
     if (prefs_) {
         [prefs_ setObject:defaultBookmarkGuid_ forKey:KEY_DEFAULT_GUID];
     }
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];    		    
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
 }
 
 - (void)moveGuid:(NSString*)guid toRow:(int)destinationRow
