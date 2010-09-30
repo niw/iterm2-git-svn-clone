@@ -200,6 +200,7 @@ static NSImage *warningImage;
     // initialize the screen
     int width = aRect.size.width / [TEXTVIEW charWidth];
     int height = aRect.size.height / [TEXTVIEW lineHeight];
+
     if ([SCREEN initScreenWithWidth:width Height:height]) {
         [self setName:@"Shell"];
         [self setDefaultName:@"Shell"];

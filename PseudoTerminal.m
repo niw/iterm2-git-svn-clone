@@ -1898,8 +1898,8 @@ NSString *sessionsKey = @"sessions";
     } else {
         tempPrefs = [aSession addressBookEntry];
     }
-    int rows;
-    int columns;
+    int rows = [[tempPrefs objectForKey:KEY_ROWS] intValue];
+    int columns = [[tempPrefs objectForKey:KEY_COLUMNS] intValue];
     // rows, columns are set to the bookmark defaults. Make sure they'll fit.
 
     NSSize charSize = [PTYTextView charSizeForFont:[ITAddressBookMgr fontWithDesc:[tempPrefs objectForKey:KEY_NORMAL_FONT]] 
