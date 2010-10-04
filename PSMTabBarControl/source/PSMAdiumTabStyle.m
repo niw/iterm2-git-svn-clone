@@ -355,46 +355,6 @@
 
 - (void)drawInteriorWithTabCell:(PSMTabBarCell *)cell inView:(NSView*)controlView
 {
-<<<<<<< .working
-	NSRect cellFrame = [cell frame];
-	float labelPosition = cellFrame.origin.x + MARGIN_X;
-	
-	//draw the close button and icon combined
-	if ([cell hasCloseButton] && ![cell isCloseButtonSuppressed]) {
-		NSRect closeButtonRect = [cell closeButtonRectForFrame:cellFrame];
-		NSImage *closeButton = nil;
-		
-		if ([cell hasIcon]) {
-			closeButton = [[[cell representedObject] identifier] icon];
-			closeButtonRect.origin.y += 1;
-		} else {
-			closeButton = _closeButton;
-		}
-		
-		if ([cell closeButtonOver]) {
-			closeButton = _closeButtonOver;
-		}
-		
-		if ([cell closeButtonPressed]) {
-			closeButton = _closeButtonDown;
-		}
-		
-		if ([controlView isFlipped]) {
-			closeButtonRect.origin.y += closeButtonRect.size.height;
-		}
-		
-		[closeButton compositeToPoint:closeButtonRect.origin operation:NSCompositeSourceOver fraction:1.0];
-		
-		// scoot label over by the size of the standard close button
-		labelPosition += [_closeButton size].width + kPSMTabBarCellPadding;
-	} else if ([cell hasIcon]) {
-		NSRect iconRect = [self iconRectForTabCell:cell];
-		NSImage *icon = [[[cell representedObject] identifier] icon];
-		if ([controlView isFlipped]) {
-			iconRect.origin.y += iconRect.size.height;
-		}
-                
-=======
     NSRect cellFrame = [cell frame];
     float labelPosition = cellFrame.origin.x + MARGIN_X;
 
@@ -435,7 +395,6 @@
             iconRect.origin.y += iconRect.size.height;
         }
 
->>>>>>> .merge-right.r204
                 // center in available space (in case icon image is smaller than kPSMTabBarIconWidth)
                 if([icon size].width < kPSMTabBarIconWidth)
                     iconRect.origin.x += (kPSMTabBarIconWidth - [icon size].width)/2.0;
