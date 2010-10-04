@@ -501,7 +501,7 @@ NSString *sessionsKey = @"sessions";
     // svn history for the old impl.
 
     // update the cursor
-    [[[self currentSession] TEXTVIEW] updateDirtyRects];
+    [[[self currentSession] TEXTVIEW] refresh];
 }
 
 - (void)windowDidResignKey:(NSNotification *)aNotification
@@ -517,7 +517,7 @@ NSString *sessionsKey = @"sessions";
         [NSMenu setMenuBarVisible:YES];
     } else {
         // update the cursor
-        [[[self currentSession] TEXTVIEW] updateDirtyRects];
+        [[[self currentSession] TEXTVIEW] refresh];
     }
 }
 
@@ -539,7 +539,6 @@ NSString *sessionsKey = @"sessions";
           __FILE__, __LINE__, proposedFrameSize.width, proposedFrameSize.height);
 #endif
     if (sender!=[self window]) {
-        NSLog(@"Aha!");
         return proposedFrameSize;
     }
 
@@ -580,8 +579,8 @@ NSString *sessionsKey = @"sessions";
 
 #if 0
     NSRect frame = [[[self currentSession] SCROLLVIEW] documentVisibleRect];
-    
-    NSLog(@"scrollview content size %.1f, %.1f, %.1f, %.1f",
+
+    NSLog(@"windowDidResize - frame is (%.1f, %.1f) %.1f x %.1f",
           frame.origin.x, frame.origin.y,
           frame.size.width, frame.size.height);
 #endif
@@ -827,8 +826,6 @@ NSString *sessionsKey = @"sessions";
     }
     NSString* newGuid = [session divorceAddressBookEntryFromPreferences];
     [[PreferencePanel sessionsInstance] openToBookmark:newGuid];
-    
-    [guid release];
 }
 
 - (void)menuForEvent:(NSEvent *)theEvent menu:(NSMenu *)theMenu
@@ -1442,6 +1439,13 @@ NSString *sessionsKey = @"sessions";
     }
 }
 
+- (IBAction)closeFindBar:(id)sender
+{
+    if (![findBar isHidden]) {
+        [self showHideFindBar];
+    }
+}
+
 
 @end
 
@@ -1686,6 +1690,7 @@ NSString *sessionsKey = @"sessions";
 
 - (void)fitWindowToSessionsWithWidth:(int)width height:(int)height charWidth:(float)charWidth charHeight:(float)charHeight
 {
+    NSLog(@"fitWindowToSessionsWithWidth:%d height:%d charWidth:%f charHeight:%f", width, height, charWidth, charHeight);
     // position the tabview and control
     NSRect aRect;
     if (_fullScreen) {
@@ -1727,15 +1732,17 @@ NSString *sessionsKey = @"sessions";
         if (vsize.height > maxContentSize.height) {
             vsize.height = (int)(maxContentSize.height / charHeight) * (int)charHeight;
         }
-        NSLog(@"Textview size must be %fx%f to fit %dx%d session", vsize.width, vsize.height, width, height);
 
         // NSLog(@"width=%d,height=%d",[[[_sessionMgr currentSession] SCREEN] width],[[[_sessionMgr currentSession] SCREEN] height]);
+        NSLog(@"fitWindowToSessionsWithWidth - want content size of %fx%f", vsize.width, vsize.height);
 
         // figure out how big the scrollview should be to achieve the desired textview size of vsize.
         size = [PTYScrollView frameSizeForContentSize:vsize
                                 hasHorizontalScroller:NO
                                   hasVerticalScroller:hasScrollbar
                                            borderType:NSNoBorder];
+        NSLog(@"fitWindowToSessionsWithWidth - scrollview size will be %fx%f", size.width, size.height);
+
         [thisWindow setShowsResizeIndicator: hasScrollbar];
         NSLog(@"Scrollview size for this text view is %fx%f", size.width, size.height);
 
@@ -1743,14 +1750,14 @@ NSString *sessionsKey = @"sessions";
         tabViewSize = [PTYTabView frameSizeForContentSize:size
                                               tabViewType:[TABVIEW tabViewType]
                                               controlSize:[TABVIEW controlSize]];
-        NSLog(@"Tabview size for this scrollview is %fx%f", tabViewSize.width, tabViewSize.height);
+        NSLog(@"fitWindowToSessionsWithWidth - Tabview size for this scrollview is %fx%f", tabViewSize.width, tabViewSize.height);
 
         // desired size of window content
         winSize = tabViewSize;
-        NSLog(@"Initialize window size to %fx%f", winSize.width, winSize.height);
+        NSLog(@"fitWindowToSessionsWithWidth - Baseline window size is %fx%f", winSize.width, winSize.height);
         if (![findBar isHidden]) {
             winSize.height += [findBar frame].size.height;
-            NSLog(@"Add findbar height to window. New window size is %fx%f", winSize.width, winSize.height);
+            NSLog(@"fitWindowToSessionsWithWidth - Add findbar height to window. New window size is %fx%f", winSize.width, winSize.height);
         }
         if ([TABVIEW numberOfTabViewItems] == 1 &&
             [[PreferencePanel sharedInstance] hideTab]) {
@@ -1766,7 +1773,7 @@ NSString *sessionsKey = @"sessions";
             [TABVIEW setFrame: aRect];
             if ([findBar isHidden] && [[PreferencePanel sharedInstance] useBorder]) {
                 winSize.height += VMARGIN;
-                NSLog(@"Add lower margin to window. Window size is now %fx%f", winSize.width, winSize.height);
+                NSLog(@"fitWindowToSessionsWithWidth - Add lower margin to window. Window size is now %fx%f", winSize.width, winSize.height);
                 vmargin_added = YES;
             }
         } else {
@@ -1775,7 +1782,7 @@ NSString *sessionsKey = @"sessions";
             [tabBarControl setHidden:NO];
             [tabBarControl setTabLocation:[[PreferencePanel sharedInstance] tabViewType]];
             winSize.height += [tabBarControl frame].size.height;
-            NSLog(@"Add tab bar control height to window height. Window size is now %fx%f",
+            NSLog(@"fitWindowToSessionsWithWidth - Add tab bar control height to window height. Window size is now %fx%f",
                   winSize.width, winSize.height);
             if ([[PreferencePanel sharedInstance] tabViewType] == PSMTab_TopTab) {
                 // setup aRect to make room for the tabs at the top.
@@ -1785,14 +1792,14 @@ NSString *sessionsKey = @"sessions";
                 if (![findBar isHidden]) {
                     aRect.origin.y += [findBar frame].size.height;
                 }
-                NSLog(@"Set tab view size to %fx%f", aRect.size.width, aRect.size.height);
+                NSLog(@"fitWindowToSessionsWithWidth - Set tab view size to %fx%f", aRect.size.width, aRect.size.height);
                 [TABVIEW setFrame: aRect];
                 aRect.origin.y += aRect.size.height;
                 aRect.size.height = [tabBarControl frame].size.height;
                 [tabBarControl setFrame: aRect];
                 if ([findBar isHidden] && [[PreferencePanel sharedInstance] useBorder]) {
                     winSize.height += VMARGIN;
-                    NSLog(@"Add lower margin to window. Window size is now %fx%f", winSize.width, winSize.height);
+                    NSLog(@"fitWindowToSessionsWithWidth - Add lower margin to window. Window size is now %fx%f", winSize.width, winSize.height);
                     vmargin_added = YES;
                 }
             } else {
@@ -1810,7 +1817,7 @@ NSString *sessionsKey = @"sessions";
                     aRect.origin.y += [findBar frame].size.height;
                 }
                 aRect.size.height = tabViewSize.height;
-                NSLog(@"Set tab view size to %fx%f", aRect.size.width, aRect.size.height);
+                NSLog(@"fitWindowToSessionsWithWidth - Set tab view size to %fx%f", aRect.size.width, aRect.size.height);
                 [TABVIEW setFrame: aRect];
             }
         }
@@ -1846,7 +1853,7 @@ NSString *sessionsKey = @"sessions";
         aRect.size.width = winSize.width;
         aRect.size.height = winSize.height;
         NSRect frame = [thisWindow frameRectForContentRect: aRect];
-        NSLog(@"For a window size of %fxf, using a frame of %fx%f", aRect.size.width,
+        NSLog(@"fitWindowToSessionsWithWidth - Setting window size. For window content size %fxf, set frame to %fx%f", aRect.size.width,
               aRect.size.height, frame.size.width, frame.size.height);
         frame.origin.x = topLeft.x;
         frame.origin.y = topLeft.y - frame.size.height;
@@ -1986,7 +1993,9 @@ NSString *sessionsKey = @"sessions";
 
     if ([aSession initScreen:marginlessRect vmargin:0]) {
         [self safelySetSessionSize:aSession rows:rows columns:columns];
+        inSetup = YES;
         [aSession setPreferencesFromAddressBookEntry:tempPrefs];
+        inSetup = NO;
         [[aSession SCREEN] setDisplay:[aSession TEXTVIEW]];
         [[aSession TERMINAL] setTrace:YES];    // debug vt100 escape sequence decode
 
@@ -2054,8 +2063,8 @@ NSString *sessionsKey = @"sessions";
     BOOL hasScrollbar = !_fullScreen && ![[PreferencePanel sharedInstance] hideScrollbar];
     NSSize size = [[[self currentSession] SCROLLVIEW] documentVisibleRect].size;
     int width = (size.width - MARGIN*2) / [[aSession TEXTVIEW] charWidth];
-    NSLog(@"fitSessionToWindow: There are %d pixels avilable for %d columns at charwidth of %f", (int)size.width, width, [[aSession TEXTVIEW] charWidth]);
     int height = size.height / [[aSession TEXTVIEW] lineHeight];
+    NSLog(@"fitSessionToWindow - Given a scrollview size of %fx%f, can fit %dx%d chars", size.width, size.height, width, height);
 
     [[aSession SCREEN] resizeWidth:width height:height];
     [[aSession SHELL] setWidth:width  height:height];
@@ -2267,6 +2276,9 @@ NSString *sessionsKey = @"sessions";
 
 - (void)fitWindowToSession:(PTYSession*)session
 {
+    if (inSetup) {
+        return;
+    }
     float charHeight = [[session TEXTVIEW] lineHeight];
     float charWidth = [[session TEXTVIEW] charWidth];
     int height = [session rows];
@@ -2435,14 +2447,6 @@ NSString *sessionsKey = @"sessions";
         [findProgressIndicator setHidden:YES];
     }
 }
-
-- (IBAction)closeFindBar:(id)sender
-{
-    if (![findBar isHidden]) {
-        [self showHideFindBar];
-    }
-}
-
 
 @end
 
@@ -2823,4 +2827,5 @@ NSString *sessionsKey = @"sessions";
 }
 
 @end
+
 

@@ -30,6 +30,7 @@
 #define DEBUG_ALLOC           0
 #define DEBUG_METHOD_TRACE    0
 #define GREED_KEYDOWN         1
+//#define DEBUG_DRAWING
 
 #import <iTerm/iTerm.h>
 #import <iTerm/PTYTextView.h>
@@ -66,9 +67,9 @@ static NSCursor* textViewCursor =  nil;
     [aCursorImage lockFocus];
     [reverseCursorImage compositeToPoint:NSMakePoint(2,0) operation:NSCompositePlusLighter];
     [aCursorImage unlockFocus];
+    [reverseCursorImage release];
     textViewCursor = [[NSCursor alloc] initWithImage:aCursorImage hotSpot:hotspot];
     [aCursorImage release];
-    [reverseCursorImage release];
 }
 
 + (NSCursor *) textViewCursor
@@ -86,6 +87,7 @@ static NSCursor* textViewCursor =  nil;
     dataSource=_delegate=markedTextAttributes=NULL;
 
     layoutManager = [[NSLayoutManager alloc] init];
+    fallbackFonts = [[NSMutableDictionary alloc] init];
 
     [self setMarkedTextAttributes:
         [NSDictionary dictionaryWithObjectsAndKeys:
@@ -155,7 +157,7 @@ static NSCursor* textViewCursor =  nil;
 
 }
 
-- (void) dealloc
+- (void)dealloc
 {
 #if DEBUG_ALLOC
     NSLog(@"%s: 0x%x", __PRETTY_FUNCTION__, self);
@@ -168,11 +170,12 @@ static NSCursor* textViewCursor =  nil;
     }
 
     //NSLog(@"remove tracking");
-    if(trackingRectTag)
+    if (trackingRectTag) {
         [self removeTrackingRect:trackingRectTag];
+    }
 
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    for(i=0;i<256;i++) {
+    for (i = 0; i < 256; i++) {
         [colorTable[i] release];
     }
     [defaultFGColor release];
@@ -187,6 +190,9 @@ static NSCursor* textViewCursor =  nil;
 
     [markedTextAttributes release];
     [markedText release];
+
+    [self releaseAllFallbackFonts];
+    [fallbackFonts release];
 
     [super dealloc];
 
@@ -440,12 +446,9 @@ static NSCursor* textViewCursor =  nil;
 
     [dic setObject:aFont forKey:NSFontAttributeName];
     NSSize size = [@"W" sizeWithAttributes:dic];
-    size.width *= hspace;
-    NSLayoutManager* layoutManager = [[[NSLayoutManager alloc] init] autorelease];
-    size.height = [layoutManager defaultLineHeightForFont:aFont] * vspace;
 
-    size.width = ceil(size.width);
-    size.height = ceil(size.height);
+    size.width = ceil(size.width * hspace);
+    size.height = ceil(vspace * ceil([aFont ascender] - [aFont descender] + [aFont leading]));
     return size;
 }
 
@@ -462,7 +465,6 @@ static NSCursor* textViewCursor =  nil;
 - (void)setFont:(NSFont*)aFont nafont:(NSFont *)naFont horizontalSpacing:(float)horizontalSpacing verticalSpacing:(float)verticalSpacing
 {
     NSSize sz = [PTYTextView charSizeForFont:aFont horizontalSpacing:1.0 verticalSpacing:1.0];
-    sz.height = ceil([aFont ascender] - [aFont descender] + [aFont leading]);
 
     charWidthWithoutSpacing = sz.width;
     charHeightWithoutSpacing = sz.height;
@@ -472,6 +474,11 @@ static NSCursor* textViewCursor =  nil;
     lineHeight = ceil(charHeightWithoutSpacing * verticalSpacing);
     [self modifyFont:aFont info:&primaryFont];
     [self modifyFont:naFont info:&secondaryFont];
+
+    // Cannot keep fallback fonts if the primary font changes because their
+    // baseline offsets are set by the primary font. It's simplest to remove
+    // them and then re-add them as needed.
+    [self releaseAllFallbackFonts];
 
     // Force the secondary font to use the same baseline as the primary font.
     secondaryFont.baselineOffset = primaryFont.baselineOffset;
@@ -540,93 +547,19 @@ static NSCursor* textViewCursor =  nil;
     charWidth = width;
 }
 
-- (void)updateDirtyRects
+#ifdef DEBUG_DRAWING
+NSMutableArray* screens=0;
+- (void)appendDebug:(NSString*)str
 {
-    DebugLog(@"updateDirtyRects called");
-    int WIDTH = [dataSource width];
-    char* dirty;
-    int lineStart;
-    int lineEnd;
-
-    // Check each line for dirty selected text
-    // If any is found then deselect everything
-    dirty = [dataSource dirty];
-    lineStart = [dataSource numberOfLines] - [dataSource height];
-    lineEnd = [dataSource numberOfLines];
-    for(int y = lineStart; y < lineEnd && startX > -1; y++) {
-        for(int x = 0; x < WIDTH; x++) {
-            BOOL isSelected = [self _isCharSelectedInRow:y col:x checkOld:NO];
-            int cursorX = [dataSource cursorX] - 1;
-            int cursorY = [dataSource cursorY] + [dataSource numberOfLines] - [dataSource height] - 1;
-            BOOL isCursor = (x == cursorX && y == cursorY);
-            if (dirty[x] && isSelected && !isCursor) {
-                // Don't call [self deselect] as it would recurse back here
-                startX = -1;
-                DebugLog(@"found selected dirty noncursor");
-                break;
-            }
-        }
-        dirty += WIDTH;
+    if (!screens) {
+        screens = [[NSMutableArray alloc] init];
     }
-
-    // Time to redraw blinking text?
-    struct timeval now;
-    BOOL redrawBlink = NO;
-    gettimeofday(&now, NULL);
-    if(now.tv_sec*10+now.tv_usec/100000 >= lastBlink.tv_sec*10+lastBlink.tv_usec/100000+7) {
-        blinkShow = !blinkShow;
-        lastBlink = now;
-        redrawBlink = YES;
-        DebugLog(@"time to redraw blinking text");
+    [screens addObject:str];
+    if ([screens count] > 100) {
+        [screens removeObjectAtIndex:0];
     }
-
-    // Visible chars that have changed selection status are dirty
-    // Also mark blinking text as dirty if needed
-    lineStart = [self visibleRect].origin.y / lineHeight;
-    lineEnd = lineStart + ceil([self visibleRect].size.height / lineHeight);
-    if(lineStart < 0) lineStart = 0;
-    if(lineEnd > [dataSource numberOfLines]) lineEnd = [dataSource numberOfLines];
-    for(int y = lineStart; y < lineEnd; y++) {
-        screen_char_t* theLine = [dataSource getLineAtIndex:y];
-        for(int x = 0; x < WIDTH; x++) {
-            BOOL isSelected = [self _isCharSelectedInRow:y col:x checkOld:NO];
-            BOOL wasSelected = [self _isCharSelectedInRow:y col:x checkOld:YES];
-            BOOL blinked = redrawBlink && (theLine[x].fg_color & BLINK_MASK);
-            if (isSelected != wasSelected || blinked) {
-                NSRect dirtyRect = [self visibleRect];
-                dirtyRect.origin.y = y*lineHeight;
-                dirtyRect.size.height = lineHeight;
-                DebugLog([NSString stringWithFormat:@"found selection change/blink at %d,%d", x, y]);
-                [self setNeedsDisplayInRect:dirtyRect];
-                break;
-            }
-        }
-    }
-    oldStartX=startX; oldStartY=startY; oldEndX=endX; oldEndY=endY; oldSelectMode = selectMode;
-
-    // Redraw lines with dirty characters
-    dirty = [dataSource dirty];
-    lineStart = [dataSource numberOfLines] - [dataSource height];
-    // lineStart = number of scrollback lines
-    lineEnd = [dataSource numberOfLines];
-    // lineEnd = number of scrollback lines + screen height
-    DebugLog([NSString stringWithFormat:@"Search lines [%d, %d) for dirty", lineStart, lineEnd]);
-    for(int y = lineStart; y < lineEnd; y++) {
-        for(int x = 0; x < WIDTH; x++) {
-            if(dirty[x]) {
-                NSRect dirtyRect = [self visibleRect];
-                dirtyRect.origin.y = y*lineHeight;
-                dirtyRect.size.height = lineHeight;
-                DebugLog([NSString stringWithFormat:@"%d is dirty", y]);
-                [self setNeedsDisplayInRect:dirtyRect];
-                break;
-            }
-        }
-        dirty += WIDTH;
-    }
-    DebugLog(@"updateDirtyRects resetDirty");
-    [dataSource resetDirty];
 }
+#endif
 
 - (NSRect)scrollViewContentSize
 {
@@ -725,7 +658,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         }
         oldEndY -= scrollbackOverflow;
 
-        // Keep the users' current scroll position, nothing to redraw
+        // Keep the user's current scroll position, nothing to redraw.
         if (userScroll) {
             BOOL redrawAll = NO;
             NSRect scrollRect = [self visibleRect];
@@ -744,6 +677,31 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         // Shift the old content upwards
         if (scrollbackOverflow < [dataSource height] && !userScroll) {
             [self scrollRect:[self visibleRect] by:NSMakeSize(0, -amount)];
+
+#ifdef DEBUG_DRAWING
+            [self appendDebug:[NSString stringWithFormat:@"refresh: Scroll by %d", (int)amount]];
+#endif
+            if ([self needsDisplay]) {
+                // If any part of the view needed to be drawn prior to
+                // scrolling, mark the whole thing as needing to be redrawn.
+                // This avoids some race conditions between scrolling and
+                // drawing.  For example, if there was a region that needed to
+                // be displayed because the underlying data changed, but before
+                // drawRect is called we scroll with [self scrollRect], then
+                // the wrong region will be drawn. This could be optimized by
+                // storing the regions that need to be drawn and re-invaliding
+                // them in their new positions, but it should be somewhat rare
+                // that this branch of the if statement is taken.
+                [self setNeedsDisplay:YES];
+            } else {
+                // Invalidate the bottom of the screen that was revealed by
+                // scrolling.
+                NSRect dr = NSMakeRect(0, frame.size.height - amount, frame.size.width, amount);
+#ifdef DEBUG_DRAWING
+                [self appendDebug:[NSString stringWithFormat:@"refresh: setNeedsDisplayInRect:%d,%d %dx%d", (int)dr.origin.x, (int)dr.origin.y, (int)dr.size.width, (int)dr.size.height]];
+#endif
+                [self setNeedsDisplayInRect:dr];
+            }
         }
     }
 
@@ -887,6 +845,15 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
 - (void)drawRect:(NSRect)rect
 {
+#ifdef DEBUG_DRAWING
+    static int iteration=0;
+    static BOOL prevBad=NO;
+    ++iteration;
+    if (prevBad) {
+        NSLog(@"Last was bad.");
+        prevBad = NO;
+    }
+#endif
     DebugLog([NSString stringWithFormat:@"%s(0x%x):-[PTYTextView drawRect:(%f,%f,%f,%f) frameRect: (%f,%f,%f,%f)]",
           __PRETTY_FUNCTION__, self,
           rect.origin.x, rect.origin.y, rect.size.width, rect.size.height,
@@ -930,16 +897,49 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
     DebugLog([NSString stringWithFormat:@"Draw lines in [%d, %d)", lineStart, lineEnd]);
     // Draw each line
+#ifdef DEBUG_DRAWING
+    NSMutableDictionary* dct =
+    [NSDictionary dictionaryWithObjectsAndKeys:
+     [NSColor textBackgroundColor], NSBackgroundColorAttributeName,
+     [NSColor textColor], NSForegroundColorAttributeName,
+     [NSFont userFixedPitchFontOfSize: 0], NSFontAttributeName, NULL];
+#endif
+    int overflow = [dataSource scrollbackOverflow];
+#ifdef DEBUG_DRAWING
+    NSMutableString* lineDebug = [NSMutableString stringWithFormat:@"drawRect:%d,%d %dx%d drawing these lines with scrollback overflow of %d, iteration=%d:\n", (int)rect.origin.x, (int)rect.origin.y, (int)rect.size.width, (int)rect.size.height, (int)[dataSource scrollbackOverflow], iteration];
+#endif
     for(int line = lineStart; line < lineEnd; line++) {
         NSRect lineRect = [self visibleRect];
         lineRect.origin.y = line*lineHeight;
         lineRect.size.height = lineHeight;
         if([self needsToDrawRect:lineRect]) {
 ///            NSLog(@"drawing %d", line);
-            [self _drawLine:line AtY:line*lineHeight];
+            if (overflow <= line) {
+                // If overflow > 0 then the lines in the dataSource are not
+                // lined up in the normal way with the view. This happens when
+                // the datasource has scrolled its contents up but -[refresh]
+                // has not been called yet, so the view's contents haven't been
+                // scrolled up yet. When that's the case, the first line of the
+                // view is what the first line of the datasource was before
+                // it overflowed. Continue to draw text in this out-of-alignment
+                // manner until refresh is called and gets things in sync again.
+                [self _drawLine:line-overflow AtY:line*lineHeight];
+            }
+            // if overflow > line then the requested line cannot be drawn
+            // because it has been lost to the sands of time.
+#ifdef DEBUG_DRAWING
+            screen_char_t* theLine = [dataSource getLineAtIndex:line-overflow];
+            for (int i = 0; i < [dataSource width]; ++i) {
+                [lineDebug appendFormat:@"%c", theLine[i].ch];
+            }
+            [lineDebug appendString:@"\n"];
+            [[NSString stringWithFormat:@"Iter %d, line %d", iteration, line] drawInRect:NSMakeRect(rect.size.width-200, line*lineHeight, 200, lineHeight) withAttributes:dct];
+#endif
         }
     }
-
+#ifdef DEBUG_DRAWING
+    [self appendDebug:lineDebug];
+#endif
     NSRect excessRect;
     excessRect.origin.x = 0;
     excessRect.origin.y = lineEnd*lineHeight; //lineEnd * lineHeight;
@@ -958,7 +958,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #endif
     NSRectFill(excessRect);
 
-#if 0
+#ifdef DEBUG_DRAWING
     // Draws a different-colored rectangle around each drawn area. Useful for
     // seeing which groups of lines were drawn in a batch.
     static float it;
@@ -968,7 +968,23 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     float blue = sin(it + 2*2*3.14/3);
     NSColor* c = [NSColor colorWithDeviceRed:red green:green blue:blue alpha:1];
     [c set];
+    NSRect r = rect;
+    r.origin.y++;
+    r.size.height -= 2;
     NSFrameRect(rect);
+    if (overflow != 0) {
+        // Draw a diagonal line through blocks that were drawn when there
+        // [dataSource scrollbackOverflow] > 0.
+        [NSBezierPath strokeLineFromPoint:NSMakePoint(r.origin.x, r.origin.y)
+                                  toPoint:NSMakePoint(r.origin.x + r.size.width, r.origin.y + r.size.height)];
+    }
+    NSString* debug;
+    if (overflow == 0) {
+        debug = [NSString stringWithFormat:@"origin=%d", (int)rect.origin.y];
+    } else {
+        debug = [NSString stringWithFormat:@"origin=%d, overflow=%d", (int)rect.origin.y, (int)overflow];
+    }
+    [debug drawInRect:rect withAttributes:dct];
 #endif
     // Draw cursor
     [self _drawCursor];
@@ -976,6 +992,14 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     if (gDebugLogging) {
         [self _debugLogScreenContents];
     }
+#ifdef DEBUG_DRAWING
+    if (overflow) {
+        // It's useful to put a breakpoint at the top of this function
+        // when prevBad == YES because then you can see the results of this
+        // draw function.
+        prevBad=YES;
+    }
+#endif
 }
 
 - (void)keyDown:(NSEvent*)event
@@ -1302,8 +1326,9 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     //NSLog(@"%s: 0x%x", __PRETTY_FUNCTION__, self);
 
-    if([[PreferencePanel sharedInstance] focusFollowsMouse])
+    if ([[PreferencePanel sharedInstance] focusFollowsMouse]) {
         [[self window] makeKeyWindow];
+    }
 }
 
 - (void)mouseDown:(NSEvent *)event
@@ -1470,7 +1495,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     DebugLog([NSString stringWithFormat:@"Mouse down. startx=%d starty=%d, endx=%d, endy=%d", startX, startY, endX, endY]);
     if([_delegate respondsToSelector: @selector(willHandleEvent:)] && [_delegate willHandleEvent: event])
         [_delegate handleEvent: event];
-    [self updateDirtyRects];
+    [self refresh];
 
 }
 
@@ -1586,7 +1611,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     }
     DebugLog([NSString stringWithFormat:@"Mouse up. startx=%d starty=%d, endx=%d, endy=%d", startX, startY, endX, endY]);
 
-    [self updateDirtyRects];
+    [self refresh];
 }
 
 - (void)mouseDragged:(NSEvent *)event
@@ -1753,21 +1778,21 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     }
 
     DebugLog([NSString stringWithFormat:@"Mouse drag. startx=%d starty=%d, endx=%d, endy=%d", startX, startY, endX, endY]);
-    [self updateDirtyRects];
+    [self refresh];
     //NSLog(@"(%d,%d)-(%d,%d)",startX,startY,endX,endY);
 }
 
 - (NSString*)contentInBoxFromX:(int)startx Y:(int)starty ToX:(int)nonInclusiveEndx Y:(int)endy pad: (BOOL) pad
 {
     int i;
-    NSMutableString* result = [[NSMutableString alloc] init];
+    int estimated_size = abs((endy-startx) * [dataSource width]) + abs(nonInclusiveEndx - startx);
+    NSMutableString* result = [NSMutableString stringWithCapacity:estimated_size];
     for (i = starty; i < endy; ++i) {
         NSString* line = [self contentFromX:startx Y:i ToX:nonInclusiveEndx Y:i pad:pad];
         [result appendString:line];
         if (i < endy-1) {
             [result appendString:@"\n"];
         }
-       //[line release];
     }
     return result;
 }
@@ -1844,14 +1869,14 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     startX = startY = 0;
     endX = [dataSource width];
     endY = [dataSource numberOfLines] - 1;
-    [self updateDirtyRects];
+    [self refresh];
 }
 
 - (void) deselect
 {
     if (startX > -1) {
         startX = -1;
-        [self updateDirtyRects];
+        [self refresh];
     }
 }
 
@@ -2128,8 +2153,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
                     // Check for file names
                     propertyList = [pb propertyListForType: NSFilenamesPboardType];
-                for(i = 0; i < [propertyList count]; i++)
-                {
+                for (i = 0; i < (int)[propertyList count]; i++) {
 
                     // Ignore text clippings
                     NSString *filename = (NSString*)[propertyList objectAtIndex: i]; // this contains the POSIX path to a file
@@ -2190,7 +2214,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
 - (void)resetCursorRects
 {
-    [self addCursorRect:[self bounds] cursor:textViewCursor];
+    [self addCursorRect:[self visibleRect] cursor:textViewCursor];
     [textViewCursor setOnMouseEntered:YES];
 }
 
@@ -2345,7 +2369,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     }
     IM_INPUT_MARKEDRANGE = NSMakeRange(0,[markedText length]);
     IM_INPUT_SELRANGE = selRange;
-    [self updateDirtyRects];
+    [self refresh];
 }
 
 - (void)unmarkText
@@ -2579,12 +2603,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 //
 @implementation PTYTextView (Private)
 
-static PTYFontInfo* GetFontForChar(UniChar ch,
-                                  int fgColor,
-                                  BOOL* renderBold,
-                                  BOOL disableBold,
-                                  PTYFontInfo* primaryFont,
-                                  PTYFontInfo* secondaryFont) {
+- (PTYFontInfo*)getFontForChar:(UniChar)ch
+                       fgColor:(int)fgColor
+                    renderBold:(BOOL*)renderBold
+{
     BOOL isBold = (fgColor & BOLD_MASK) && !disableBold;
     *renderBold = NO;
     PTYFontInfo* theFont;
@@ -2593,7 +2615,7 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
         // Try to use the primary font for non-ascii characters, but only
         // if it has the glyph.
         CGGlyph glyph;
-        if (CTFontGetGlyphsForCharacters((CTFontRef)primaryFont->font,
+        if (CTFontGetGlyphsForCharacters((CTFontRef)primaryFont.font,
                                          &ch,
                                          &glyph,
                                          1)) {
@@ -2605,25 +2627,41 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
 
     if (usePrimary) {
         if (isBold) {
-            theFont = primaryFont->boldVersion;
+            theFont = primaryFont.boldVersion;
             if (!theFont) {
-                theFont = primaryFont;
+                theFont = &primaryFont;
                 *renderBold = YES;
             }
         } else {
-            theFont = primaryFont;
+            theFont = &primaryFont;
         }
     } else {
         if (isBold) {
-            theFont = secondaryFont->boldVersion;
+            theFont = secondaryFont.boldVersion;
             if (!theFont) {
-                theFont = secondaryFont;
+                theFont = &secondaryFont;
                 *renderBold = YES;
             }
         } else {
-            theFont = secondaryFont;
+            theFont = &secondaryFont;
+        }
+
+        // Make sure the secondary font has the glyph. If not, ask core text
+        // to pick one for us.
+        CGGlyph glyph;
+        if (!CTFontGetGlyphsForCharacters((CTFontRef)theFont->font,
+                                          &ch,
+                                          &glyph,
+                                          1)) {
+            CFStringRef tempString = CFStringCreateWithCharactersNoCopy(0, &ch, 1, kCFAllocatorNull);
+            CTFontRef substituteFont = CTFontCreateForString((CTFontRef)theFont->font, tempString, CFRangeMake(0, 1));
+            CFRelease(tempString);
+            if (substituteFont) {
+                return [self getOrAddFallbackFont:(NSFont*)substituteFont];
+            }
         }
     }
+
     return theFont;
 }
 
@@ -2751,12 +2789,9 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
                         colors[numGlyphs] = [self colorForCode:fgcode];
                         advances[numGlyphs].width = double_width ? charWidth * 2 : charWidth;
                         advances[numGlyphs].height = 0;
-                        fonts[numGlyphs] = GetFontForChar(codes[numGlyphs],
-                                                          fgcode,
-                                                          &renderBold[numGlyphs],
-                                                          disableBold,
-                                                          &primaryFont,
-                                                          &secondaryFont);
+                        fonts[numGlyphs] = [self getFontForChar:codes[numGlyphs]
+                                                        fgColor:fgcode
+                                                     renderBold:&renderBold[numGlyphs]];
                         if (numGlyphs > 0) {
                             if (interruptedRun ||
                                 colors[numGlyphs] != colors[numGlyphs - 1] ||
@@ -2825,7 +2860,7 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
         CGContextSetFillColorSpace(ctx, [[color colorSpace] CGColorSpace]);
         int componentCount = [color numberOfComponents];
         {
-            float components[componentCount];
+            CGFloat components[componentCount];
             [color getComponents:components];
             CGContextSetFillColor(ctx, components);
         }
@@ -2855,7 +2890,9 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
     CGContextSetShouldAntialias(ctx, antiAlias);
     CGGlyph glyph;
     BOOL renderBold;
-    PTYFontInfo* theFont = GetFontForChar(c, fg, &renderBold, disableBold, &primaryFont, &secondaryFont);
+    PTYFontInfo* theFont = [self getFontForChar:c
+                                        fgColor:fg
+                                     renderBold:&renderBold];
 
     CTFontGetGlyphsForCharacters((CTFontRef)theFont->font,
                                  &c,
@@ -2869,7 +2906,7 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
     CGContextSetFillColorSpace(ctx, [[color colorSpace] CGColorSpace]);
     int componentCount = [color numberOfComponents];
     {
-        float components[componentCount];
+        CGFloat components[componentCount];
         [color getComponents:components];
         CGContextSetFillColor(ctx, components);
     }
@@ -2903,29 +2940,37 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
 
     WIDTH = [dataSource width];
     HEIGHT = [dataSource height];
-    x1=[dataSource cursorX]-1;
-    yStart=[dataSource cursorY]-1;
+    x1 = [dataSource cursorX] - 1;
+    yStart = [dataSource cursorY] - 1;
 
     int lastVisibleLine = [[[dataSource session] SCROLLVIEW] documentVisibleRect].origin.y / [self lineHeight] + HEIGHT;
-    int cursorLine = [dataSource numberOfLines] - [dataSource height] + [dataSource cursorY];
+    int cursorLine = [dataSource numberOfLines] - [dataSource height] + [dataSource cursorY] - [dataSource scrollbackOverflow];
     if (cursorLine > lastVisibleLine) {
         return;
     }
+    if (cursorLine < 0) {
+        return;
+    }
 
-    if(charWidth < charWidthWithoutSpacing)
+    if (charWidth < charWidthWithoutSpacing) {
         cursorWidth = charWidth;
-    else
+    } else {
         cursorWidth = charWidthWithoutSpacing;
-
-    if(lineHeight < charHeightWithoutSpacing)
+    }
+    if (lineHeight < charHeightWithoutSpacing) {
         cursorHeight = lineHeight;
-    else
+    } else {
         cursorHeight = charHeightWithoutSpacing;
+    }
 
-    if([self blinkingCursor] && [[self window] isKeyWindow] && x1==oldCursorX && yStart==oldCursorY)
+    if ([self blinkingCursor] &&
+        [[self window] isKeyWindow] &&
+        x1 == oldCursorX &&
+        yStart == oldCursorY) {
         showCursor = blinkShow;
-    else
+    } else {
         showCursor = YES;
+    }
 
     // draw any text for NSTextInput
     if ([self hasMarkedText]) {
@@ -2938,11 +2983,11 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
         NSString* str = [markedText string];
         int offset = 0;
         int cursorOffset = 0;
-        int cursorY;
         int baseX = floor(x1 * charWidth + MARGIN);
         int i;
         int y = (yStart + [dataSource numberOfLines] - HEIGHT) * lineHeight;
-        for (i = 0; i < [str length]; ++i) {
+        int cursorY = y;
+        for (i = 0; i < (int)[str length]; ++i) {
             UniChar aChar = [str characterAtIndex:i];
             int x = baseX + offset;
             if (x >= WIDTH * charWidth + MARGIN) {
@@ -2967,13 +3012,13 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
                                Y:y
                      doubleWidth:doubleWidth
                    overrideColor:defaultFGColor];
-            if (i == IM_INPUT_SELRANGE.location) {
+            if (i == (int)IM_INPUT_SELRANGE.location) {
                 cursorOffset = offset;
                 cursorY = y;
             }
             offset += r.size.width;
         }
-        if (i == IM_INPUT_SELRANGE.location) {
+        if (i == (int)IM_INPUT_SELRANGE.location) {
             cursorOffset = offset;
             cursorY = y;
         }
@@ -3692,7 +3737,7 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
 
     fontInfo->font = font;
     [fontInfo->font retain];
-    fontInfo->baselineOffset = -ceil([font leading] - [font descender]);
+    fontInfo->baselineOffset = -floor([font leading] - [font descender]);
     fontInfo->boldVersion = NULL;
 }
 
@@ -3708,6 +3753,39 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
     }
 }
 
+- (PTYFontInfo*)getOrAddFallbackFont:(NSFont*)font
+{
+    NSString* name = [font fontName];
+    NSValue* entry = [fallbackFonts objectForKey:name];
+    if (entry) {
+        return [entry pointerValue];
+    } else {
+        PTYFontInfo* info = (PTYFontInfo*) malloc(sizeof(PTYFontInfo));
+        info->font = NULL;
+        [self _modifyFont:font into:info];
+
+        // Force this font to line up with the primary font's baseline.
+        info->baselineOffset = primaryFont.baselineOffset;
+        if (info->boldVersion) {
+            info->boldVersion->baselineOffset = primaryFont.baselineOffset;
+        }
+
+        [fallbackFonts setObject:[NSValue valueWithPointer:info] forKey:name];
+        return info;
+    }
+}
+
+- (void)releaseAllFallbackFonts
+{
+    NSEnumerator* enumerator = [fallbackFonts keyEnumerator];
+    id key;
+    while ((key = [enumerator nextObject])) {
+        PTYFontInfo* info = [[fallbackFonts objectForKey:key] pointerValue];
+        [self releaseFontInfo:info];
+        free(info);
+    }
+    [fallbackFonts removeAllObjects];
+}
 
 - (void)releaseFontInfo:(PTYFontInfo*)fontInfo
 {
@@ -3715,6 +3793,128 @@ static PTYFontInfo* GetFontForChar(UniChar ch,
     if (fontInfo->boldVersion) {
         [self releaseFontInfo:fontInfo->boldVersion];
     }
+}
+
+// WARNING: Do not call this function directly. Call
+// -[refresh] instead, as it ensures scrollback overflow
+// is dealt with so that this function can dereference
+// [dataSource dirty] correctly.
+- (void)updateDirtyRects
+{
+    if ([dataSource scrollbackOverflow] != 0) {
+        NSAssert([dataSource scrollbackOverflow] == 0, @"updateDirtyRects called with nonzero overflow");
+    }
+#ifdef DEBUG_DRAWING
+    [self appendDebug:[NSString stringWithFormat:@"updateDirtyRects called. Scrollback overflow is %d. Screen is: %@", [dataSource scrollbackOverflow], [dataSource debugString]]];
+#endif
+    DebugLog(@"updateDirtyRects called");
+    int WIDTH = [dataSource width];
+    char* dirty;
+    int lineStart;
+    int lineEnd;
+
+    // Check each line for dirty selected text
+    // If any is found then deselect everything
+    dirty = [dataSource dirty];
+    lineStart = [dataSource numberOfLines] - [dataSource height];
+    lineEnd = [dataSource numberOfLines];
+    for (int y = lineStart; y < lineEnd && startX > -1; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+            BOOL isSelected = [self _isCharSelectedInRow:y col:x checkOld:NO];
+            int cursorX = [dataSource cursorX] - 1;
+            int cursorY = [dataSource cursorY] + [dataSource numberOfLines] - [dataSource height] - 1;
+            BOOL isCursor = (x == cursorX && y == cursorY);
+            if (dirty[x] && isSelected && !isCursor) {
+                // Don't call [self deselect] as it would recurse back here
+                startX = -1;
+                DebugLog(@"found selected dirty noncursor");
+                break;
+            }
+        }
+        dirty += WIDTH;
+    }
+
+    // Time to redraw blinking text?
+    struct timeval now;
+    BOOL redrawBlink = NO;
+    gettimeofday(&now, NULL);
+    if(now.tv_sec*10+now.tv_usec/100000 >= lastBlink.tv_sec*10+lastBlink.tv_usec/100000+7) {
+        blinkShow = !blinkShow;
+        lastBlink = now;
+        redrawBlink = YES;
+        DebugLog(@"time to redraw blinking text");
+    }
+
+    // Visible chars that have changed selection status are dirty
+    // Also mark blinking text as dirty if needed
+    lineStart = [self visibleRect].origin.y / lineHeight;
+    lineEnd = lineStart + ceil([self visibleRect].size.height / lineHeight);
+    if(lineStart < 0) lineStart = 0;
+    if(lineEnd > [dataSource numberOfLines]) lineEnd = [dataSource numberOfLines];
+    for(int y = lineStart; y < lineEnd; y++) {
+        screen_char_t* theLine = [dataSource getLineAtIndex:y];
+        for(int x = 0; x < WIDTH; x++) {
+            BOOL isSelected = [self _isCharSelectedInRow:y col:x checkOld:NO];
+            BOOL wasSelected = [self _isCharSelectedInRow:y col:x checkOld:YES];
+            BOOL blinked = redrawBlink && (theLine[x].fg_color & BLINK_MASK);
+            if (isSelected != wasSelected || blinked) {
+                NSRect dirtyRect = [self visibleRect];
+                dirtyRect.origin.y = y*lineHeight;
+                dirtyRect.size.height = lineHeight;
+                DebugLog([NSString stringWithFormat:@"found selection change/blink at %d,%d", x, y]);
+                [self setNeedsDisplayInRect:dirtyRect];
+                break;
+            }
+        }
+    }
+    oldStartX=startX; oldStartY=startY; oldEndX=endX; oldEndY=endY; oldSelectMode = selectMode;
+
+    // Redraw lines with dirty characters
+    dirty = [dataSource dirty];
+    lineStart = [dataSource numberOfLines] - [dataSource height];
+    // lineStart = number of scrollback lines
+    lineEnd = [dataSource numberOfLines];
+    // lineEnd = number of scrollback lines + screen height
+    DebugLog([NSString stringWithFormat:@"Search lines [%d, %d) for dirty", lineStart, lineEnd]);
+#ifdef DEBUG_DRAWING
+    NSMutableString* dirtyDebug = [NSMutableString stringWithString:@"updateDirtyRects found these dirty lines:\n"];
+    int screenindex=0;
+#endif
+    for(int y = lineStart; y < lineEnd; y++) {
+        for(int x = 0; x < WIDTH; x++) {
+            if(dirty[x]) {
+                NSRect dirtyRect = [self visibleRect];
+                dirtyRect.origin.y = y*lineHeight;
+                dirtyRect.size.height = lineHeight;
+                DebugLog([NSString stringWithFormat:@"%d is dirty", y]);
+                [self setNeedsDisplayInRect:dirtyRect];
+#ifdef DEBUG_DRAWING
+                char temp[100];
+                screen_char_t* p = [dataSource getLineAtScreenIndex:screenindex];
+                for (int i = 0; i < WIDTH; ++i) {
+                    temp[i] = p[i].ch;
+                }
+                temp[WIDTH] = 0;
+                [dirtyDebug appendFormat:@"set rect %d,%d %dx%d (line %d=%s) dirty\n",
+                 (int)dirtyRect.origin.x,
+                 (int)dirtyRect.origin.y,
+                 (int)dirtyRect.size.width,
+                 (int)dirtyRect.size.height,
+                 y, temp];
+#endif
+                break;
+            }
+        }
+#ifdef DEBUG_DRAWING
+        ++screenindex;
+#endif
+        dirty += WIDTH;
+    }
+    DebugLog(@"updateDirtyRects resetDirty");
+#ifdef DEBUG_DRAWING
+    [self appendDebug:dirtyDebug];
+#endif
+    [dataSource resetDirty];
 }
 
 @end

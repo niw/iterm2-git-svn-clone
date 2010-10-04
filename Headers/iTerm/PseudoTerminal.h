@@ -148,6 +148,10 @@
 
     // In the process of toggling full screen.
     BOOL _togglingFullScreen;
+
+    // In the process of setting up a new session. Ignore calls to
+    // fitWindowToSession due to setting the font.
+    BOOL inSetup;
 }
 
 // Initialize a new PseudoTerminal.
@@ -395,6 +399,9 @@
 // Returns true if an init... method was already called.
 - (BOOL)isInitialized;
 
+// Called when the close button in the find bar is pressed.
+- (IBAction)closeFindBar:(id)sender;
+
 @end
 
 @interface PseudoTerminal (KeyValueCoding)
@@ -586,9 +593,6 @@
 
 // Begin searching for a string.
 - (void)_newSearch:(BOOL)needTimer;
-
-// Called when the close button in the find bar is pressed.
-- (IBAction)closeFindBar:(id)sender;
 
 // Grow or shrink the tabview to make room for the find bar in fullscreen mode
 // and then fit sessions to new window size.

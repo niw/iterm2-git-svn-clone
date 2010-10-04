@@ -1190,14 +1190,13 @@
 				HEADER_SEARCH_PATHS = Headers/iTerm/;
 				INFOPLIST_FILE = iTerm.plist;
 				LINK_WITH_STANDARD_LIBRARIES = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				OTHER_LDFLAGS = "-ltermcap";
 				PRODUCT_NAME = iTerm;
+				SDKROOT = macosx10.5;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wall",
-					"-Wmost",
-				);
+				VALID_ARCHS = x86_64;
+				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = YES;
 			};
@@ -1229,12 +1228,11 @@
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = iTerm.plist;
-				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				PRODUCT_NAME = iTerm;
-				WARNING_CFLAGS = (
-					"-Wall",
-					"-Wmost",
-				);
+				SDKROOT = macosx10.5;
+				VALID_ARCHS = x86_64;
+				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
 			};
@@ -1267,16 +1265,15 @@
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				INFOPLIST_FILE = iTerm.plist;
-				MACOSX_DEPLOYMENT_TARGET = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = iTerm;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = macosx10.5;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wall",
-					"-Wmost",
-				);
+				VALID_ARCHS = x86_64;
+				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Default;
@@ -1284,6 +1281,7 @@
 		BB024D3A096EE4080021E793 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -1293,6 +1291,8 @@
 				GCC_VERSION = 4.0;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
+				GCC_WARN_SIGN_COMPARE = NO;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
@@ -1300,14 +1300,15 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				PREBINDING = NO;
 				SDKROOT = macosx10.5;
-				VALID_ARCHS = i386;
+				VALID_ARCHS = x86_64;
+				WARNING_CFLAGS = "-Wall";
 			};
 			name = Development;
 		};
 		BB024D3B096EE4080021E793 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -1315,29 +1316,33 @@
 				);
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_VERSION = 4.0;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
+				GCC_WARN_SIGN_COMPARE = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				PREBINDING = NO;
 				SDKROOT = macosx10.5;
-				VALID_ARCHS = i386;
+				VALID_ARCHS = x86_64;
+				WARNING_CFLAGS = "-Wall";
 			};
 			name = Deployment;
 		};
 		BB024D3C096EE4080021E793 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
 					"$(SRCROOT)/build/Development",
 				);
 				GCC_VERSION = 4.0;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
+				GCC_WARN_SIGN_COMPARE = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				PREBINDING = NO;
-				SDKROOT = macosx10.4;
+				SDKROOT = macosx10.5;
+				VALID_ARCHS = x86_64;
+				WARNING_CFLAGS = "-Wall";
 			};
 			name = Default;
 		};
@@ -1363,6 +1368,8 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = Growl;
+				SDKROOT = macosx10.5;
+				VALID_ARCHS = x86_64;
 				ZERO_LINK = YES;
 			};
 			name = Development;
@@ -1388,6 +1395,8 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = Growl;
+				SDKROOT = macosx10.5;
+				VALID_ARCHS = x86_64;
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -1411,6 +1420,8 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = Growl;
+				SDKROOT = macosx10.5;
+				VALID_ARCHS = x86_64;
 				ZERO_LINK = YES;
 			};
 			name = Default;
