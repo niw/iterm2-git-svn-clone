@@ -146,7 +146,7 @@ static const float kBackgroundSessionIntervalSec = 1;
 // Go forward/back in time. Must call setDvr:liveSession: first.
 - (void)irAdvance:(int)dir;
 
-+ (NSImage*)loadBackgroundImage:(NSString*)imageFilePath;
+//+ (NSImage*)loadBackgroundImage:(NSString*)imageFilePath;
 
 // Session specific methods
 - (BOOL)initScreen:(NSRect)aRect vmargin:(float)vmargin;

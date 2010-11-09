@@ -1603,6 +1603,7 @@ static NSImage *warningImage;
     return backgroundImagePath;
 }
 
+/*
 + (NSImage*)loadBackgroundImage:(NSString*)imageFilePath
 {
     NSString* actualPath;
@@ -1614,7 +1615,8 @@ static NSImage *warningImage;
     }
     return [[NSImage alloc] initWithContentsOfFile:actualPath];
 }
-
+*/
+ 
 - (void)setBackgroundImagePath:(NSString *)imageFilePath
 {
     if ([imageFilePath length]) {
