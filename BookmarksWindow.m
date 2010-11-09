@@ -135,7 +135,7 @@
 
 - (NSMenu*)bookmarkTable:(id)bookmarkTable menuForEvent:(NSEvent*)theEvent
 {
-    NSMenu* menu =[[NSMenu alloc] initWithTitle:@"Contextual Menu"];
+    NSMenu* menu =[[[NSMenu alloc] initWithTitle:@"Contextual Menu"] autorelease];
 
     int count = [[bookmarkTable selectedGuids] count];
     if (count == 1) {
