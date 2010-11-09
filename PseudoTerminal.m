@@ -3029,7 +3029,7 @@ NSString *sessionsKey = @"sessions";
     }
 
     // create a new terminal window
-    term = [[PseudoTerminal alloc] initWithSmartLayout:NO fullScreen:nil];
+    term = [[[PseudoTerminal alloc] initWithSmartLayout:NO fullScreen:nil] autorelease];
     if (term == nil) {
         return;
     }
