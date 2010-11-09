@@ -360,13 +360,16 @@ static NSImage *warningImage;
     NSString* encoding = [self _getEncoding];
     if (encoding) {
         [env setObject:encoding forKey:@"LC_CTYPE"];
+#if 0
         [env setObject:encoding forKey:@"LC_COLLATE"];
         [env setObject:encoding forKey:@"LC_MESSAGES"];
         [env setObject:encoding forKey:@"LC_MONETARY"];
         [env setObject:encoding forKey:@"LC_NUMERIC"];
         [env setObject:encoding forKey:@"LC_TIME"];
+#endif
     }
 #endif
+
     if ([env objectForKey:PWD_ENVNAME] == nil)
         [env setObject:[PWD_ENVVALUE stringByExpandingTildeInPath] forKey:PWD_ENVNAME];
 
@@ -751,7 +754,7 @@ static NSImage *warningImage;
             }
 
             // NSLog(@"modflag = 0x%x; send_strlen = %d; send_str[0] = '%c (0x%x)'", modflag, send_strlen, send_str[0]);
-            if (modflag & NSControlKeyMask &&
+            if ((modflag & NSControlKeyMask) &&
                 send_strlen == 1 &&
                 send_str[0] == '|')
             {
@@ -767,14 +770,14 @@ static NSImage *warningImage;
                 send_str = (unsigned char*)"\177"; // control-?
                 send_strlen = 1;
             }
-            else if (modflag & NSControlKeyMask &&
+            else if ((modflag & NSControlKeyMask) &&
                      send_strlen == 1 &&
                      send_str[0] == '/')
             {
                 send_str = (unsigned char*)"\037"; // control-/
                 send_strlen = 1;
             }
-            else if (modflag & NSShiftKeyMask &&
+            else if ((modflag & NSShiftKeyMask) &&
                      send_strlen == 1 &&
                      send_str[0] == '\031')
             {
@@ -2107,7 +2110,7 @@ static NSImage *warningImage;
     // than its bookmark. Changes to the bookmark will no longer affect this
     // session, and changes to this session won't affect its originating bookmark
     // (which may not evene exist any longer).
-    guid = [BookmarkModel newGuid];
+    guid = [BookmarkModel freshGuid];
     [[BookmarkModel sessionsInstance] setObject:guid
                                          forKey:KEY_GUID
                                      inBookmark:bookmark];
@@ -2227,13 +2230,7 @@ static NSImage *warningImage;
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_4
 - (NSString*)_getEncoding
 {
-    // Keep a copy of the current locale setting for this process
-    char* backupLocale = setlocale(LC_CTYPE, NULL);
-
-    // Start with the locale
-    NSString* locale = [[NSLocale currentLocale] localeIdentifier];
-
-    // Append the encoding
+    // Get the encoding
     CFStringEncoding cfEncoding = CFStringConvertNSStringEncodingToEncoding([self encoding]);
     NSString* ianaEncoding = (NSString*)CFStringConvertEncodingToIANACharSetName(cfEncoding);
     NSString* encoding = nil;
@@ -2260,28 +2257,9 @@ static NSImage *warningImage;
         NSMutableString* temp = [[NSMutableString alloc] initWithString:ianaEncoding];
         [temp replaceOccurrencesOfString:@"ISO-" withString:@"ISO" options:0 range:NSMakeRange(0, [temp length])];
         [temp replaceOccurrencesOfString:@"EUC-" withString:@"euc" options:0 range:NSMakeRange(0, [temp length])];
-
-        // See if locale.encoding works.
-        NSString* test = [locale stringByAppendingFormat:@".%@", temp];
-        if (NULL != setlocale(LC_CTYPE, [test UTF8String])) {
-            encoding = [NSString stringWithString:test];
-        }
-
-        [temp release];
-
-        // Try just the encoding.
-        if (!encoding && setlocale(LC_CTYPE, [ianaEncoding UTF8String])) {
-            encoding = ianaEncoding;
-        }
+        encoding = [NSString stringWithString:temp];
     }
 
-    // Try just the language/country code
-    if (!encoding && setlocale(LC_CTYPE, [locale UTF8String])) {
-        encoding = locale;
-    }
-
-    // Restore locale and return
-    setlocale(LC_CTYPE, backupLocale);
     return encoding;
 }
 #endif
