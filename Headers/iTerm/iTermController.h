@@ -6,7 +6,7 @@
  **  Copyright (c) 2002, 2003
  **
  **  Author: Fabian, Ujwal S. Setlur
- **	     Initial code by Kiichi Kusama
+ **          Initial code by Kiichi Kusama
  **
  **  Project: iTerm
  **
@@ -28,6 +28,7 @@
  */
 
 #import <Cocoa/Cocoa.h>
+#import <Carbon/Carbon.h>
 
 @class PseudoTerminal;
 @class PTYTextView;
@@ -38,9 +39,12 @@
 {
     // PseudoTerminal objects
     NSMutableArray *terminalWindows;
-    PasteboardHistory* pbHistory;
     id FRONT;
-	ItermGrowlDelegate *gd;
+    ItermGrowlDelegate *gd;
+
+    // App-wide hotkey
+    int hotkeyCode_;
+    int hotkeyModifiers_;
 }
 
 + (iTermController*)sharedInstance;
@@ -66,7 +70,9 @@
 -(int)numberOfTerminals;
 -(PseudoTerminal*)terminalAtIndex:(int)i;
 - (void)irAdvance:(int)dir;
-- (PasteboardHistory*)pbHistory;
+
+- (void)unregisterHotkey;
+- (void)registerHotkey:(int)keyCode modifiers:(int)modifiers;
 
 @end
 

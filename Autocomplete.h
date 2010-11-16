@@ -40,6 +40,9 @@
     // Word before cursor.
     NSMutableString* prefix_;
 
+    // Is there whitespace before the cursor? If so, strip whitespace from before candidates.
+    BOOL whitespaceBeforeCursor_;
+
     // Words before the word at the cursor.
     NSMutableArray* context_;
 
@@ -56,6 +59,9 @@
     // Cursor location to begin next search.
     int x_;
     long long y_;  // absolute coord
+    
+    // Number of matches found so far
+    int matchCount_;
 }
 
 - (id)init;

@@ -39,29 +39,35 @@
 }
 
 + (PasteboardEntry*)entryWithString:(NSString *)s score:(double)score;
+- (NSDate*)timestamp;
 
 @end
 
 @interface PasteboardHistory : NSObject {
     NSMutableArray* entries_;
     int maxEntries_;
+    NSString* path_;
 }
 
++ (PasteboardHistory*)sharedInstance;
 - (id)initWithMaxEntries:(int)maxEntries;
 - (void)dealloc;
 - (NSArray*)entries;
 - (void)save:(NSString*)value;
+- (void)eraseHistory;
+
+- (void)_loadHistoryFromDisk;
+- (void)_writeHistoryToDisk;
 
 @end
 
 @interface PasteboardHistoryView : Popup
 {
     IBOutlet NSTableView* table_;
-    PasteboardHistory* history_;
     NSTimer* minuteRefreshTimer_;
 }
 
-- (id)initWithDataSource:(PasteboardHistory*)dataSource;
+- (id)init;
 - (void)dealloc;
 - (void)pasteboardHistoryDidChange:(id)sender;
 - (void)copyFromHistory;

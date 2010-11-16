@@ -118,6 +118,10 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     IBOutlet NSButton *useCompactLabel;
     BOOL defaultUseCompactLabel;
 
+    // Highlight tab labels on activity
+    IBOutlet NSButton *highlightTabLabels;
+    BOOL defaultHighlightTabLabels;
+
     // open bookmarks when iterm starts
     IBOutlet NSButton *openBookmark;
     BOOL defaultOpenBookmark;
@@ -157,6 +161,20 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     // instant replay memory usage.
     IBOutlet NSTextField* irMemory;
     int defaultIrMemory;
+
+    // hotkey
+    IBOutlet NSButton *hotkey;
+    BOOL defaultHotkey;
+    
+    // hotkey code
+    IBOutlet NSTextField* hotkeyField;
+    int defaultHotkeyChar;
+    int defaultHotkeyCode;
+    int defaultHotkeyModifiers;
+
+    // Save copy paste history
+    IBOutlet NSButton *savePasteHistory;
+    BOOL defaultSavePasteHistory;
 
     // prompt for test-release updates
     IBOutlet NSButton *checkTestRelease;
@@ -284,13 +302,21 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     NSString* keyString;  // hexcode-hexcode rep of keystring in current sheet
     BOOL newMapping;  // true if the keymap sheet is open for adding a new entry
 
-    // Copy from...
-    IBOutlet BookmarkListView *copyFromBookmarks;
-    IBOutlet NSPanel* copyFromView;
     IBOutlet NSPopUpButton* bookmarksPopup;
-    NSString* copyTo;
+
+    // Copy Bookmark Settings...
+    IBOutlet NSTextField* bulkCopyLabel;
+    IBOutlet NSPanel* copyPanel;
+    IBOutlet NSButton* copyColors;
+    IBOutlet NSButton* copyDisplay;
+    IBOutlet NSButton* copyTerminal;
+    IBOutlet NSButton* copyKeyboard;
+    IBOutlet BookmarkListView* copyTo;
+    IBOutlet NSButton* copyButton;
 
 }
+
+typedef enum { BulkCopyColors, BulkCopyDisplay, BulkCopyTerminal, BulkCopyKeyboard } BulkCopySettings;
 
 + (PreferencePanel*)sharedInstance;
 + (PreferencePanel*)sessionsInstance;
@@ -333,6 +359,7 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
 - (BOOL)cmdSelection;
 - (BOOL)maxVertically;
 - (BOOL)useCompactLabel;
+- (BOOL)highlightTabLabels;
 - (BOOL)openBookmark;
 - (NSString *)wordChars;
 - (ITermCursorType)cursorType;
@@ -340,7 +367,14 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
 - (BOOL)hideScrollbar;
 - (BOOL)smartPlacement;
 - (BOOL)instantReplay;
+- (BOOL)savePasteHistory;
 - (int)irMemory;
+
+- (BOOL)hotkey;
+- (int)hotkeyCode;
+- (int)hotkeyModifiers;
+- (NSTextField*)hotkeyField;
+
 - (BOOL)checkColorInvertedCursor;
 - (BOOL)checkTestRelease;
 - (BOOL)colorInvertedCursor;
@@ -376,6 +410,8 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
 - (BOOL)onScreen;
 - (NSTextField*)shortcutKeyTextField;
 - (void)shortcutKeyDown:(NSEvent*)event;
+- (void)hotkeyKeyDown:(NSEvent*)event;
+- (void)disableHotkey;
 - (void)updateValueToSend;
 - (IBAction)actionChanged:(id)sender;
 - (NSWindow*)keySheet;
@@ -396,16 +432,15 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
 - (void)bookmarkTableSelectionDidChange:(id)bookmarkTable;
 - (void)bookmarkTableSelectionWillChange:(id)aBookmarkTableView;
 - (void)bookmarkTableRowSelected:(id)bookmarkTable;
-- (IBAction)doCopyFrom:(id)sender;
-- (IBAction)cancelCopyFrom:(id)sender;
-- (IBAction)openCopyFromColors:(id)sender;
-- (IBAction)openCopyFromDisplay:(id)sender;
-- (IBAction)openCopyFromTerminal:(id)sender;
-- (IBAction)openCopyFromKeyboard:(id)sender;
 - (void)showBookmarks;
 - (void)openToBookmark:(NSString*)guid;
 - (id)tokenFieldCell:(NSTokenFieldCell *)tokenFieldCell representedObjectForEditingString:(NSString *)editingString;
 - (void)underlyingBookmarkDidChange;
+
+- (IBAction)openCopyBookmarks:(id)sender;
+- (IBAction)copyBookmarks:(id)sender;
+- (IBAction)cancelCopyBookmarks:(id)sender;
+- (void)copyAttributes:(BulkCopySettings)attributes fromBookmark:(NSString*)guid toBookmark:(NSString*)destGuid;
 
 @end
 

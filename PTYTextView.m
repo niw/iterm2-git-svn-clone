@@ -53,6 +53,61 @@
 // FIXME: Looks like this is leaked.
 static NSCursor* textViewCursor =  nil;
 
+@interface FlashingView : NSView
+{
+    NSTimer* t;
+    int iteration;
+}
+- (id)initWithFrame:(NSRect)frame iterations:(int)i;
+- (void)dealloc;
+- (void)drawRect:(NSRect)rect;
+- (void)onTimer:(id)sender;
+@end
+
+@implementation FlashingView
+- (id)initWithFrame:(NSRect)frame iterations:(int)i
+{
+    self = [super initWithFrame:frame];
+    if (!self) {
+        return self;
+    }
+    t = [NSTimer scheduledTimerWithTimeInterval:(1.0/30.0) target:self selector:@selector(onTimer:) userInfo:nil repeats:YES];
+    iteration = i;
+    return self;
+}
+
+- (void)dealloc
+{
+    if (t) {
+      [t invalidate];
+    }
+    [super dealloc];
+}
+
+- (void)drawRect:(NSRect)rect
+{
+    if (iteration % 2) {
+        [[NSColor whiteColor] set];
+    } else {
+        [[NSColor blackColor] set];
+    }
+    NSRectFill(rect);
+}
+
+- (void)onTimer:(id)sender
+{
+    if (--iteration == 0) {
+        [self removeFromSuperview];
+        [t invalidate];
+        t = nil;
+    } else {
+        [self setFrame:[[self superview] frame]];
+        [self setNeedsDisplay:YES];
+    }
+}
+
+@end
+
 @implementation PTYTextView
 
 + (void)initialize
@@ -61,10 +116,10 @@ static NSCursor* textViewCursor =  nil;
 
     NSBundle* bundle = [NSBundle bundleForClass:[self class]];
     NSString* ibarFile = [bundle
-                          pathForResource:@"IBarCursor" 
-                          ofType:@"png"];   
+                          pathForResource:@"IBarCursor"
+                          ofType:@"png"];
     NSImage* image = [[[NSImage alloc] initWithContentsOfFile:ibarFile] autorelease];
-    
+
     textViewCursor = [[NSCursor alloc] initWithImage:image hotSpot:hotspot];
 }
 
@@ -594,7 +649,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     if (selectionScrollTimer) {
         [selectionScrollTimer release];
-        if (prevScrollDelay > 0.01) {
+        if (prevScrollDelay > 0.001) {
             // Maximum speed hasn't been reached so accelerate scrolling speed by 5%.
             prevScrollDelay *= 0.95;
         }
@@ -628,9 +683,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         y = visibleRect.origin.y / lineHeight;
     } else if (selectionScrollDirection > 0) {
         visibleRect.origin.y += lineHeight;
-        if (visibleRect.origin.y + visibleRect.size.height < [self frame].size.height) {
-            [self scrollRectToVisible:visibleRect];
+        if (visibleRect.origin.y + visibleRect.size.height > [self frame].size.height) {
+            visibleRect.origin.y = [self frame].size.height - visibleRect.size.height;
         }
+        [self scrollRectToVisible:visibleRect];
         y = (visibleRect.origin.y + visibleRect.size.height - [self excess]) / lineHeight;
     }
 
@@ -1985,7 +2041,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         [pboard setString:copyString forType:NSStringPboardType];
     }
 
-    [[[iTermController sharedInstance] pbHistory] save:copyString];
+    [[PasteboardHistory sharedInstance] save:copyString];
 }
 
 - (void)paste:(id)sender
@@ -1995,7 +2051,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #endif
     NSString *info = [[NSPasteboard generalPasteboard] stringForType:NSStringPboardType];
     if (info) {
-        [[[iTermController sharedInstance] pbHistory] save:info];
+        [[PasteboardHistory sharedInstance] save:info];
     }
 
     if ([_delegate respondsToSelector:@selector(paste:)])
@@ -2779,6 +2835,11 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 - (void)aboutToHide
 {
     selectionScrollDirection = 0;
+}
+
+- (void)beginFlash
+{
+    [self addSubview:[[[FlashingView alloc] initWithFrame:[self frame] iterations:4] autorelease]];
 }
 
 @end
@@ -3606,17 +3667,31 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     return ([self contentFromX:x1 Y:yStart ToX:x2 Y:y2 pad: YES]);
 }
 
+static bool IsCharInSet(unichar theChar, NSCharacterSet* charSet)
+{
+    return [[NSString stringWithCharacters:&theChar length:1] rangeOfCharacterFromSet:charSet].location != NSNotFound;
+}
+
+static bool IsUrlChar(unichar theChar)
+{
+    static NSCharacterSet* urlChars;
+    if (!urlChars) {
+        urlChars = [[NSCharacterSet characterSetWithCharactersInString:@".?/:;%=&_-,+~#@!*'()"] retain];
+    }
+    return IsCharInSet(theChar, urlChars) || IsCharInSet(theChar, [NSCharacterSet alphanumericCharacterSet]);
+}
+
 - (NSString *) _getURLForX: (int) x
                     y: (int) y
 {
-    static char *urlSet = ".?/:;%=&_-,+~#@!*'()";
     int w = [dataSource width];
     int h = [dataSource numberOfLines];
     NSMutableString *url = [NSMutableString string];
     unichar theChar = [self _getCharacterAtX:x Y:y];
 
-    if (theChar == '\0' || !(isalnum(theChar) || strchr(urlSet, theChar)))
+    if (theChar == '\0' || !IsUrlChar(theChar)) {
         return url;
+    }
 
     // Look for a left and right edge bracketed by | characters
     // Look for a left edge
@@ -3651,7 +3726,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         int endx = x-1;
         for (int xi = endx, yi = y; xi >= leftx && 0 <= yi; xi--) {
             unichar curChar = [self _getCharacterAtX:xi Y:yi];
-            if (curChar == '\0' || !(isalnum(curChar) || strchr(urlSet, curChar))) {
+            if (curChar == '\0' || !IsUrlChar(curChar)) {
                 // Found a non-url character so append the left part of the URL.
                 [url insertString:[self contentFromX:xi+1 Y:yi ToX:endx+1 Y:yi pad: YES]
                      atIndex:0];
@@ -3686,7 +3761,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         int startx = x;
         for (int xi = startx+1, yi = y; xi <= rightx && yi < h; xi++) {
             unichar curChar = [self _getCharacterAtX:xi Y:yi];
-            if (curChar == '\0' || !(isalnum(curChar) || strchr(urlSet, curChar))) {
+            if (curChar == '\0' || !IsUrlChar(curChar)) {
                 // Found something non-urly. Append what we have so far.
                 [url appendString:[self contentFromX:startx Y:yi ToX:xi Y:yi pad: YES]];
                 // skip backslahes that indicate wrapping
@@ -3873,7 +3948,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     return YES;
 }
 
-- (void) _openURL: (NSString *) aURLString
+- (void)_openURL:(NSString *)aURLString
 {
     NSURL *url;
     NSString* trimmedURLString;
@@ -3881,8 +3956,9 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     trimmedURLString = [aURLString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 
     // length returns an unsigned value, so couldn't this just be ==? [TRE]
-    if([trimmedURLString length] <= 0)
+    if ([trimmedURLString length] <= 0) {
         return;
+    }
 
     // Check for common types of URLs
 
@@ -3918,7 +3994,13 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         }
     }
 
-    NSString* escapedString = [trimmedURLString stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+    NSString* escapedString =
+        (NSString *)CFURLCreateStringByAddingPercentEscapes(NULL,
+                                                            (CFStringRef)trimmedURLString,
+                                                            (CFStringRef)@"!*'();:@&=+$,/?%#[]",
+                                                            NULL,
+                                                            kCFStringEncodingUTF8 );
+
     url = [NSURL URLWithString:escapedString];
 
     Bookmark *bm = [[PreferencePanel sharedInstance] handlerBookmarkForURL:[url scheme]];

@@ -26,6 +26,7 @@
     NSString* s_;
     NSString* prefix_;
     double score_;
+    double hitMultiplier_;
 }
 
 + (PopupEntry*)entryWithString:(NSString*)s score:(double)score;
@@ -37,6 +38,8 @@
 - (double)score;
 - (BOOL)isEqual:(id)o;
 - (NSComparisonResult)compare:(id)otherObject;
+// Update the hit multiplier for a new hit and return its new value
+- (double)advanceHitMult;
 
 @end
 
@@ -44,9 +47,11 @@
 {
     @private
     NSMutableArray* values_;
+    int maxEntries_;
 }
 
 - (id)init;
+- (id)initWithMaxEntries:(int)maxEntries;
 - (void)dealloc;
 - (NSUInteger)count;
 - (void)removeAllObjects;
@@ -56,6 +61,7 @@
 - (NSUInteger)countByEnumeratingWithState:(NSFastEnumerationState *)state objects:(id *)stackbuf count:(NSUInteger)len;
 - (NSUInteger)indexOfObject:(id)o;
 - (void)sortByScore;
+- (int)indexOfObjectWithMainValue:(NSString*)value;
 
 @end
 
@@ -84,6 +90,14 @@
 
     // If true then window is above cursor.
     BOOL onTop_;
+
+    // Set to true when the user changes the selected row.
+    BOOL haveChangedSelection_;
+    // String that the user has selected.
+    NSMutableString* selectionMainValue_;
+
+    // True while reloading data.
+    BOOL reloading_;
 }
 
 - (id)initWithWindowNibName:(NSString*)nibName tablePtr:(NSTableView**)table model:(PopupModel*)model;
@@ -111,6 +125,7 @@
 
 // Get a value for a table cell. Always returns a value from the model.
 - (id)tableView:(NSTableView *)aTableView objectValueForTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex;
+- (void)tableViewSelectionDidChange:(NSNotification *)aNotification;
 
 - (void)setSession:(PTYSession*)session;
 - (void)setOnTop:(BOOL)onTop;
@@ -121,7 +136,7 @@
 - (void)reloadData:(BOOL)canChangeSide;
 - (void)_setClearFilterOnNextKeyDownFlag:(id)sender;
 - (int)convertIndex:(int)i;
-- (NSAttributedString*)attributedStringForEntry:(PopupEntry*)entry;
+- (NSAttributedString*)attributedStringForEntry:(PopupEntry*)entry isSelected:(BOOL)isSelected;
 - (void)windowDidResignKey:(NSNotification *)aNotification;
 - (void)windowDidBecomeKey:(NSNotification *)aNotification;
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)aTableView;

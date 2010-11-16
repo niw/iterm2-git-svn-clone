@@ -30,15 +30,46 @@
 #import "VT100Screen.h"
 #import "PTYTextView.h"
 #include <wctype.h>
+#import "iTermApplicationDelegate.h"
+
+#ifdef POPUP_VERBOSE_LOGGING
+#define PopLog NSLog
+#else
+#define PopLog(args...) \
+do { \
+if (gDebugLogging) { \
+DebugLog([NSString stringWithFormat:args]); \
+} \
+} while (0)
+#endif
 
 @implementation PopupEntry
+
+- (void)_setDefaultValues
+{
+    hitMultiplier_ = 1;
+    [self setMainValue:@""];
+    [self setScore:0];
+    [self setPrefix:@""];
+}
+
+- (id)init
+{
+    self = [super init];
+    if (!self) {
+        return self;
+    }
+    [self _setDefaultValues];
+    
+    return self;
+}
 
 + (PopupEntry*)entryWithString:(NSString*)s score:(double)score
 {
     PopupEntry* e = [[[PopupEntry alloc] init] autorelease];
+    [e _setDefaultValues];
     [e setMainValue:s];
     [e setScore:score];
-    [e setPrefix:@""];
 
     return e;
 }
@@ -57,6 +88,12 @@
 {
     [s_ autorelease];
     s_ = [s retain];
+}
+
+- (double)advanceHitMult
+{
+    hitMultiplier_ *= 0.8;
+    return hitMultiplier_;
 }
 
 - (double)score
@@ -131,6 +168,18 @@
         return self;
     }
 
+    maxEntries_ = -1;
+    values_ = [[NSMutableArray alloc] init];
+    return self;
+}
+
+- (id)initWithMaxEntries:(int)maxEntries
+{
+    self = [super init];
+    if (!self) {
+        return self;
+    }
+    maxEntries_ = maxEntries;
     values_ = [[NSMutableArray alloc] init];
     return self;
 }
@@ -170,11 +219,13 @@
 {
     PopupEntry* entry = [self entryEqualTo:object];
     if (entry) {
-        [entry setScore:[entry score] + [object score]];
-        //NSLog(@"Add additional hit for %@ bringing score to %lf", [entry mainValue], [entry score]);
-    } else {
+        [entry setScore:[entry score] + [object score] * [entry advanceHitMult]];
+        PopLog(@"Add additional hit for %@ bringing score to %lf", [entry mainValue], [entry score]);
+    } else if (maxEntries_ < 0 || [self count] < maxEntries_) {
         [self addObject:object];
-        //NSLog(@"Add entry for %@ with score %lf", [object mainValue], [object score]);
+        PopLog(@"Add entry for %@ with score %lf", [object mainValue], [object score]);
+    } else {
+        PopLog(@"Not adding entry because max of %u hit", maxEntries_);
     }
 }
 
@@ -205,6 +256,17 @@
     values_ = [[NSMutableArray arrayWithArray:sortedArray] retain];
 }
 
+- (int)indexOfObjectWithMainValue:(NSString*)value
+{
+    for (int i = 0; i < [values_ count]; ++i) {
+        PopupEntry* entry = [values_ objectAtIndex:i];
+        if ([[entry mainValue] isEqualToString:value]) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 @end
 
 
@@ -223,12 +285,14 @@
     model_ = [[PopupModel alloc] init];
     substring_ = [[NSMutableString alloc] init];
     unfilteredModel_ = [model retain];
+    selectionMainValue_ = [[NSMutableString alloc] init];
 
     return self;
 }
 
 - (void)dealloc
 {
+    [selectionMainValue_ release];
     [substring_ release];
     [model_ release];
     [tableView_ release];
@@ -287,15 +351,24 @@
             [model_ addObject:s];
         }
     }
+    BOOL oldReloading = reloading_;
+    reloading_ = YES;
     [tableView_ reloadData];
     [self setPosition:canChangeSide];
     [tableView_ sizeToFit];
     [[tableView_ enclosingScrollView] setHasHorizontalScroller:NO];
 
-    if ([tableView_ selectedRow] == -1 && [tableView_ numberOfRows] > 0) {
+    if (!haveChangedSelection_ && [tableView_ numberOfRows] > 0) {
         NSIndexSet* indexes = [NSIndexSet indexSetWithIndex:[self convertIndex:0]];
         [tableView_ selectRowIndexes:indexes byExtendingSelection:NO];
+    } else if (haveChangedSelection_ && [tableView_ numberOfRows] > 0) {
+        int i = [model_ indexOfObjectWithMainValue:selectionMainValue_];
+        if (i >= 0) {
+            NSIndexSet* indexes = [NSIndexSet indexSetWithIndex:[self convertIndex:i]];
+            [tableView_ selectRowIndexes:indexes byExtendingSelection:NO];
+        }
     }
+    reloading_ = oldReloading;
 }
 
 - (int)convertIndex:(int)i
@@ -355,8 +428,11 @@
         BOOL flip = (onTop != onTop_);
         [self setOnTop:onTop];
         if (flip) {
+            BOOL oldReloading = reloading_;
+            reloading_ = YES;
             NSIndexSet* indexes = [NSIndexSet indexSetWithIndex:[self convertIndex:[tableView_ selectedRow]]];
             [tableView_ selectRowIndexes:indexes byExtendingSelection:NO];
+            reloading_ = oldReloading;
         }
     }
 }
@@ -409,21 +485,29 @@
     [self onClose];
 }
 
-- (NSAttributedString*)attributedStringForEntry:(PopupEntry*)entry
+- (NSAttributedString*)attributedStringForEntry:(PopupEntry*)entry isSelected:(BOOL)isSelected
 {
     float size = [NSFont systemFontSize];
     NSFont* sysFont = [NSFont systemFontOfSize:size];
     NSMutableAttributedString* as = [[[NSMutableAttributedString alloc] init] autorelease];
-    NSColor* lightColor = [[NSColor blackColor] colorWithAlphaComponent:0.4];
+    NSColor* textColor;
+    if (isSelected) {
+        textColor = [NSColor whiteColor];
+    } else {
+        textColor = [NSColor blackColor];
+    }
+    NSColor* lightColor = [textColor colorWithAlphaComponent:0.4];
     NSDictionary* lightAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
                                      sysFont, NSFontAttributeName,
                                      lightColor, NSForegroundColorAttributeName,
                                      nil];
     NSDictionary* plainAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
                                      sysFont, NSFontAttributeName,
+                                     textColor, NSForegroundColorAttributeName,
                                      nil];
     NSDictionary* boldAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
                                     [NSFont boldSystemFontOfSize:size], NSFontAttributeName,
+                                    textColor, NSForegroundColorAttributeName,
                                     nil];
 
     [as appendAttributedString:[[[NSAttributedString alloc] initWithString:[entry prefix] attributes:lightAttributes] autorelease]];
@@ -462,6 +546,7 @@
         [as appendAttributedString:attributedSubstr];
     }
 
+    //[as appendAttributedString:[[[NSAttributedString alloc] initWithString:[NSString stringWithFormat:@" (%lf)", [entry score]] attributes:plainAttributes] autorelease]];
     return as;
 }
 
@@ -497,10 +582,15 @@
     }
     [substring_ setString:@""];
     [self onOpen];
+    haveChangedSelection_ = NO;
+    [selectionMainValue_ setString:@""];
     [self refresh];
     if ([tableView_ numberOfRows] > 0) {
+        BOOL oldReloading = reloading_;
+        reloading_ = YES;
         NSIndexSet* indexes = [NSIndexSet indexSetWithIndex:[self convertIndex:0]];
         [tableView_ selectRowIndexes:indexes byExtendingSelection:NO];
+        reloading_ = oldReloading;
     }
 }
 
@@ -519,8 +609,23 @@
 {
     int i = [self convertIndex:rowIndex];
     PopupEntry* e = [[self model] objectAtIndex:i];
-    return [self attributedStringForEntry:e];
+    return [self attributedStringForEntry:e isSelected:[aTableView selectedRow]==rowIndex];
 }
 
+- (void)tableViewSelectionDidChange:(NSNotification *)aNotification
+{
+    if (!reloading_) {
+        haveChangedSelection_ = YES;
+        int rowNum = [tableView_ selectedRow];
+        NSString* s = nil;
+        if (rowNum >= 0) {
+            s = [[model_ objectAtIndex:rowNum] mainValue];
+        }
+        if (!s) {
+            s = @"";
+        }
+        [selectionMainValue_ setString:s];
+    }
+}
 
 @end

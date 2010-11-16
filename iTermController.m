@@ -40,6 +40,9 @@
 #import <iTerm/ITAddressBookMgr.h>
 #import <iTerm/iTermGrowlDelegate.h>
 #import "PasteboardHistory.h"
+#import <Carbon/Carbon.h>
+#import "iTermApplicationDelegate.h"
+#import "iTermApplication.h"
 
 @interface NSApplication (Undocumented)
 - (void)_cycleWindowsReversed:(BOOL)back;
@@ -109,8 +112,7 @@ static BOOL initDone = NO;
      * PLIST check here.
      */
     gd = [iTermGrowlDelegate sharedInstance];
-    pbHistory = [[PasteboardHistory alloc] initWithMaxEntries:20];
-    
+
     return (self);
 }
 
@@ -185,11 +187,6 @@ static BOOL initDone = NO;
 - (PseudoTerminal*)currentTerminal
 {
     return (FRONT);
-}
-
-- (PasteboardHistory*)pbHistory
-{
-    return pbHistory;
 }
 
 - (void)terminalWillClose:(PseudoTerminal*)theTerminalWindow
@@ -466,6 +463,101 @@ static BOOL initDone = NO;
     return [terminalWindows objectAtIndex:i];
 }
 
+
+static void OnHotKeyEvent()
+{
+	if ([NSApp isActive]) {
+        PreferencePanel* prefPanel = [PreferencePanel sharedInstance];
+		NSWindow* prefWindow = [prefPanel window];
+		NSWindow* appKeyWindow = [[NSApplication sharedApplication] keyWindow];
+		if (prefWindow != appKeyWindow ||
+			![iTermApplication isTextFieldInFocus:[prefPanel hotkeyField]]) {
+			[NSApp hide:nil];
+		}
+	} else {
+		iTermController* controller = [iTermController sharedInstance];
+		int n = [controller numberOfTerminals];
+		[[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
+		if (n == 0) {
+			[controller newWindow:nil];
+		}
+	}
+}
+
+/*
+ * The callback is passed a proxy for the tap, the event type, the incoming event,
+ * and the refcon the callback was registered with.
+ * The function should return the (possibly modified) passed in event,
+ * a newly constructed event, or NULL if the event is to be deleted.
+ *
+ * The CGEventRef passed into the callback is retained by the calling code, and is
+ * released after the callback returns and the data is passed back to the event 
+ * system.  If a different event is returned by the callback function, then that
+ * event will be released by the calling code along with the original event, after
+ * the event data has been passed back to the event system.
+ */
+static CGEventRef OnTappedEvent(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon)
+{
+    iTermController* cont = refcon;
+    NSEvent* e = [NSEvent eventWithCGEvent:event];
+    if (cont->hotkeyCode_ &&
+        ([e modifierFlags] & cont->hotkeyModifiers_) == cont->hotkeyModifiers_ &&
+        [e keyCode] == cont->hotkeyCode_) {
+        OnHotKeyEvent();
+    }
+    
+    return event;
+}
+
+- (void)unregisterHotkey
+{
+    hotkeyCode_ = 0;
+    hotkeyModifiers_ = 0;
+}
+
+- (void)registerHotkey:(int)keyCode modifiers:(int)modifiers
+{
+    hotkeyCode_ = keyCode;
+    hotkeyModifiers_ = modifiers;
+    static CFMachPortRef machPortRef;
+    if (!machPortRef) {
+        DebugLog(@"Register event tap.");
+        machPortRef = CGEventTapCreate(kCGHIDEventTap,
+                                       kCGHeadInsertEventTap,
+                                       kCGEventTapOptionListenOnly,
+                                       CGEventMaskBit(kCGEventKeyDown),
+                                       (CGEventTapCallBack)OnTappedEvent,
+                                       self);
+        if (machPortRef) {
+            CFRunLoopSourceRef eventSrc;
+
+            eventSrc = CFMachPortCreateRunLoopSource(NULL, machPortRef, 0);
+            if (eventSrc == NULL) {
+                DebugLog(@"CFMachPortCreateRunLoopSource failed.");
+            } else {
+                DebugLog(@"Adding run loop source.");
+                // Get the CFRunLoop primitive for the Carbon Main Event Loop, and add the new event souce
+                CFRunLoopAddSource(CFRunLoopGetCurrent(), eventSrc, kCFRunLoopDefaultMode);
+                CFRelease(eventSrc);
+            }
+        } else {            
+            switch (NSRunAlertPanel(@"Could not enable hotkey.",
+                                    @"You have assigned a \"hotkey\" that opens iTerm2 at any time. To use it, you must turn on \"access for assistive devices\" in the Universal Access preferences panel in System Preferences and restart iTerm2.",
+                                    @"OK",
+                                    @"Open System Preferences",
+                                    @"Disable Hotkey",
+                                    nil)) {
+                case NSAlertOtherReturn:
+                    [[PreferencePanel sharedInstance] disableHotkey];
+                    break;
+
+                case NSAlertAlternateReturn:
+                    [[NSWorkspace sharedWorkspace] openFile:@"/System/Library/PreferencePanes/UniversalAccessPref.prefPane"];
+                    break;
+            }
+        }
+    }
+}
 
 @end
 

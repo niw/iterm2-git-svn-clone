@@ -93,7 +93,7 @@
 
 - (float)topMarginForTabBarControl
 {
-	return 0.0f;
+    return 0.0f;
 }
 
 #pragma mark -
@@ -119,13 +119,13 @@
 
 - (NSRect)dragRectForTabCell:(PSMTabBarCell *)cell orientation:(PSMTabBarOrientation)orientation
 {
-	return [cell frame];
+    return [cell frame];
 }
 
 - (NSRect)closeButtonRectForTabCell:(PSMTabBarCell *)cell
 {
     NSRect cellFrame = [cell frame];
-    
+
     if ([cell hasCloseButton] == NO) {
         return NSZeroRect;
     }
@@ -304,8 +304,8 @@
         [TruncatingTailParagraphStyle setAlignment:NSCenterTextAlignment];
     }
     [attrStr addAttribute:NSParagraphStyleAttributeName value:TruncatingTailParagraphStyle range:range];
-    
-    return attrStr;	
+
+    return attrStr;
 }
 
 #pragma mark -
@@ -373,13 +373,13 @@
 
 - (void)drawBackgroundInRect:(NSRect)rect
 {
-	[aquaTabBg drawInRect:rect fromRect:NSMakeRect(0.0, 0.0, 1.0, 22.0) operation:NSCompositeSourceOver fraction:1.0];
+    [aquaTabBg drawInRect:rect fromRect:NSMakeRect(0.0, 0.0, 1.0, 22.0) operation:NSCompositeSourceOver fraction:1.0];
 }
 
 - (void)drawTabBar:(PSMTabBarControl *)bar inRect:(NSRect)rect
 {
     [self drawBackgroundInRect:rect];
-    
+
     // no tab view == not connected
     if(![bar tabView]){
         NSRect labelRect = rect;
@@ -397,14 +397,14 @@
         [attrStr drawInRect:labelRect];
         return;
     }
-    
+
     // Draw cells
     for (PSMTabBarCell *cell in [bar cells] ) {
         if (![cell isInOverflowMenu] && NSIntersectsRect([cell frame], rect)) {
             [cell drawWithFrame:[cell frame] inView:bar];
         }
     }
-}   	
+}
 
 - (void)drawInteriorWithTabCell:(PSMTabBarCell *)cell inView:(NSView*)controlView
 {

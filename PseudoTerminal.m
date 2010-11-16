@@ -1,3 +1,4 @@
+
 // -*- mode:objc -*-
 // $Id: PseudoTerminal.m,v 1.437 2009-02-06 15:07:23 delx Exp $
 //
@@ -127,7 +128,7 @@ NSString *sessionsKey = @"sessions";
     [commandField setDelegate:self];
     [bottomBar retain];
 
-    pbHistoryView = [[PasteboardHistoryView alloc] initWithDataSource:[[iTermController sharedInstance] pbHistory]];
+    pbHistoryView = [[PasteboardHistoryView alloc] init];
 
     autocompleteView = [[AutocompleteView alloc] init];
 
@@ -1417,7 +1418,12 @@ NSString *sessionsKey = @"sessions";
 
 - (void)setLabelColor:(NSColor *)color forTabViewItem:tabViewItem
 {
-    [tabBarControl setLabelColor:color forTabViewItem:tabViewItem];
+    if ([[PreferencePanel sharedInstance] highlightTabLabels]) {
+        [tabBarControl setLabelColor:color forTabViewItem:tabViewItem];
+    } else {
+        [tabBarControl setLabelColor:[NSColor blackColor] forTabViewItem:tabViewItem];
+    }
+
 }
 
 - (PTYTabView *)tabView

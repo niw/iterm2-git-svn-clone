@@ -288,6 +288,9 @@
 		1DE2154212821F1C004E3ADF /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = English.lproj/Autocomplete.xib; sourceTree = "<group>"; };
 		1DE5EBE6122B892900C736B0 /* BookmarksWindow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BookmarksWindow.h; sourceTree = "<group>"; };
 		1DE5EBE7122B892900C736B0 /* BookmarksWindow.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BookmarksWindow.m; sourceTree = "<group>"; };
+		1DEB29301288885700B2CB9F /* Quartz.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Quartz.framework; path = System/Library/Frameworks/Quartz.framework; sourceTree = SDKROOT; };
+		1DEB29371288887100B2CB9F /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		1DEB293D1288899A00B2CB9F /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = System/Library/Frameworks/Carbon.framework; sourceTree = SDKROOT; };
 		1DEE9FDC11FCA60F009E18C9 /* English */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = English; path = English.lproj/credits.rtf; sourceTree = "<group>"; };
 		2076B15704E8817300000106 /* PTToolbarController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PTToolbarController.h; sourceTree = "<group>"; };
 		2076B15804E8817300000106 /* PTToolbarController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PTToolbarController.m; sourceTree = "<group>"; };
@@ -492,6 +495,9 @@
 				1D13EADB12113A2D00909F9C /* libncurses.dylib */,
 				1D7C1AD11276FD6E00461E55 /* PasteboardHistory.xib */,
 				1DE2154112821F1C004E3ADF /* Autocomplete.xib */,
+				1DEB29301288885700B2CB9F /* Quartz.framework */,
+				1DEB29371288887100B2CB9F /* QuartzCore.framework */,
+				1DEB293D1288899A00B2CB9F /* Carbon.framework */,
 			);
 			name = JTerminal;
 			sourceTree = "<group>";

@@ -30,7 +30,11 @@
 #import "PasteboardHistory.h"
 #import "iTerm/iTermController.h"
 #import "NSDateFormatterExtras.h"
+#import "PreferencePanel.h"
 #define kPasteboardHistoryDidChange @"PasteboardHistoryDidChange"
+#define PBHKEY_ENTRIES @"Entries"
+#define PBHKEY_VALUE @"Value"
+#define PBHKEY_TIMESTAMP @"Timestamp"
 
 @implementation PasteboardEntry
 
@@ -43,9 +47,23 @@
     return e;
 }
 
+- (NSDate*)timestamp
+{
+    return timestamp;
+}
+
 @end
 
 @implementation PasteboardHistory
+
++ (PasteboardHistory*)sharedInstance
+{
+    static PasteboardHistory* instance;
+    if (!instance) {
+        instance = [[PasteboardHistory alloc] initWithMaxEntries:20];
+    }
+    return instance;
+}
 
 - (id)initWithMaxEntries:(int)maxEntries
 {
@@ -54,6 +72,17 @@
     }
     maxEntries_ = maxEntries;
     entries_ = [[NSMutableArray alloc] init];
+
+
+    path_ = [NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES) lastObject];
+    NSString *appname = [[NSBundle mainBundle] objectForInfoDictionaryKey:(NSString *)kCFBundleNameKey];
+    path_ = [path_ stringByAppendingPathComponent:appname];
+    [[NSFileManager defaultManager] createDirectoryAtPath:path_ withIntermediateDirectories:YES attributes:nil error:NULL];
+    path_ = [[path_ stringByAppendingPathComponent:@"pbhistory.plist"] copyWithZone:[self zone]];
+    [path_ retain];
+
+    [self _loadHistoryFromDisk];
+
     return self;
 }
 
@@ -66,6 +95,47 @@
 - (NSArray*)entries
 {
     return entries_;
+}
+
+- (NSDictionary*)_entriesToDict
+{
+    NSMutableArray* a = [[[NSMutableArray alloc] init] autorelease];
+
+    for (PasteboardEntry* entry in entries_) {
+        [a addObject:[NSDictionary dictionaryWithObjectsAndKeys:[entry mainValue], PBHKEY_VALUE,
+                      [NSNumber numberWithDouble:[entry->timestamp timeIntervalSinceReferenceDate]], PBHKEY_TIMESTAMP,
+                      nil]];
+    }
+    return [NSDictionary dictionaryWithObject:a forKey:PBHKEY_ENTRIES];
+}
+
+- (void)_addDictToEntries:(NSDictionary*)dict
+{
+    NSArray* a = [dict objectForKey:PBHKEY_ENTRIES];
+    for (NSDictionary* d in a) {
+        double timestamp = [[d objectForKey:PBHKEY_TIMESTAMP] doubleValue];
+        PasteboardEntry* entry = [PasteboardEntry entryWithString:[d objectForKey:PBHKEY_VALUE] score:timestamp];
+        entry->timestamp = [[NSDate alloc] initWithTimeIntervalSinceReferenceDate:timestamp];
+        [entries_ addObject:entry];
+    }
+}
+
+- (void)eraseHistory
+{
+    [[NSFileManager defaultManager] removeItemAtPath:path_ error:NULL];
+}
+
+- (void)_writeHistoryToDisk
+{
+    if ([[PreferencePanel sharedInstance] savePasteHistory]) {
+        [NSKeyedArchiver archiveRootObject:[self _entriesToDict] toFile:path_];
+    }
+}
+
+- (void)_loadHistoryFromDisk
+{
+    [entries_ removeAllObjects];
+    [self _addDictToEntries:[NSKeyedUnarchiver unarchiveObjectWithFile:path_]];
 }
 
 - (void)save:(NSString*)value
@@ -96,12 +166,15 @@
     }
 
     // Append this value.
-    PasteboardEntry* entry = [PasteboardEntry entryWithString:value score:-[entries_ count]];
+    PasteboardEntry* entry = [PasteboardEntry entryWithString:value score:[[NSDate date] timeIntervalSince1970]];
     entry->timestamp = [[NSDate alloc] init];
     [entries_ addObject:entry];
     if ([entries_ count] == maxEntries_) {
         [entries_ removeObjectAtIndex:0];
     }
+
+    [self _writeHistoryToDisk];
+
     [[NSNotificationCenter defaultCenter] postNotificationName:kPasteboardHistoryDidChange
                                                         object:self];
 }
@@ -110,14 +183,13 @@
 
 @implementation PasteboardHistoryView
 
-- (id)initWithDataSource:(PasteboardHistory*)dataSource
+- (id)init
 {
     self = [super initWithWindowNibName:@"PasteboardHistory" tablePtr:&table_ model:[[[PopupModel alloc] init] autorelease]];
     if (!self) {
         return nil;
     }
 
-    history_ = [dataSource retain];
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(pasteboardHistoryDidChange:)
                                                  name:kPasteboardHistoryDidChange
@@ -128,7 +200,6 @@
 
 - (void)dealloc
 {
-    [history_ release];
     [super dealloc];
 }
 
@@ -140,7 +211,7 @@
 - (void)copyFromHistory
 {
     [[self unfilteredModel] removeAllObjects];
-    for (PasteboardEntry* e in [history_ entries]) {
+    for (PasteboardEntry* e in [[PasteboardHistory sharedInstance] entries]) {
         [[self unfilteredModel] addObject:e];
     }
 }
