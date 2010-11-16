@@ -362,7 +362,7 @@ const int kInterWidgetMargin = 10;
     delegate_ = delegate;
 }
 
-// DataSource methods
+#pragma mark NSTableView data source
 - (NSInteger)numberOfRowsInTableView:(NSTableView *)aTableView
 {
     return [dataSource_ numberOfBookmarksWithFilter:[searchField_ stringValue]];
@@ -426,15 +426,15 @@ const int kInterWidgetMargin = 10;
             return @"";
         }
     } else if (aTableColumn == starColumn_) {
+        // FIXME: use imageNamed and clean up drawing code
         static NSImage* starImage;
         if (!starImage) {
             NSString* starFile = [[NSBundle bundleForClass:[self class]]
                                   pathForResource:@"star-gold24"
                                   ofType:@"png"];
             starImage = [[NSImage alloc] initWithContentsOfFile:starFile];
-            [starImage retain];
         }
-        NSImage *image = [[NSImage alloc] init];
+        NSImage *image = [[[NSImage alloc] init] autorelease];
         NSSize size;
         size.width = [aTableColumn width];
         size.height = rowHeight_;
