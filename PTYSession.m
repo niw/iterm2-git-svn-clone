@@ -538,7 +538,6 @@ static NSImage *warningImage;
     BOOL priority;
 
     unsigned int modflag;
-    unsigned short keycode;
     NSString *keystr;
     NSString *unmodkeystr;
     unichar unicode, unmodunicode;
