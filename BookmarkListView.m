@@ -388,30 +388,31 @@ const int kInterWidgetMargin = 10;
                           withFilter:[searchField_ stringValue]];
 
     if (aTableColumn == tableColumn_) {
-        NSMutableAttributedString* as = [[[NSMutableAttributedString alloc] init] autorelease];
         NSColor* textColor;
         if ([[tableView_ selectedRowIndexes] containsIndex:rowIndex]) {
             textColor = [NSColor whiteColor];
         } else {
             textColor = [NSColor blackColor];
         }
-        NSFont* smallFont = [NSFont systemFontOfSize:10];
+
         NSDictionary* plainAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
                                          textColor, NSForegroundColorAttributeName,
                                          nil];
         NSDictionary* smallAttributes = [NSDictionary dictionaryWithObjectsAndKeys:
                                          textColor, NSForegroundColorAttributeName,
-                                         smallFont, NSFontAttributeName,
+                                         [NSFont systemFontOfSize:10], NSFontAttributeName,
                                          nil];
+        
+        NSString *name = [NSString stringWithFormat:@"%@\n", [bookmark objectForKey:KEY_NAME]];
+        NSString* tags = [[bookmark objectForKey:KEY_TAGS] componentsJoinedByString:@", "];
+        
+        NSMutableAttributedString *mas = [[[NSMutableAttributedString alloc] initWithString:name
+                                                                                 attributes:plainAttributes] autorelease];
 
-        [as appendAttributedString:[[[NSAttributedString alloc] initWithString:[NSString stringWithFormat:@"%@\n", [bookmark objectForKey:KEY_NAME]]
-                                                                    attributes:plainAttributes] autorelease]];
-        NSArray* tags = [bookmark objectForKey:KEY_TAGS];
-        NSString* tagsString = [NSString stringWithString:[tags componentsJoinedByString:@", "]];
-        [as appendAttributedString:[[[NSAttributedString alloc] initWithString:tagsString
-                                                                    attributes:smallAttributes] autorelease]];
+        [mas appendAttributedString:[[[NSAttributedString alloc] initWithString:tags
+                                                                     attributes:smallAttributes] autorelease]];
 
-        return as;
+        return mas;
     } else if (aTableColumn == commandColumn_) {
         if (![[bookmark objectForKey:KEY_CUSTOM_COMMAND] isEqualToString:@"Yes"]) {
             return @"Login shell";
