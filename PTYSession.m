@@ -501,7 +501,6 @@ static NSImage *warningImage;
 - (BOOL) hasKeyMappingForEvent: (NSEvent *) event highPriority: (BOOL) priority
 {
     unsigned int modflag;
-    NSString *keystr;
     NSString *unmodkeystr;
     unichar unmodunicode;
     int keyBindingAction;
@@ -509,7 +508,6 @@ static NSImage *warningImage;
     BOOL keyBindingPriority;
 
     modflag = [event modifierFlags];
-    keystr  = [event characters];
     unmodkeystr = [event charactersIgnoringModifiers];
     unmodunicode = [unmodkeystr length]>0?[unmodkeystr characterAtIndex:0]:0;
 
@@ -553,7 +551,6 @@ static NSImage *warningImage;
     if (EXIT) return;
 
     modflag = [event modifierFlags];
-    keycode = [event keyCode];
     keystr  = [event characters];
     unmodkeystr = [event charactersIgnoringModifiers];
     unicode = [keystr length]>0?[keystr characterAtIndex:0]:0;
@@ -1226,10 +1223,6 @@ static NSImage *warningImage;
     NSColor *colorTable[2][8];
     int i;
     NSDictionary *aDict;
-    ITAddressBookMgr *bookmarkManager;
-
-    // get our shared managers
-    bookmarkManager = [ITAddressBookMgr sharedInstance];
 
     aDict = aePrefs;
     if (aDict == nil) {
