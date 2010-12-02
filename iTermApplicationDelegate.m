@@ -283,6 +283,11 @@ int gDebugLogFile = -1;
     [[iTermController sharedInstance] nextTerminal:sender];
 }
 
+- (IBAction)arrangeHorizontally:(id)sender
+{
+    [[iTermController sharedInstance] arrangeHorizontally];
+}
+
 - (IBAction)showPrefWindow:(id)sender
 {
     [[PreferencePanel sharedInstance] run];
@@ -374,6 +379,38 @@ static void FlushDebugLog() {
         int written = write(gDebugLogFile, [data bytes], [data length]);
         assert(written == [data length]);
         [gDebugLogStr setString:@""];
+}
+
+- (IBAction)toggleSecureInput:(id)sender
+{
+    [secureInput setState:[secureInput state] == NSOnState ? NSOffState : NSOnState];
+    if ([secureInput state] == NSOnState) {
+        if (EnableSecureEventInput() != noErr) {
+            NSLog(@"Failed to enable secure input.");
+        }
+    } else {
+        if (DisableSecureEventInput() != noErr) {
+            NSLog(@"Failed to disable secure input.");
+        }
+    }
+}
+
+- (void)applicationDidBecomeActive:(NSNotification *)aNotification
+{
+    if ([secureInput state] == NSOnState) {
+        if (EnableSecureEventInput() != noErr) {
+            NSLog(@"Failed to enable secure input.");
+        }
+    }
+}
+
+- (void)applicationDidResignActive:(NSNotification *)aNotification
+{
+    if ([secureInput state] == NSOnState) {
+        if (DisableSecureEventInput() != noErr) {
+            NSLog(@"Failed to disable secure input.");
+        }
+    }
 }
 
 // Debug logging

@@ -238,7 +238,7 @@ static NSImage *warningImage;
 }
 
 // Session specific methods
-- (BOOL)initScreen:(NSRect)aRect vmargin:(float)vmargin
+- (BOOL)initScreen:(NSRect)aRect
 {
     NSSize aSize;
 
@@ -253,7 +253,7 @@ static NSImage *warningImage;
     [view retain];
 
     // Allocate a scrollview
-    SCROLLVIEW = [[PTYScrollView alloc] initWithFrame: NSMakeRect(0, vmargin, aRect.size.width, aRect.size.height - vmargin*2)];
+    SCROLLVIEW = [[PTYScrollView alloc] initWithFrame: NSMakeRect(0, 0, aRect.size.width, aRect.size.height)];
     [SCROLLVIEW setHasVerticalScroller:![parent fullScreen] && ![[PreferencePanel sharedInstance] hideScrollbar]];
     NSParameterAssert(SCROLLVIEW != nil);
     [SCROLLVIEW setAutoresizingMask: NSViewWidthSizable|NSViewHeightSizable];
@@ -272,13 +272,20 @@ static NSImage *warningImage;
 
     // Allocate a text view
     aSize = [SCROLLVIEW contentSize];
-    TEXTVIEW = [[PTYTextView alloc] initWithFrame: NSMakeRect(0, 0, aSize.width, aSize.height)];
+    WRAPPER = [[TextViewWrapper alloc] initWithFrame:NSMakeRect(0, 0, aSize.width, aSize.height)];
+    [WRAPPER setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+
+    TEXTVIEW = [[PTYTextView alloc] initWithFrame: NSMakeRect(0, VMARGIN, aSize.width, aSize.height)];
     [TEXTVIEW setAutoresizingMask: NSViewWidthSizable | NSViewHeightSizable];
     [TEXTVIEW setFont:[ITAddressBookMgr fontWithDesc:[addressBookEntry objectForKey:KEY_NORMAL_FONT]]
                nafont:[ITAddressBookMgr fontWithDesc:[addressBookEntry objectForKey:KEY_NON_ASCII_FONT]]
     horizontalSpacing:[[addressBookEntry objectForKey:KEY_HORIZONTAL_SPACING] floatValue]
       verticalSpacing:[[addressBookEntry objectForKey:KEY_VERTICAL_SPACING] floatValue]];
     [self setTransparency:[[addressBookEntry objectForKey:KEY_TRANSPARENCY] floatValue]];
+
+    [WRAPPER addSubview:TEXTVIEW];
+    [TEXTVIEW setFrame:NSMakeRect(0, VMARGIN, aSize.width, aSize.height - VMARGIN)];
+    [TEXTVIEW release];
 
     // assign terminal and task objects
     [SCREEN setShellTask:SHELL];
@@ -295,8 +302,8 @@ static NSImage *warningImage;
 
         [TEXTVIEW setDataSource: SCREEN];
         [TEXTVIEW setDelegate: self];
-        [SCROLLVIEW setDocumentView:TEXTVIEW];
-        [TEXTVIEW release];
+        [SCROLLVIEW setDocumentView:WRAPPER];
+        [WRAPPER release];
         [SCROLLVIEW setDocumentCursor: [PTYTextView textViewCursor]];
         [SCROLLVIEW setLineScroll:[TEXTVIEW lineHeight]];
         [SCROLLVIEW setPageScroll:2*[TEXTVIEW lineHeight]];
@@ -567,6 +574,7 @@ static NSImage *warningImage;
                                                 keyMappings:[[self addressBookEntry] objectForKey:KEY_KEYBOARD_MAP]];
 
     if (keyBindingAction >= 0) {
+        // A special action was bound to this key combination.
         NSString *aString;
         unsigned char hexCode;
         int hexCodeTmp;
@@ -631,6 +639,12 @@ static NSImage *warningImage;
                     [self writeTask: [bindingText dataUsingEncoding: NSUTF8StringEncoding]];
                 }
                 break;
+            case KEY_ACTION_SEND_C_H_BACKSPACE:
+                [self writeTask:[@"\010" dataUsingEncoding:NSUTF8StringEncoding]];
+                break;
+            case KEY_ACTION_SEND_C_QM_BACKSPACE:
+                [self writeTask:[@"\177" dataUsingEncoding:NSUTF8StringEncoding]]; // decimal 127
+                break;
             case KEY_ACTION_IGNORE:
                 break;
             case KEY_ACTION_IR_FORWARD:
@@ -643,86 +657,100 @@ static NSImage *warningImage;
                 NSLog(@"Unknown key action %d", keyBindingAction);
                 break;
         }
-    }
-    // else do standard handling of event
-    else
-    {
-        if (modflag & NSFunctionKeyMask)
-        {
+    } else {
+        // No special binding for this key combination.
+        if (modflag & NSFunctionKeyMask) {
+            // Handle all "special" keys (arrows, etc.)
             NSData *data = nil;
 
-            switch(unicode)
-            {
-                case NSUpArrowFunctionKey: data = [TERMINAL keyArrowUp:modflag]; break;
-                case NSDownArrowFunctionKey: data = [TERMINAL keyArrowDown:modflag]; break;
-                case NSLeftArrowFunctionKey: data = [TERMINAL keyArrowLeft:modflag]; break;
-                case NSRightArrowFunctionKey: data = [TERMINAL keyArrowRight:modflag]; break;
-
-                case NSInsertFunctionKey:
-                    // case NSHelpFunctionKey:
-                    data = [TERMINAL keyInsert]; break;
-                case NSDeleteFunctionKey:
-                    data = [TERMINAL keyDelete]; break;
-                case NSHomeFunctionKey: data = [TERMINAL keyHome:modflag]; break;
-                case NSEndFunctionKey: data = [TERMINAL keyEnd:modflag]; break;
-                case NSPageUpFunctionKey: data = [TERMINAL keyPageUp]; break;
-                case NSPageDownFunctionKey: data = [TERMINAL keyPageDown]; break;
-
-                case NSPrintScreenFunctionKey:
+            switch (unicode) {
+                case NSUpArrowFunctionKey:
+                    data = [TERMINAL keyArrowUp:modflag]; 
                     break;
-                case NSScrollLockFunctionKey:
-                case NSPauseFunctionKey:
+                case NSDownArrowFunctionKey: 
+                    data = [TERMINAL keyArrowDown:modflag]; 
+                    break;
+                case NSLeftArrowFunctionKey: 
+                    data = [TERMINAL keyArrowLeft:modflag]; 
+                    break;
+                case NSRightArrowFunctionKey: 
+                    data = [TERMINAL keyArrowRight:modflag]; 
+                    break;
+                case NSInsertFunctionKey:
+                    data = [TERMINAL keyInsert]; 
+                    break;
+                case NSDeleteFunctionKey:
+                    data = [TERMINAL keyDelete]; 
+                    break;
+                case NSHomeFunctionKey: 
+                    data = [TERMINAL keyHome:modflag]; 
+                    break;
+                case NSEndFunctionKey: 
+                    data = [TERMINAL keyEnd:modflag]; 
+                    break;
+                case NSPageUpFunctionKey: 
+                    data = [TERMINAL keyPageUp]; 
+                    break;
+                case NSPageDownFunctionKey: 
+                    data = [TERMINAL keyPageDown]; 
                     break;
                 case NSClearLineFunctionKey:
                     data = [@"\e" dataUsingEncoding: NSUTF8StringEncoding];
                     break;
             }
 
-            if (NSF1FunctionKey<=unicode&&unicode<=NSF35FunctionKey)
-                data = [TERMINAL keyFunction:unicode-NSF1FunctionKey+1];
+            if (NSF1FunctionKey <= unicode && unicode <= NSF35FunctionKey) {
+                data = [TERMINAL keyFunction:unicode - NSF1FunctionKey + 1];
+            }
 
             if (data != nil) {
                 send_str = (unsigned char *)[data bytes];
                 send_strlen = [data length];
-            }
-            else if (keystr != nil) {
-                NSData *keydat = ((modflag & NSControlKeyMask) && unicode>0)?
-                    [keystr dataUsingEncoding:NSUTF8StringEncoding]:
+            } else if (keystr != nil) {
+                NSData *keydat = ((modflag & NSControlKeyMask) && unicode > 0) ?
+                    [keystr dataUsingEncoding:NSUTF8StringEncoding] :
                     [unmodkeystr dataUsingEncoding:NSUTF8StringEncoding];
                 send_str = (unsigned char *)[keydat bytes];
                 send_strlen = [keydat length];
             }
-        }
-        else if ((modflag & NSAlternateKeyMask) &&
-                 ([self optionKey] != OPT_NORMAL))
-        {
-            NSData *keydat = ((modflag & NSControlKeyMask) && unicode>0)?
+        } else if (((modflag & NSLeftAlternateKeyMask) == NSLeftAlternateKeyMask &&
+                    ([self optionKey] != OPT_NORMAL)) ||
+                   ((modflag & NSRightAlternateKeyMask) == NSRightAlternateKeyMask &&
+                    ([self rightOptionKey] != OPT_NORMAL))) {
+            // A key was pressed while holding down option and the option key
+            // is not behaving normally. Apply the modified behavior.
+            int mode;  // The modified behavior based on which modifier is pressed.
+            if ((modflag & NSLeftAlternateKeyMask) == NSLeftAlternateKeyMask) {
+                mode = [self optionKey];
+            } else {
+                mode = [self rightOptionKey];
+            }
+
+            NSData *keydat = ((modflag & NSControlKeyMask) && unicode > 0)?
                 [keystr dataUsingEncoding:NSUTF8StringEncoding]:
-                [unmodkeystr dataUsingEncoding:NSUTF8StringEncoding];
-            // META combination
+                [unmodkeystr dataUsingEncoding:NSUTF8StringEncoding]; 
             if (keydat != nil) {
                 send_str = (unsigned char *)[keydat bytes];
                 send_strlen = [keydat length];
             }
-            if ([self optionKey] == OPT_ESC) {
+            if (mode == OPT_ESC) {
                 send_pchr = '\e';
-            }
-            else if ([self optionKey] == OPT_META && send_str != NULL)
-            {
+            } else if (mode == OPT_META && send_str != NULL) {
                 int i;
-                for (i = 0; i < send_strlen; ++i)
+                for (i = 0; i < send_strlen; ++i) {
                     send_str[i] |= 0x80;
+                }
             }
-        }
-        else
-        {
+        } else {
+            // Regular path for inserting a character from a keypress.
             int max = [keystr length];
             NSData *data=nil;
 
-            if (max!=1||[keystr characterAtIndex:0] > 0x7f)
+            if (max != 1||[keystr characterAtIndex:0] > 0x7f) {
                 data = [keystr dataUsingEncoding:[TERMINAL encoding]];
-            else
+            } else {
                 data = [keystr dataUsingEncoding:NSUTF8StringEncoding];
+            }
 
             // Enter key is on numeric keypad, but not marked as such
             if (unicode == NSEnterCharacter && unmodunicode == NSEnterCharacter) {
@@ -734,49 +762,44 @@ static NSImage *warningImage;
                 data = [TERMINAL keypadData: unicode keystr: keystr];
             }
 
-
             if (data != nil ) {
                 send_str = (unsigned char *)[data bytes];
                 send_strlen = [data length];
             }
 
-            // NSLog(@"modflag = 0x%x; send_strlen = %d; send_str[0] = '%c (0x%x)'", modflag, send_strlen, send_str[0]);
+            DebugLog([NSString stringWithFormat:@"modflag = 0x%x; send_strlen = %d; send_str[0] = '%c (0x%x)'", modflag, send_strlen, send_str[0]]);
             if ((modflag & NSControlKeyMask) &&
                 send_strlen == 1 &&
-                send_str[0] == '|')
-            {
-                send_str = (unsigned char*)"\034"; // control-backslash
+                send_str[0] == '|') {
+                // Control-| is sent as Control-backslash
+                send_str = (unsigned char*)"\034";
                 send_strlen = 1;
-            }
-
-            else if ((modflag & NSControlKeyMask) &&
-                (modflag & NSShiftKeyMask) &&
-                send_strlen == 1 &&
-                send_str[0] == '/')
-            {
-                send_str = (unsigned char*)"\177"; // control-?
+            } else if ((modflag & NSControlKeyMask) &&
+                       (modflag & NSShiftKeyMask) &&
+                       send_strlen == 1 &&
+                       send_str[0] == '/') {
+                // Control-shift-/ is sent as Control-?
+                send_str = (unsigned char*)"\177";
                 send_strlen = 1;
-            }
-            else if ((modflag & NSControlKeyMask) &&
-                     send_strlen == 1 &&
-                     send_str[0] == '/')
-            {
+            } else if ((modflag & NSControlKeyMask) &&
+                       send_strlen == 1 &&
+                       send_str[0] == '/') {
+                // Control-/ is sent as Control-/, but needs some help to do so.
                 send_str = (unsigned char*)"\037"; // control-/
                 send_strlen = 1;
-            }
-            else if ((modflag & NSShiftKeyMask) &&
-                     send_strlen == 1 &&
-                     send_str[0] == '\031')
-            {
-                send_str = (unsigned char*)"\033[Z"; // backtab
+            } else if ((modflag & NSShiftKeyMask) &&
+                       send_strlen == 1 &&
+                       send_str[0] == '\031') {
+                // Shift-tab is sent as Esc-[Z (or "backtab")
+                send_str = (unsigned char*)"\033[Z";
                 send_strlen = 3;
             }
 
         }
 
-        if (EXIT == NO )
-        {
+        if (EXIT == NO) {
             if (send_pchr >= 0) {
+                // Send a prefix character (e.g., esc).
                 char c = send_pchr;
                 dataPtr = (unsigned char*)&c;
                 dataLength = 1;
@@ -796,69 +819,11 @@ static NSImage *warningImage;
 
 - (BOOL)willHandleEvent: (NSEvent *) theEvent
 {
-    // Handle the option-click event
-    return 0;
-/*  return (([theEvent type] == NSLeftMouseDown) &&
-            ([theEvent modifierFlags] & NSAlternateKeyMask));   */
+    return NO;
 }
 
 - (void)handleEvent: (NSEvent *) theEvent
 {
-    // We handle option-click to position the cursor...
-    /*if(([theEvent type] == NSLeftMouseDown) &&
-       ([theEvent modifierFlags] & NSAlternateKeyMask))
-        [self handleOptionClick: theEvent]; */
-}
-
-- (void) handleOptionClick: (NSEvent *) theEvent
-{
-    if (EXIT) return;
-
-    // Here we will attempt to position the cursor to the mouse-click
-
-    NSPoint locationInWindow, locationInTextView, locationInScrollView;
-    int x, y;
-    float w = [TEXTVIEW charWidth], h = [TEXTVIEW lineHeight];
-
-    locationInWindow = [theEvent locationInWindow];
-    locationInTextView = [TEXTVIEW convertPoint: locationInWindow fromView: nil];
-    locationInScrollView = [SCROLLVIEW convertPoint: locationInWindow fromView: nil];
-
-    x = locationInTextView.x/w;
-    y = locationInScrollView.y/h + 1;
-
-    // NSLog(@"loc_x = %f; loc_y = %f", locationInTextView.x, locationInScrollView.y);
-    // NSLog(@"font width = %f, font height = %f", fontSize.width, fontSize.height);
-    // NSLog(@"x = %d; y = %d", x, y);
-
-
-    if (x == [SCREEN cursorX] && y == [SCREEN cursorY]) {
-        return;
-    }
-
-    NSData *data;
-    int i;
-    // now move the cursor up or down
-    for (i = 0; i < abs(y - [SCREEN cursorY]); i++) {
-        if (y < [SCREEN cursorY]) {
-            data = [TERMINAL keyArrowUp:0];
-        } else {
-            data = [TERMINAL keyArrowDown:0];
-        }
-        [self writeTask:[NSData dataWithBytes:[data bytes] length:[data length]]];
-    }
-    // now move the cursor left or right
-    for (i = 0; i < abs(x - [SCREEN cursorX]); i++) {
-        if (x < [SCREEN cursorX]) {
-            data = [TERMINAL keyArrowLeft:0];
-        } else {
-            data = [TERMINAL keyArrowRight:0];
-        }
-        [self writeTask:[NSData dataWithBytes:[data bytes] length:[data length]]];
-    }
-
-    // trigger an update of the display.
-    [TEXTVIEW setNeedsDisplay:YES];
 }
 
 - (void)insertText:(NSString *)string
@@ -877,7 +842,7 @@ static NSImage *warningImage;
     max = [string length];
     for (i = 0; i < max; i++) {
         // From http://lists.apple.com/archives/cocoa-dev/2001/Jul/msg00114.html
-        // in MacJapanese, the backslash char (ASCII 0x5C) is mapped to Unicode 0xA5.
+        // in MacJapanese, the backslash char (ASCII 0xdC) is mapped to Unicode 0xA5.
         // The following line gives you NSString containing an Unicode character Yen sign (0xA5) in Japanese localization.
         // string = [NSString stringWithCString:"\"];
         // TODO: Check the locale before doing this.
@@ -1196,7 +1161,7 @@ static NSImage *warningImage;
     int bgNum = -1;
     int fgNum = -1;
     for(int i = 0; i < 16; ++i) {
-        NSString* key = [NSString stringWithFormat:@"KEY_ANSI_%d_COLOR", i];
+        NSString* key = [NSString stringWithFormat:KEYTEMPLATE_ANSI_X_COLOR, i];
         if ([fgColor isEqual: [ITAddressBookMgr decodeColor:[aDict objectForKey:key]]]) {
             fgNum = i;
         }
@@ -1268,11 +1233,22 @@ static NSImage *warningImage;
     [self setTransparency:[[aDict objectForKey:KEY_TRANSPARENCY] floatValue]];
 
     // bold
-    [self setDisableBold:[[aDict objectForKey:KEY_DISABLE_BOLD] boolValue]];
-
+    NSNumber* useBoldFontEntry = [aDict objectForKey:KEY_USE_BOLD_FONT];
+    NSNumber* disableBoldEntry = [aDict objectForKey:KEY_DISABLE_BOLD];
+    if (useBoldFontEntry) {
+        [self setUseBoldFont:[useBoldFontEntry boolValue]];
+    } else if (disableBoldEntry) {
+        // Only deprecated option is set.
+        [self setUseBoldFont:![disableBoldEntry boolValue]];
+    } else {
+        [self setUseBoldFont:YES];
+    }
+    [TEXTVIEW setUseBrightBold:[aDict objectForKey:KEY_USE_BRIGHT_BOLD] ? [[aDict objectForKey:KEY_USE_BRIGHT_BOLD] boolValue] : YES];
+    
     // set up the rest of the preferences
     [SCREEN setPlayBellFlag:![[aDict objectForKey:KEY_SILENCE_BELL] boolValue]];
     [SCREEN setShowBellFlag:[[aDict objectForKey:KEY_VISUAL_BELL] boolValue]];
+    [SCREEN setFlashBellFlag:[[aDict objectForKey:KEY_FLASHING_BELL] boolValue]];
     [SCREEN setGrowlFlag:[[aDict objectForKey:KEY_BOOKMARK_GROWL_NOTIFICATIONS] boolValue]];
     [SCREEN setBlinkingCursor: [[aDict objectForKey: KEY_BLINKING_CURSOR] boolValue]];
     [TEXTVIEW setBlinkingCursor: [[aDict objectForKey: KEY_BLINKING_CURSOR] boolValue]];
@@ -1373,7 +1349,11 @@ static NSImage *warningImage;
 
 - (NSString*)defaultName
 {
-    return defaultName;
+    if (jobName_) {
+        return [NSString stringWithFormat:@"%@ (%@)", defaultName, [self jobName]];
+    } else {
+        return defaultName;
+    }
 }
 
 - (void)setDefaultName:(NSString*)theName
@@ -1402,7 +1382,11 @@ static NSImage *warningImage;
 
 - (NSString*)name
 {
-    return name;
+    if (jobName_) {
+        return [NSString stringWithFormat:@"%@ (%@)", name, [self jobName]];
+    } else {
+        return name;
+    }
 }
 
 - (void)setName:(NSString*)theName
@@ -1432,7 +1416,7 @@ static NSImage *warningImage;
         [self setWindowTitle:theName];
     }
 
-    [tabViewItem setLabel:name];
+    [tabViewItem setLabel:[self name]];
     [self setBell:NO];
 
     // get the session submenu to be rebuilt
@@ -1445,7 +1429,15 @@ static NSImage *warningImage;
 
 - (NSString*)windowTitle
 {
-    return windowTitle;
+    if (!windowTitle) {
+        return nil;
+    }
+    NSString* jobName = [self jobName];
+    if (jobName) {
+        return [NSString stringWithFormat:@"%@ (%@)", windowTitle, [self jobName]];
+    } else {
+        return windowTitle;
+    }
 }
 
 - (void)setWindowTitle:(NSString*)theTitle
@@ -1785,7 +1777,9 @@ static NSImage *warningImage;
 
     if (set) {
         antiIdleTimer = [[NSTimer scheduledTimerWithTimeInterval:30
-                target:self selector:@selector(doAntiIdle) userInfo:nil
+                                                          target:self 
+                                                        selector:@selector(doAntiIdle) 
+                                                        userInfo:nil
                 repeats:YES] retain];
     } else {
         [antiIdleTimer invalidate];
@@ -1809,16 +1803,15 @@ static NSImage *warningImage;
     autoClose = set;
 }
 
-- (BOOL)disableBold
+- (BOOL)useBoldFont
 {
-    return [TEXTVIEW disableBold];
+    return [TEXTVIEW useBoldFont];
 }
 
-- (void)setDisableBold:(BOOL)boldFlag
+- (void)setUseBoldFont:(BOOL)boldFlag
 {
-    [TEXTVIEW setDisableBold:boldFlag];
+    [TEXTVIEW setUseBoldFont:boldFlag];
 }
-
 
 - (BOOL)doubleWidth
 {
@@ -1907,6 +1900,15 @@ static NSImage *warningImage;
     return [[[self addressBookEntry] objectForKey:KEY_OPTION_KEY_SENDS] intValue];
 }
 
+- (int)rightOptionKey
+{
+    NSNumber* rightOptPref = [[self addressBookEntry] objectForKey:KEY_RIGHT_OPTION_KEY_SENDS];
+    if (rightOptPref == nil) {
+        return [self optionKey];
+    }
+    return [rightOptPref intValue];
+}
+
 - (void)setAddressBookEntry:(NSDictionary*)entry
 {
     if (!originalAddressBookEntry) {
@@ -1969,6 +1971,15 @@ static NSImage *warningImage;
             if ([parent tempTitle]) {
                 [parent setWindowTitle];
                 [parent resetTempTitle];
+            } else {
+                NSString* oldName = jobName_;
+                jobName_ = [[SHELL currentJob] copy];
+                [jobName_ retain];
+                if (![oldName isEqualToString:jobName_]) {
+                    [tabViewItem setLabel:[self name]];
+                    [parent setWindowTitle];
+                }
+                [oldName release];
             }
             lastBlink = now;
         }
@@ -2068,6 +2079,11 @@ static NSImage *warningImage;
 - (void)setFont:(NSFont*)font nafont:(NSFont*)nafont horizontalSpacing:(float)horizontalSpacing verticalSpacing:(float)verticalSpacing
 {
     [TEXTVIEW setFont:font nafont:nafont horizontalSpacing:horizontalSpacing verticalSpacing:verticalSpacing];
+    // Calling fitWindowToSession:self works but causes window size to change if self has an excess margin.
+    // fitWIndowToSessions doesn't work because it may leave self too small (# rows) for the window when shrinking the font.
+
+    // Adjust the window size to perfectly fit this session. But this may cause the excess margin to
+    // be too small if another tab has a larger font.
     [parent fitWindowToSession:self];
 }
 
@@ -2118,6 +2134,11 @@ static NSImage *warningImage;
                                      inBookmark:bookmark];
     [self setAddressBookEntry:[[BookmarkModel sessionsInstance] bookmarkWithGuid:guid]];
     return guid;
+}
+
+- (NSString*)jobName
+{
+    return jobName_;
 }
 
 @end

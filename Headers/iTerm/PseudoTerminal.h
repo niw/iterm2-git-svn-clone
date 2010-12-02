@@ -45,11 +45,23 @@
 
 @end
 
+@interface SolidColorView : NSView
+{
+    NSColor* color_;
+}
+
+- (id)initWithFrame:(NSRect)frame color:(NSColor*)color;
+- (void)drawRect:(NSRect)dirtyRect;
+- (void)setColor:(NSColor*)color;
+- (NSColor*)color;
+@end
+
 // This class is 1:1 with windows. It controls the tabs, bottombar, toolbar,
 // fullscreen, and coordinates resizing of sessions (either session-initiated
 // or window-initiated).
 @interface PseudoTerminal : NSWindowController <PTYTabViewDelegateProtocol, PTYWindowDelegateProtocol, WindowControllerInterface>
 {
+    SolidColorView* background_;
     ////////////////////////////////////////////////////////////////////////////
     // Parameter Panel
     // A bookmark may have metasyntactic variables like $$FOO$$ in the command.
@@ -97,6 +109,7 @@
     // This is a sometimes-visible control that shows the tabs and lets the user
     // change which is visible.
     PSMTabBarControl *tabBarControl;
+    NSView* tabBarBackground;
 
     // This is either 0 or 1. If 1, then a tab item is in the process of being
     // added and the tabBarControl will be shown if it is added successfully
@@ -165,6 +178,8 @@
 
     PasteboardHistoryView* pbHistoryView;
     AutocompleteView* autocompleteView;
+
+    NSTimer* fullScreenTabviewTimer_;
 }
 
 // Initialize a new PseudoTerminal.
@@ -497,8 +512,8 @@
 -(id)valueInSessionsAtIndex:(unsigned)index;
 -(id)valueWithName: (NSString *)uniqueName inPropertyWithKey: (NSString*)propertyKey;
 -(id)valueWithID: (NSString *)uniqueID inPropertyWithKey: (NSString*)propertyKey;
--(void)addNewSession:(NSDictionary *)addressbookEntry withURL: (NSString *)url;
--(void)addNewSession:(NSDictionary *) addressbookEntry withCommand: (NSString *)command;
+-(id)addNewSession:(NSDictionary *)addressbookEntry withURL: (NSString *)url;
+-(id)addNewSession:(NSDictionary *) addressbookEntry withCommand: (NSString *)command;
 -(void)appendSession:(PTYSession *)object;
 -(void)removeFromSessionsAtIndex:(unsigned)index;
 -(NSArray*)sessions;
@@ -508,7 +523,7 @@
 -(void)insertInSessions:(PTYSession *)object;
 -(void)insertInSessions:(PTYSession *)object atIndex:(unsigned)index;
 // Add a new session to this window with the given addressbook entry.
-- (void)addNewSession:(NSDictionary *)addressbookEntry;
+- (id)addNewSession:(NSDictionary *)addressbookEntry;
 
 
 - (BOOL)windowInited;
@@ -681,6 +696,10 @@
 // Return the timestamp for a slider position in [0, 1] for the current session.
 - (long long)timestampForFraction:(float)f;
 
+// Change visiblity of tabBarControl in fullscreen mode.
+- (void)showFullScreenTabControl;
+- (void)hideFullScreenTabControl;
+
 @end
 
 @interface PseudoTerminal (ScriptingSupport)
@@ -690,7 +709,7 @@
 
 -(void)handleSelectScriptCommand: (NSScriptCommand *)command;
 
--(void)handleLaunchScriptCommand: (NSScriptCommand *)command;
+-(id)handleLaunchScriptCommand: (NSScriptCommand *)command;
 
 @end
 

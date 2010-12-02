@@ -35,7 +35,7 @@
 #define PRETTY_BOLD
 
 #define MARGIN  5
-#define VMARGIN 5
+#define VMARGIN 2
 
 @class VT100Screen;
 
@@ -71,8 +71,11 @@ typedef struct PTYFontInfo PTYFontInfo;
     BOOL antiAlias;
 
     // option to not render in bold
-    BOOL disableBold;
-
+    BOOL useBoldFont;
+    
+    // Option to draw bold text as brighter colors.
+    BOOL useBrightBold;
+    
     // NSTextInput support
     BOOL IM_INPUT_INSERT;
     NSRange IM_INPUT_SELRANGE;
@@ -223,8 +226,9 @@ typedef struct PTYFontInfo PTYFontInfo;
 - (NSRect)scrollViewContentSize;
 - (BOOL)antiAlias;
 - (void)setAntiAlias:(BOOL)antiAliasFlag;
-- (BOOL)disableBold;
-- (void)setDisableBold:(BOOL)boldFlag;
+- (BOOL)useBoldFont;
+- (void)setUseBoldFont:(BOOL)boldFlag;
+- (void)setUseBrightBold:(BOOL)flag;
 - (BOOL)blinkingCursor;
 - (void)setBlinkingCursor:(BOOL)bFlag;
 
@@ -245,6 +249,8 @@ typedef struct PTYFontInfo PTYFontInfo;
 - (void)setCursorColor:(NSColor*)color;
 - (void)setSelectedTextColor:(NSColor *)aColor;
 - (void)setCursorTextColor:(NSColor*)color;
+
+- (float)excess;
 
 
 - (NSDictionary*)markedTextAttributes;
@@ -334,6 +340,9 @@ typedef struct PTYFontInfo PTYFontInfo;
 
 // Visual bell
 - (void)beginFlash;
+
+- (void)drawBackground:(NSRect)bgRect;
+- (void)drawBackground:(NSRect)bgRect toPoint:(NSPoint)dest;
 
 @end
 

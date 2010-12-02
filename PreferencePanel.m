@@ -174,7 +174,7 @@ static float versionNumber;
     [self window];
     [[self window] setCollectionBehavior:NSWindowCollectionBehaviorMoveToActiveSpace];
     NSAssert(bookmarksTableView, @"Null table view");
-    [bookmarksTableView setDataSource:dataSource];
+    [bookmarksTableView setUnderlyingDatasource:dataSource];
 
     bookmarksToolbarId = [bookmarksToolbarItem itemIdentifier];
     globalToolbarId = [globalToolbarItem itemIdentifier];
@@ -204,6 +204,16 @@ static float versionNumber;
     [bookmarksTableView allowMultipleSelections];
 
     [copyTo allowMultipleSelections];
+
+    // Add presets to preset color selection.
+    NSString* plistFile = [[NSBundle bundleForClass: [self class]] pathForResource:@"ColorPresets"
+                                                                            ofType:@"plist"];
+    NSDictionary* presetsDict = [NSDictionary dictionaryWithContentsOfFile:plistFile];
+    for (NSString* key in  [[presetsDict allKeys] sortedArrayUsingSelector:@selector(compare:)]) {
+        NSMenuItem* presetItem = [[NSMenuItem alloc] initWithTitle:key action:@selector(loadColorPreset:) keyEquivalent:@""];
+        [presetsMenu addItem:presetItem];
+        [presetItem release];
+    }
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(handleWindowWillCloseNotification:)
@@ -236,6 +246,11 @@ static float versionNumber;
     [keyPress setStringValue:[self formattedKeyCombinationForRow:rowIndex]];
     if (keyString) {
         [keyString release];
+    }
+    // For some reason, the first item is checked by default. Make sure every
+    // item is unchecked before making a selection.
+    for (NSMenuItem* item in [action itemArray]) {
+        [item setState:NSOffState];
     }
     keyString = [[[self keyComboAtIndex:rowIndex] copy] retain];
     [action selectItemWithTag:[[[self keyInfoAtIndex:rowIndex] objectForKey:@"Action"] intValue]];
@@ -366,7 +381,6 @@ static float versionNumber;
     defaultQuitWhenAllWindowsClosed = [prefs objectForKey:@"QuitWhenAllWindowsClosed"]?[[prefs objectForKey:@"QuitWhenAllWindowsClosed"] boolValue]: NO;
     defaultCursorType=[prefs objectForKey:@"CursorType"]?[prefs integerForKey:@"CursorType"]:2;
     defaultCheckUpdate = [prefs objectForKey:@"SUEnableAutomaticChecks"]?[[prefs objectForKey:@"SUEnableAutomaticChecks"] boolValue]: YES;
-    defaultUseBorder = [prefs objectForKey:@"UseBorder"]?[[prefs objectForKey:@"UseBorder"] boolValue]: NO;
     defaultHideScrollbar = [prefs objectForKey:@"HideScrollbar"]?[[prefs objectForKey:@"HideScrollbar"] boolValue]: NO;
     defaultSmartPlacement = [prefs objectForKey:@"SmartPlacement"]?[[prefs objectForKey:@"SmartPlacement"] boolValue]: YES;
     defaultInstantReplay = [prefs objectForKey:@"InstantReplay"]?[[prefs objectForKey:@"InstantReplay"] boolValue]: YES;
@@ -458,7 +472,6 @@ static float versionNumber;
     [prefs setBool:defaultQuitWhenAllWindowsClosed forKey:@"QuitWhenAllWindowsClosed"];
     [prefs setBool:defaultCheckUpdate forKey:@"SUEnableAutomaticChecks"];
     [prefs setInteger:defaultCursorType forKey:@"CursorType"];
-    [prefs setBool:defaultUseBorder forKey:@"UseBorder"];
     [prefs setBool:defaultHideScrollbar forKey:@"HideScrollbar"];
     [prefs setBool:defaultSmartPlacement forKey:@"SmartPlacement"];
     [prefs setBool:defaultInstantReplay forKey:@"InstantReplay"];
@@ -508,7 +521,6 @@ static float versionNumber;
     [quitWhenAllWindowsClosed setState: defaultQuitWhenAllWindowsClosed?NSOnState:NSOffState];
     [checkUpdate setState: defaultCheckUpdate?NSOnState:NSOffState];
     [cursorType selectCellWithTag:defaultCursorType];
-    [useBorder setState: defaultUseBorder?NSOnState:NSOffState];
     [hideScrollbar setState: defaultHideScrollbar?NSOnState:NSOffState];
     [smartPlacement setState: defaultSmartPlacement?NSOnState:NSOffState];
     [instantReplay setState: defaultInstantReplay?NSOnState:NSOffState];
@@ -526,6 +538,7 @@ static float versionNumber;
     [self showWindow: self];
     [[self window] setLevel:NSNormalWindowLevel];
     NSString* guid = [bookmarksTableView selectedGuid];
+    [bookmarksTableView reloadData];
     if ([[bookmarksTableView selectedGuids] count] == 1) {
         Bookmark* dict = [dataSource bookmarkWithGuid:guid];
         [bookmarksSettingsTabViewParent setHidden:NO];
@@ -558,7 +571,6 @@ static float versionNumber;
         sender == useCompactLabel ||
         sender == highlightTabLabels ||
         sender == cursorType ||
-        sender == useBorder ||
         sender == hideScrollbar ||
         sender == checkColorInvertedCursor) {
         defaultWindowStyle = [windowStyle indexOfSelectedItem];
@@ -568,7 +580,6 @@ static float versionNumber;
         defaultHideTab=([hideTab state]==NSOnState);
         defaultCursorType = [[cursorType selectedCell] tag];
         defaultColorInvertedCursor = ([checkColorInvertedCursor state] == NSOnState);
-        defaultUseBorder = ([useBorder state] == NSOnState);
         defaultHideScrollbar = ([hideScrollbar state] == NSOnState);
         [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermRefreshTerminal" object: nil userInfo: nil];
     } else {
@@ -763,11 +774,6 @@ static float versionNumber;
 - (ITermCursorType)cursorType
 {
     return defaultCursorType;
-}
-
-- (BOOL)useBorder
-{
-    return (defaultUseBorder);
 }
 
 - (BOOL)hideScrollbar
@@ -1088,9 +1094,9 @@ static float versionNumber;
     [self updateShortcutTitles];
 
     if ([customCommand isEqualToString:@"Yes"]) {
-    [bookmarkCommandType selectCellWithTag:0];
+        [bookmarkCommandType selectCellWithTag:0];
     } else {
-            [bookmarkCommandType selectCellWithTag:1];
+        [bookmarkCommandType selectCellWithTag:1];
     }
     [bookmarkCommand setStringValue:command];
 
@@ -1128,7 +1134,7 @@ static float versionNumber;
     [cursorColor setColor:[ITAddressBookMgr decodeColor:[dict objectForKey:KEY_CURSOR_COLOR]]];
     [cursorTextColor setColor:[ITAddressBookMgr decodeColor:[dict objectForKey:KEY_CURSOR_TEXT_COLOR]]];
 
-        // Display tab
+    // Display tab
     int cols = [[dict objectForKey:KEY_COLUMNS] intValue];
     [columnsField setStringValue:[NSString stringWithFormat:@"%d", cols]];
     int rows = [[dict objectForKey:KEY_ROWS] intValue];
@@ -1156,7 +1162,23 @@ static float versionNumber;
     [displayFontSpacingWidth setFloatValue:horizontalSpacing];
     [displayFontSpacingHeight setFloatValue:verticalSpacing];
     [blinkingCursor setState:[[dict objectForKey:KEY_BLINKING_CURSOR] boolValue] ? NSOnState : NSOffState];
-    [disableBold setState:[[dict objectForKey:KEY_DISABLE_BOLD] boolValue] ? NSOnState : NSOffState];
+    NSNumber* useBoldFontEntry = [dict objectForKey:KEY_USE_BOLD_FONT];
+    NSNumber* disableBoldEntry = [dict objectForKey:KEY_DISABLE_BOLD];
+    if (useBoldFontEntry) {
+        [useBoldFont setState:[useBoldFontEntry boolValue] ? NSOnState : NSOffState];
+    } else if (disableBoldEntry) {
+        // Only deprecated option is set.
+        [useBoldFont setState:[disableBoldEntry boolValue] ? NSOffState : NSOnState];
+    } else {
+        [useBoldFont setState:NSOnState];
+    }
+    
+    if ([dict objectForKey:KEY_USE_BRIGHT_BOLD] != nil) {
+        [useBrightBold setState:[dict objectForKey:KEY_USE_BRIGHT_BOLD] ? NSOnState : NSOffState];
+    } else {
+        [useBrightBold setState:NSOnState];
+    }
+    
     [transparency setFloatValue:[[dict objectForKey:KEY_TRANSPARENCY] floatValue]];
     [blur setState:[[dict objectForKey:KEY_BLUR] boolValue] ? NSOnState : NSOffState];
     [antiAliasing setState:[[dict objectForKey:KEY_ANTI_ALIASING] boolValue] ? NSOnState : NSOffState];
@@ -1165,16 +1187,17 @@ static float versionNumber;
         imageFilename = @"";
     }
     [backgroundImage setState:[imageFilename length] > 0 ? NSOnState : NSOffState];
-    [backgroundImagePreview setImage:[[NSImage alloc] initByReferencingFile:imageFilename]];
+    [backgroundImagePreview setImage:[[[NSImage alloc] initByReferencingFile:imageFilename] autorelease]];
     backgroundImageFilename = imageFilename;
 
-        // Terminal tab
+    // Terminal tab
     [disableWindowResizing setState:[[dict objectForKey:KEY_DISABLE_WINDOW_RESIZING] boolValue] ? NSOnState : NSOffState];
     [syncTitle setState:[[dict objectForKey:KEY_SYNC_TITLE] boolValue] ? NSOnState : NSOffState];
     [closeSessionsOnEnd setState:[[dict objectForKey:KEY_CLOSE_SESSIONS_ON_END] boolValue] ? NSOnState : NSOffState];
     [nonAsciiDoubleWidth setState:[[dict objectForKey:KEY_AMBIGUOUS_DOUBLE_WIDTH] boolValue] ? NSOnState : NSOffState];
     [silenceBell setState:[[dict objectForKey:KEY_SILENCE_BELL] boolValue] ? NSOnState : NSOffState];
     [visualBell setState:[[dict objectForKey:KEY_VISUAL_BELL] boolValue] ? NSOnState : NSOffState];
+    [flashingBell setState:[[dict objectForKey:KEY_FLASHING_BELL] boolValue] ? NSOnState : NSOffState];
     [xtermMouseReporting setState:[[dict objectForKey:KEY_XTERM_MOUSE_REPORTING] boolValue] ? NSOnState : NSOffState];
     [bookmarkGrowlNotifications setState:[[dict objectForKey:KEY_BOOKMARK_GROWL_NOTIFICATIONS] boolValue] ? NSOnState : NSOffState];
     [characterEncoding setTitle:[NSString localizedNameOfStringEncoding:[[dict objectForKey:KEY_CHARACTER_ENCODING] unsignedIntValue]]];
@@ -1183,7 +1206,7 @@ static float versionNumber;
     [sendCodeWhenIdle setState:[[dict objectForKey:KEY_SEND_CODE_WHEN_IDLE] boolValue] ? NSOnState : NSOffState];
     [idleCode setIntValue:[[dict objectForKey:KEY_IDLE_CODE] intValue]];
 
-        // Keyboard tab
+    // Keyboard tab
     int rowIndex = [keyMappings selectedRow];
     if (rowIndex >= 0) {
         [removeMappingButton setEnabled:YES];
@@ -1192,6 +1215,11 @@ static float versionNumber;
     }
     [keyMappings reloadData];
     [optionKeySends selectCellWithTag:[[dict objectForKey:KEY_OPTION_KEY_SENDS] intValue]];
+    id rightOptPref = [dict objectForKey:KEY_RIGHT_OPTION_KEY_SENDS];
+    if (!rightOptPref) {
+        rightOptPref = [dict objectForKey:KEY_OPTION_KEY_SENDS];
+    }
+    [rightOptionKeySends selectCellWithTag:[rightOptPref intValue]];
     [tags setObjectValue:[dict objectForKey:KEY_TAGS]];
 
     // Epilogue
@@ -1372,7 +1400,8 @@ static float versionNumber;
     [newDict setObject:[NSNumber numberWithFloat:[displayFontSpacingWidth floatValue]] forKey:KEY_HORIZONTAL_SPACING];
     [newDict setObject:[NSNumber numberWithFloat:[displayFontSpacingHeight floatValue]] forKey:KEY_VERTICAL_SPACING];
     [newDict setObject:[NSNumber numberWithBool:([blinkingCursor state]==NSOnState)] forKey:KEY_BLINKING_CURSOR];
-    [newDict setObject:[NSNumber numberWithBool:([disableBold state]==NSOnState)] forKey:KEY_DISABLE_BOLD];
+    [newDict setObject:[NSNumber numberWithBool:([useBoldFont state]==NSOnState)] forKey:KEY_USE_BOLD_FONT];
+    [newDict setObject:[NSNumber numberWithBool:([useBrightBold state]==NSOnState)] forKey:KEY_USE_BRIGHT_BOLD];
     [newDict setObject:[NSNumber numberWithFloat:[transparency floatValue]] forKey:KEY_TRANSPARENCY];
     [newDict setObject:[NSNumber numberWithBool:([blur state]==NSOnState)] forKey:KEY_BLUR];
     [newDict setObject:[NSNumber numberWithBool:([antiAliasing state]==NSOnState)] forKey:KEY_ANTI_ALIASING];
@@ -1398,6 +1427,7 @@ static float versionNumber;
     [newDict setObject:[NSNumber numberWithBool:([nonAsciiDoubleWidth state]==NSOnState)] forKey:KEY_AMBIGUOUS_DOUBLE_WIDTH];
     [newDict setObject:[NSNumber numberWithBool:([silenceBell state]==NSOnState)] forKey:KEY_SILENCE_BELL];
     [newDict setObject:[NSNumber numberWithBool:([visualBell state]==NSOnState)] forKey:KEY_VISUAL_BELL];
+    [newDict setObject:[NSNumber numberWithBool:([flashingBell state]==NSOnState)] forKey:KEY_FLASHING_BELL];
     [newDict setObject:[NSNumber numberWithBool:([xtermMouseReporting state]==NSOnState)] forKey:KEY_XTERM_MOUSE_REPORTING];
     [newDict setObject:[NSNumber numberWithBool:([bookmarkGrowlNotifications state]==NSOnState)] forKey:KEY_BOOKMARK_GROWL_NOTIFICATIONS];
     [newDict setObject:[NSNumber numberWithUnsignedInt:[[characterEncoding selectedItem] tag]] forKey:KEY_CHARACTER_ENCODING];
@@ -1409,6 +1439,7 @@ static float versionNumber;
     // Keyboard tab
     [newDict setObject:[origBookmark objectForKey:KEY_KEYBOARD_MAP] forKey:KEY_KEYBOARD_MAP];
     [newDict setObject:[NSNumber numberWithInt:[[optionKeySends selectedCell] tag]] forKey:KEY_OPTION_KEY_SENDS];
+    [newDict setObject:[NSNumber numberWithInt:[[rightOptionKeySends selectedCell] tag]] forKey:KEY_RIGHT_OPTION_KEY_SENDS];
     [newDict setObject:[tags objectValue] forKey:KEY_TAGS];
 
     // Epilogue
@@ -1727,6 +1758,11 @@ static float versionNumber;
     }
     [keyPress setStringValue:@""];
     keyString = [[NSString alloc] init];
+    // For some reason, the first item is checked by default. Make sure every
+    // item is unchecked before making a selection.
+    for (NSMenuItem* item in [action itemArray]) {
+        [item setState:NSOffState];
+    }
     [action selectItemWithTag:KEY_ACTION_IGNORE];
     [valueToSend setStringValue:@""];
     [self updateValueToSend];
@@ -1780,8 +1816,8 @@ static float versionNumber;
     NSString* guid = [bookmarksTableView selectedGuid];
     NSAssert(guid, @"Null guid unexpected here");
 
-        NSString* plistFile = [[NSBundle bundleForClass: [self class]] pathForResource:@"ColorPresets"
-                                                                            ofType:@"plist"];
+    NSString* plistFile = [[NSBundle bundleForClass: [self class]] pathForResource:@"ColorPresets"
+                                                                        ofType:@"plist"];
     NSDictionary* presetsDict = [NSDictionary dictionaryWithContentsOfFile:plistFile];
     NSDictionary* settings = [presetsDict objectForKey:presetName];
     NSMutableDictionary* newDict = [NSMutableDictionary dictionaryWithDictionary:[dataSource bookmarkWithGuid:guid]];
@@ -1801,14 +1837,9 @@ static float versionNumber;
     [self bookmarkSettingChanged:self];  // this causes existing sessions to be updated
 }
 
-- (IBAction)loadLightBackgroundPreset:(id)sender
+- (void)loadColorPreset:(id)sender;
 {
-    [self _loadPresetColors:@"Light Background"];
-}
-
-- (IBAction)loadDarkBackgroundPreset:(id)sender
-{
-    [self _loadPresetColors:@"Dark Background"];
+    [self _loadPresetColors:[sender title]];
 }
 
 - (IBAction)addBookmark:(id)sender
@@ -2042,7 +2073,8 @@ static float versionNumber;
         KEY_HORIZONTAL_SPACING,
         KEY_VERTICAL_SPACING,
         KEY_BLINKING_CURSOR,
-        KEY_DISABLE_BOLD,
+        KEY_USE_BOLD_FONT,
+        KEY_USE_BRIGHT_BOLD,
         KEY_TRANSPARENCY,
         KEY_BLUR,
         KEY_ANTI_ALIASING,
@@ -2056,6 +2088,7 @@ static float versionNumber;
         KEY_AMBIGUOUS_DOUBLE_WIDTH,
         KEY_SILENCE_BELL,
         KEY_VISUAL_BELL,
+        KEY_FLASHING_BELL,
         KEY_XTERM_MOUSE_REPORTING,
         KEY_BOOKMARK_GROWL_NOTIFICATIONS,
         KEY_CHARACTER_ENCODING,

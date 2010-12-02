@@ -230,7 +230,7 @@
     if (![self defaultBookmark] || (isDeprecatedDefaultBookmark && [isDeprecatedDefaultBookmark isEqualToString:@"Yes"])) {
         [self setDefaultByGuid:[bookmark objectForKey:KEY_GUID]];
     }
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
+    [self postChangeNotification];
 }
 
 - (BOOL)bookmark:(Bookmark*)bookmark hasTag:(NSString*)tag
@@ -262,7 +262,7 @@
     if (![self defaultBookmark] && [bookmarks_ count]) {
         [self setDefaultByGuid:[[bookmarks_ objectAtIndex:0] objectForKey:KEY_GUID]];
     }
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
+    [self postChangeNotification];
 }
 
 - (void)removeBookmarkAtIndex:(int)i withFilter:(NSString*)filter
@@ -289,7 +289,7 @@
     if (isDefault) {
         [self setDefaultByGuid:[bookmark objectForKey:KEY_GUID]];
     }
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
+    [self postChangeNotification];
 }
 
 - (void)setBookmark:(Bookmark*)bookmark withGuid:(NSString*)guid
@@ -304,7 +304,7 @@
 {
     [bookmarks_ removeAllObjects];
     defaultBookmarkGuid_ = @"";
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
+    [self postChangeNotification];
 }
 
 - (NSArray*)rawData
@@ -429,7 +429,7 @@
     if (prefs_) {
         [prefs_ setObject:defaultBookmarkGuid_ forKey:KEY_DEFAULT_GUID];
     }
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
+    [self postChangeNotification];
 }
 
 - (void)moveGuid:(NSString*)guid toRow:(int)destinationRow
@@ -446,6 +446,11 @@
     }
     [bookmarks_ insertObject:bookmark atIndex:destinationRow];
     [bookmark release];
+}
+
+- (void)postChangeNotification
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermReloadAddressBook" object: nil userInfo: nil];
 }
 
 - (void)dump

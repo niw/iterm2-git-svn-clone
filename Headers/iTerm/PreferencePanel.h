@@ -142,10 +142,6 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     IBOutlet NSButton *checkColorInvertedCursor;
     BOOL defaultColorInvertedCursor;
 
-    // border at bottom
-    IBOutlet NSButton *useBorder;
-    BOOL defaultUseBorder;
-
     // hide scrollbar and resize
     IBOutlet NSButton *hideScrollbar;
     BOOL defaultHideScrollbar;
@@ -245,6 +241,7 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     IBOutlet NSColorWell *selectedTextColor;
     IBOutlet NSColorWell *cursorColor;
     IBOutlet NSColorWell *cursorTextColor;
+    IBOutlet NSMenu *presetsMenu;
 
     // Display tab
     IBOutlet NSView *displayFontAccessoryView;
@@ -256,7 +253,8 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     IBOutlet NSTextField *nonAsciiFontField;
 
     IBOutlet NSButton* blinkingCursor;
-    IBOutlet NSButton* disableBold;
+    IBOutlet NSButton* useBoldFont;
+    IBOutlet NSButton* useBrightBold;
     IBOutlet NSSlider *transparency;
     IBOutlet NSButton* blur;
     IBOutlet NSButton* antiAliasing;
@@ -278,6 +276,7 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     IBOutlet NSButton* nonAsciiDoubleWidth;
     IBOutlet NSButton* silenceBell;
     IBOutlet NSButton* visualBell;
+    IBOutlet NSButton* flashingBell;
     IBOutlet NSButton* xtermMouseReporting;
     IBOutlet NSButton* bookmarkGrowlNotifications;
     IBOutlet NSTextField* scrollbackLines;
@@ -297,6 +296,7 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     IBOutlet NSButton* removeMappingButton;
     IBOutlet NSTextField* escPlus;
     IBOutlet NSMatrix *optionKeySends;
+    IBOutlet NSMatrix *rightOptionKeySends;
     IBOutlet NSTokenField* tags;
 
     NSString* keyString;  // hexcode-hexcode rep of keystring in current sheet
@@ -363,7 +363,6 @@ typedef enum { BulkCopyColors, BulkCopyDisplay, BulkCopyTerminal, BulkCopyKeyboa
 - (BOOL)openBookmark;
 - (NSString *)wordChars;
 - (ITermCursorType)cursorType;
-- (BOOL)useBorder;
 - (BOOL)hideScrollbar;
 - (BOOL)smartPlacement;
 - (BOOL)instantReplay;
@@ -421,8 +420,7 @@ typedef enum { BulkCopyColors, BulkCopyDisplay, BulkCopyTerminal, BulkCopyKeyboa
 - (IBAction)useBasicKeyMappings:(id)sender;
 - (IBAction)useXtermKeyMappings:(id)sender;
 - (void)_loadPresetColors:(NSString*)presetName;
-- (IBAction)loadLightBackgroundPreset:(id)sender;
-- (IBAction)loadDarkBackgroundPreset:(id)sender;
+- (void)loadColorPreset:(id)sender;
 - (IBAction)addBookmark:(id)sender;
 - (IBAction)removeBookmark:(id)sender;
 - (IBAction)duplicateBookmark:(id)sender;

@@ -288,17 +288,22 @@ static NSCursor* textViewCursor =  nil;
     [self setNeedsDisplay:YES];
 }
 
-- (BOOL) disableBold
+- (BOOL)useBoldFont
 {
-    return (disableBold);
+    return useBoldFont;
 }
 
-- (void) setDisableBold: (BOOL) boldFlag
+- (void)setUseBoldFont:(BOOL)boldFlag
 {
-    disableBold = boldFlag;
+    useBoldFont = boldFlag;
     [self setNeedsDisplay:YES];
 }
 
+- (void)setUseBrightBold:(BOOL)flag
+{
+    useBrightBold = flag;
+    [self setNeedsDisplay:YES];
+}
 
 - (BOOL) blinkingCursor
 {
@@ -426,31 +431,30 @@ static NSCursor* textViewCursor =  nil;
     if (theIndex & DEFAULT_FG_COLOR_CODE) {
         // special colors?
         switch (theIndex) {
-            case SELECTED_TEXT:
-                color = selectedTextColor;
-                break;
-            case CURSOR_TEXT:
-                color = cursorTextColor;
-                break;
-            case DEFAULT_BG_COLOR_CODE:
-                color = defaultBGColor;
-                break;
-            default:
-                if(theIndex & BOLD_MASK) {
-                    color = theIndex-BOLD_MASK == DEFAULT_BG_COLOR_CODE ? defaultBGColor : [self defaultBoldColor];
-                }
-                else {
-                    color = defaultFGColor;
-                }
+        case SELECTED_TEXT:
+            color = selectedTextColor;
+            break;
+        case CURSOR_TEXT:
+            color = cursorTextColor;
+            break;
+        case DEFAULT_BG_COLOR_CODE:
+            color = defaultBGColor;
+            break;
+        default:
+            if ((theIndex & BOLD_MASK) && useBrightBold) {
+                color = theIndex-BOLD_MASK == DEFAULT_BG_COLOR_CODE ? defaultBGColor : [self defaultBoldColor];
+            }
+            else {
+                color = defaultFGColor;
+            }
+            break;
         }
-    }
-    else {
+    } else {
         // Render bold text as bright. The spec (ECMA-48) describes the intense
-        // display setting (esc[1m) as "bold or bright". One user complained that
-        // bold black on black bg didn't show up. Let's try making all bold text
-        // also bright and see how that works.
-        // If this is unpopular, make it bright iff the foreground=background.
+        // display setting (esc[1m) as "bold or bright". We make it a
+        // preference.
         if ((theIndex & BOLD_MASK) &&
+            useBrightBold &&
             (theIndex % 256 < 8)) {
             theIndex = (theIndex & ~BOLD_MASK) + 8;
         }
@@ -623,9 +627,10 @@ NSMutableArray* screens=0;
 - (float)excess
 {
     NSRect visible = [self scrollViewContentSize];
+    visible.size.height -= VMARGIN * 2;  // Height without top and bottom margins.
     int rows = visible.size.height / lineHeight;
     float usablePixels = rows * lineHeight;
-    return visible.size.height - usablePixels;
+    return MAX(visible.size.height - usablePixels + VMARGIN, VMARGIN);  // Never have less than VMARGIN excess, but it can be more (if another tab has a bigger font)
 }
 
 // We override this method since both refresh and window resize can conflict
@@ -636,6 +641,9 @@ NSMutableArray* screens=0;
     // Force the height to always be correct
     frameSize.height = [dataSource numberOfLines] * lineHeight + [self excess] + imeOffset * lineHeight;
     [super setFrameSize:frameSize];
+
+    frameSize.height += VMARGIN;  // This causes a margin to be left at the top
+    [[self superview] setFrameSize:frameSize];
 }
 
 static BOOL RectsEqual(NSRect* a, NSRect* b) {
@@ -677,7 +685,9 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         return;
     } else if (selectionScrollDirection < 0) {
         visibleRect.origin.y -= [self lineHeight];
-        if (visibleRect.origin.y >= 0) {
+        // Allow the origin to go as far as y=-VMARGIN so the top border is shown when the first line is
+        // on screen.
+        if (visibleRect.origin.y >= -VMARGIN) {
             [self scrollRectToVisible:visibleRect];
         }
         y = visibleRect.origin.y / lineHeight;
@@ -742,8 +752,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         // being updated).
 
         // Resize the frame
-        frame.size.height = height + excess + imeOffset * lineHeight;
-        [self setFrame:frame];
+        // Add VMARGIN to include top margin.
+        frame.size.height = height + excess + imeOffset * lineHeight + VMARGIN;
+        [[self superview] setFrame:frame];
+        frame.size.height -= VMARGIN;
     } else if (scrollbackOverflow > 0) {
         // Some number of lines were lost from the head of the buffer.
 
@@ -782,6 +794,9 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         // Shift the old content upwards
         if (scrollbackOverflow < [dataSource height] && !userScroll) {
             [self scrollRect:[self visibleRect] by:NSMakeSize(0, -amount)];
+            NSRect topMargin = [self visibleRect];
+            topMargin.size.height = VMARGIN;
+            [self setNeedsDisplayInRect:topMargin];
 
 #ifdef DEBUG_DRAWING
             [self appendDebug:[NSString stringWithFormat:@"refresh: Scroll by %d", (int)amount]];
@@ -889,7 +904,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 {
     NSRect aFrame;
     aFrame.origin.x = 0;
-    aFrame.origin.y = startY * lineHeight;
+    aFrame.origin.y = startY * lineHeight - VMARGIN;  // allow for top margin
     aFrame.size.width = [self frame].size.width;
     aFrame.size.height = (endY - startY + 1) *lineHeight;
     [self scrollRectToVisible: aFrame];
@@ -940,7 +955,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 
     // Where to start drawing?
     int lineStart = rect.origin.y / lineHeight;
-    int lineEnd = lineStart + ceil(rect.size.height / lineHeight);
+    int lineEnd = ceil((rect.origin.y + rect.size.height) / lineHeight);
 
     // Ensure valid line ranges
     if(lineStart < 0) {
@@ -952,8 +967,10 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     NSRect visible = [self scrollViewContentSize];
     int vh = visible.size.height;
     int lh = lineHeight;
-    int visibleRows = vh/lh;
-    int firstVisibleRow = [[[dataSource session] SCROLLVIEW] documentVisibleRect].origin.y / lh;
+    int visibleRows = vh / lh;
+    NSRect docVisibleRect = [[[dataSource session] SCROLLVIEW] documentVisibleRect];
+    float hiddenAbove = docVisibleRect.origin.y + [self frame].origin.y;
+    int firstVisibleRow = hiddenAbove / lh;
     if (lineEnd > firstVisibleRow + visibleRows) {
         lineEnd = firstVisibleRow + visibleRows;
     }
@@ -963,9 +980,9 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 #ifdef DEBUG_DRAWING
     NSMutableDictionary* dct =
     [NSDictionary dictionaryWithObjectsAndKeys:
-     [NSColor textBackgroundColor], NSBackgroundColorAttributeName,
-     [NSColor textColor], NSForegroundColorAttributeName,
-     [NSFont userFixedPitchFontOfSize: 0], NSFontAttributeName, NULL];
+    [NSColor textBackgroundColor], NSBackgroundColorAttributeName,
+    [NSColor textColor], NSForegroundColorAttributeName,
+    [NSFont userFixedPitchFontOfSize: 0], NSFontAttributeName, NULL];
 #endif
     int overflow = [dataSource scrollbackOverflow];
 #ifdef DEBUG_DRAWING
@@ -975,7 +992,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         NSRect lineRect = [self visibleRect];
         lineRect.origin.y = line*lineHeight;
         lineRect.size.height = lineHeight;
-        if([self needsToDrawRect:lineRect]) {
+        if ([self needsToDrawRect:lineRect]) {
             if (overflow <= line) {
                 // If overflow > 0 then the lines in the dataSource are not
                 // lined up in the normal way with the view. This happens when
@@ -1035,14 +1052,22 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     // Draws the excess bar in a different color each time
     static int i;
     i++;
-    float r = ((float)((i + 0) % 100)) / 100;
-    float g = ((float)((i + 33) % 100)) / 100;
-    float b = ((float)((i + 66) % 100)) / 100;
-    [[NSColor colorWithDeviceRed:r green:g blue:b alpha:1] set];
-#else
-    [defaultBGColor set];
-#endif
+    float rc = ((float)((i + 0) % 100)) / 100;
+    float gc = ((float)((i + 33) % 100)) / 100;
+    float bc = ((float)((i + 66) % 100)) / 100;
+    [[NSColor colorWithDeviceRed:rc green:gc blue:bc alpha:1] set];
+    [[defaultBGColor colorWithAlphaComponent:[self useTransparency] ? [self transparency] : 1.0] setFill];
     NSRectFill(excessRect);
+#else
+    [self drawBackground:excessRect];
+#endif
+
+    // Draw a margin at the top of the visible area.
+    NSRect topMarginRect = [self visibleRect];
+    if (topMarginRect.origin.y > 0) {
+        topMarginRect.size.height = VMARGIN;
+        [self drawBackground:topMarginRect];
+    }
 
 #ifdef DEBUG_DRAWING
     // Draws a different-colored rectangle around each drawn area. Useful for
@@ -1111,7 +1136,8 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     if ((!prev) &&
         ([delegate hasKeyMappingForEvent:event highPriority:YES] ||
          (modflag & (NSNumericPadKeyMask | NSFunctionKeyMask)) ||
-         ((modflag & NSAlternateKeyMask) && [delegate optionKey] != OPT_NORMAL) ||
+         ((modflag & NSLeftAlternateKeyMask) == NSLeftAlternateKeyMask && [delegate optionKey] != OPT_NORMAL) ||
+         ((modflag & NSRightAlternateKeyMask) == NSRightAlternateKeyMask && [delegate rightOptionKey] != OPT_NORMAL) ||
          ((modflag & NSControlKeyMask) &&
           (keyCode == 0x2c /* slash */ || keyCode == 0x2a /* backslash */)))) {
         [delegate keyDown:event];
@@ -1713,7 +1739,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     }
 
     // Unlock auto scrolling as the user as finished selecting text
-    if (([self visibleRect].origin.y + [self visibleRect].size.height) / lineHeight == [dataSource numberOfLines]) {
+    if (([self visibleRect].origin.y + [self visibleRect].size.height - [self excess]) / lineHeight == [dataSource numberOfLines]) {
         [(PTYScroller*)([[self enclosingScrollView] verticalScroller]) setUserScroll:NO];
     }
 
@@ -1852,7 +1878,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
         }
     }
 
-    // NSLog(@"(%f,%f)->(%f,%f)",locationInWindow.x,locationInWindow.y,locationInTextView.x,locationInTextView.y);
+    // NSLog(@"visibleRect: (%f,%f) Click location: (%f,%f)",rectInTextView.origin.x,rectInTextView.origin.y,locationInTextView.x,locationInTextView.y);
     int prevScrolling = selectionScrollDirection;
     if (locationInTextView.y <= rectInTextView.origin.y) {
         selectionScrollDirection = -1;
@@ -2776,7 +2802,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
 }
 
 // transparency
-- (float) transparency
+- (float)transparency
 {
     return (transparency);
 }
@@ -2842,6 +2868,32 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     [self addSubview:[[[FlashingView alloc] initWithFrame:[self frame] iterations:4] autorelease]];
 }
 
+- (void)drawBackground:(NSRect)bgRect toPoint:(NSPoint)dest
+{
+    PTYScrollView* scrollView = (PTYScrollView*)[self enclosingScrollView];
+    BOOL hasBGImage = [scrollView backgroundImage] != nil;
+    float alpha = useTransparency ? 1.0 - transparency : 1.0;
+    if (hasBGImage) {
+        [(PTYScrollView *)[self enclosingScrollView] drawBackgroundImageRect:bgRect toPoint:dest];
+    } else {
+        [[[self defaultBGColor] colorWithAlphaComponent:alpha] set];
+        NSRectFillUsingOperation(bgRect, hasBGImage?NSCompositeSourceOver:NSCompositeCopy);
+    }
+}
+
+- (void)drawBackground:(NSRect)bgRect
+{
+    PTYScrollView* scrollView = (PTYScrollView*)[self enclosingScrollView];
+    BOOL hasBGImage = [scrollView backgroundImage] != nil;
+    float alpha = useTransparency ? 1.0 - transparency : 1.0;
+    if (hasBGImage) {
+        [(PTYScrollView *)[self enclosingScrollView] drawBackgroundImageRect:bgRect];
+    } else {
+        [[[self defaultBGColor] colorWithAlphaComponent:alpha] set];
+        NSRectFillUsingOperation(bgRect, hasBGImage?NSCompositeSourceOver:NSCompositeCopy);
+    }
+}
+
 @end
 
 //
@@ -2853,7 +2905,7 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
                        fgColor:(int)fgColor
                     renderBold:(BOOL*)renderBold
 {
-    BOOL isBold = (fgColor & BOLD_MASK) && !disableBold;
+    BOOL isBold = (fgColor & BOLD_MASK) && useBoldFont;
     *renderBold = NO;
     PTYFontInfo* theFont;
     BOOL usePrimary = (ch < 128);
@@ -3352,7 +3404,8 @@ static BOOL RectsEqual(NSRect* a, NSRect* b) {
     x1 = [dataSource cursorX] - 1;
     yStart = [dataSource cursorY] - 1;
 
-    int lastVisibleLine = [[[dataSource session] SCROLLVIEW] documentVisibleRect].origin.y / [self lineHeight] + HEIGHT;
+    NSRect docVisibleRect = [[self enclosingScrollView] documentVisibleRect];
+    int lastVisibleLine = docVisibleRect.origin.y / [self lineHeight] + HEIGHT;
     int cursorLine = [dataSource numberOfLines] - [dataSource height] + [dataSource cursorY] - [dataSource scrollbackOverflow];
     if (cursorLine > lastVisibleLine) {
         return;
@@ -4002,6 +4055,7 @@ static bool IsUrlChar(unichar theChar)
                                                             kCFStringEncodingUTF8 );
 
     url = [NSURL URLWithString:escapedString];
+    [escapedString release];
 
     Bookmark *bm = [[PreferencePanel sharedInstance] handlerBookmarkForURL:[url scheme]];
 
@@ -4497,8 +4551,8 @@ static bool IsUrlChar(unichar theChar)
 {
     // Visible chars that have changed selection status are dirty
     // Also mark blinking text as dirty if needed
-    int lineStart = [self visibleRect].origin.y / lineHeight;
-    int lineEnd = lineStart + ceil([self visibleRect].size.height / lineHeight);
+    int lineStart = ([self visibleRect].origin.y + VMARGIN) / lineHeight;  // add VMARGIN because stuff under top margin isn't visible.
+    int lineEnd = ceil(([self visibleRect].origin.y + [self visibleRect].size.height - [self excess]) / lineHeight);
     if (lineStart < 0) {
         lineStart = 0;
     }
@@ -4506,6 +4560,7 @@ static bool IsUrlChar(unichar theChar)
         lineEnd = [dataSource numberOfLines];
     }
     if ([self _isAnyCharSelected] || [self _wasAnyCharSelected]) {
+        // Mark blinking or selection-changed characters as dirty
         for (int y = lineStart; y < lineEnd; y++) {
             screen_char_t* theLine = [dataSource getLineAtIndex:y];
             for (int x = 0; x < width; x++) {
@@ -4525,6 +4580,7 @@ static bool IsUrlChar(unichar theChar)
             }
         }
     } else {
+        // Mark blinking text as dirty
         for (int y = lineStart; y < lineEnd; y++) {
             screen_char_t* theLine = [dataSource getLineAtIndex:y];
             for (int x = 0; x < width; x++) {

@@ -92,7 +92,9 @@
 #define KEY_HORIZONTAL_SPACING     @"Horizontal Spacing"
 #define KEY_VERTICAL_SPACING       @"Vertical Spacing"
 #define KEY_BLINKING_CURSOR        @"Blinking Cursor"
-#define KEY_DISABLE_BOLD           @"Disable Bold"
+#define KEY_DISABLE_BOLD           @"Disable Bold"  // DEPRECATED
+#define KEY_USE_BOLD_FONT          @"Use Bold Font"
+#define KEY_USE_BRIGHT_BOLD        @"Use Bright Bold"
 #define KEY_TRANSPARENCY           @"Transparency"
 #define KEY_BLUR                   @"Blur"
 #define KEY_ANTI_ALIASING          @"Anti Aliasing"
@@ -106,6 +108,7 @@
 #define KEY_AMBIGUOUS_DOUBLE_WIDTH            @"Ambiguous Double Width"
 #define KEY_SILENCE_BELL                      @"Silence Bell"
 #define KEY_VISUAL_BELL                       @"Visual Bell"
+#define KEY_FLASHING_BELL                     @"Flashing Bell"
 #define KEY_XTERM_MOUSE_REPORTING             @"Mouse Reporting"
 #define KEY_BOOKMARK_GROWL_NOTIFICATIONS      @"BM Growl"
 #define KEY_CHARACTER_ENCODING                @"Character Encoding"
@@ -117,6 +120,7 @@
 // Keyboard
 #define KEY_KEYBOARD_MAP                      @"Keyboard Map"
 #define KEY_OPTION_KEY_SENDS                  @"Option Key Sends"
+#define KEY_RIGHT_OPTION_KEY_SENDS            @"Right Option Key Sends"
 
 
 @interface ITAddressBookMgr : NSObject

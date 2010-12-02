@@ -54,6 +54,8 @@ void DebugLog(NSString* value);
     IBOutlet NSMenuItem *toggleBookmarksView;
     IBOutlet NSMenuItem *irNext;
     IBOutlet NSMenuItem *irPrev;
+
+    IBOutlet NSMenuItem *secureInput;
 }
 
 // NSApplication Delegate methods
@@ -64,12 +66,18 @@ void DebugLog(NSString* value);
 - (NSMenu *)applicationDockMenu:(NSApplication *)sender;
 - (void)applicationDidUnhide:(NSNotification *)aNotification;
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)app;
+- (void)applicationDidBecomeActive:(NSNotification *)aNotification;
+- (void)applicationDidResignActive:(NSNotification *)aNotification;
+
+- (IBAction)toggleSecureInput:(id)sender;
 
 - (IBAction)newWindow:(id)sender;
 - (IBAction)newSession:(id)sender;
 - (IBAction)buildScriptMenu:(id)sender;
 
--(IBAction)debugLogging:(id)sender;
+- (IBAction)debugLogging:(id)sender;
+
+- (IBAction)toggleSecureInput:(id)sender;
 
     // About window
 - (IBAction)showAbout:(id)sender;
@@ -83,6 +91,7 @@ void DebugLog(NSString* value);
     // navigation
 - (IBAction) previousTerminal: (id) sender;
 - (IBAction) nextTerminal: (id) sender;
+- (IBAction)arrangeHorizontally:(id)sender;
 
 // Notifications
 - (void) reloadMenus: (NSNotification *) aNotification;

@@ -29,8 +29,12 @@
 #import <iTerm/BookmarkModel.h>
 #import "DVR.h"
 #import "WindowControllerInterface.h"
+#import "TextViewWrapper.h"
 
 #include <sys/time.h>
+
+#define NSLeftAlternateKeyMask  (0x000020 | NSAlternateKeyMask)
+#define NSRightAlternateKeyMask (0x000040 | NSAlternateKeyMask)
 
 @class PTYTask;
 @class PTYTextView;
@@ -77,6 +81,7 @@ static const float kBackgroundSessionIntervalSec = 1;
     BOOL EXIT;
     NSView* view;
     PTYScrollView* SCROLLVIEW;
+    TextViewWrapper* WRAPPER;
     PTYTextView* TEXTVIEW;
     NSTimer *updateTimer;
 
@@ -119,6 +124,8 @@ static const float kBackgroundSessionIntervalSec = 1;
     // Paste from the head of this string from a timer until it's empty.
     NSMutableString* slowPasteBuffer;
     NSTimer* slowPasteTimer;
+
+    NSString* jobName_;
 }
 
 // init/dealloc
@@ -151,7 +158,8 @@ static const float kBackgroundSessionIntervalSec = 1;
 - (void)irAdvance:(int)dir;
 
 // Session specific methods
-- (BOOL)initScreen:(NSRect)aRect vmargin:(float)vmargin;
+- (BOOL)initScreen:(NSRect)aRect;
+
 - (void)startProgram:(NSString *)program
            arguments:(NSArray *)prog_argv
          environment:(NSDictionary *)prog_env
@@ -192,7 +200,6 @@ static const float kBackgroundSessionIntervalSec = 1;
 
 
 // misc
-- (void)handleOptionClick: (NSEvent *)theEvent;
 - (void)setWidth:(int)width height:(int)height;
 
 
@@ -282,12 +289,11 @@ static const float kBackgroundSessionIntervalSec = 1;
 - (void)setCursorTextColor: (NSColor *)aColor;
 - (float)transparency;
 - (void)setTransparency:(float)transparency;
-- (BOOL)disableBold;
-- (void)setDisableBold: (BOOL)boldFlag;
-- (BOOL)disableBold;
-- (void)setDisableBold: (BOOL)boldFlag;
+- (BOOL)useBoldFont;
+- (void)setUseBoldFont:(BOOL)boldFlag;
 - (void)setColorTable:(int)index color:(NSColor *)c;
 - (int)optionKey;
+- (int)rightOptionKey;
 
 // Session status
 
@@ -319,6 +325,8 @@ static const float kBackgroundSessionIntervalSec = 1;
 
 // Schedule the screen update timer to run in a specified number of seconds.
 - (void)scheduleUpdateIn:(NSTimeInterval)timeout;
+
+- (NSString*)jobName;
 
 @end
 
