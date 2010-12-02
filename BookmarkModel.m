@@ -160,6 +160,8 @@
 
 - (void)addBookmark:(Bookmark*)bookmark inSortedOrder:(BOOL)sort
 {
+    // FIXME: The following forest of ifs smells very fishy. dicts leak and WTF are they trying to do?
+    
     // Ensure required fields are present
     if (![bookmark objectForKey:KEY_NAME]) {
         NSMutableDictionary* aDict = [[NSMutableDictionary alloc] initWithDictionary:bookmark];
