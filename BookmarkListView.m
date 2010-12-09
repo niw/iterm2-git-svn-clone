@@ -1,5 +1,5 @@
 /*
- **  BookmarkTableController.m
+ **  BookmarkListView.m
  **  iTerm
  **
  **  Created by George Nachman on 8/26/10.
@@ -599,12 +599,12 @@ typedef enum { IsDefault = 1, IsNotDefault = 2 } BookmarkRowIsDefault;
         NSString *name = [NSString stringWithFormat:@"%@\n", [bookmark objectForKey:KEY_NAME]];
         NSString* tags = [[bookmark objectForKey:KEY_TAGS] componentsJoinedByString:@", "];
         
-        NSMutableAttributedString *mas = [[[NSMutableAttributedString alloc] initWithString:name
-                                                                                 attributes:plainAttributes] autorelease];
+        NSMutableAttributedString *theAttributedString = [[[NSMutableAttributedString alloc] initWithString:name
+                                                                                                 attributes:plainAttributes] autorelease];
 
-        [mas appendAttributedString:[[[NSAttributedString alloc] initWithString:tags
-                                                                     attributes:smallAttributes] autorelease]];
-        return mas;
+        [theAttributedString appendAttributedString:[[[NSAttributedString alloc] initWithString:tags
+                                                                                     attributes:smallAttributes] autorelease]];
+        return theAttributedString;
     } else if (aTableColumn == commandColumn_) {
         if (![[bookmark objectForKey:KEY_CUSTOM_COMMAND] isEqualToString:@"Yes"]) {
             return @"Login shell";

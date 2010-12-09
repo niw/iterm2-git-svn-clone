@@ -160,10 +160,8 @@
 
 - (void)addBookmark:(Bookmark*)bookmark inSortedOrder:(BOOL)sort
 {
-    // FIXME: The following forest of ifs smells very fishy. dicts leak and WTF are they trying to do?
-    
-	NSMutableDictionary *newBookmark = [[bookmark mutableCopy] autorelease];
-	
+    NSMutableDictionary *newBookmark = [[bookmark mutableCopy] autorelease];
+
     // Ensure required fields are present
     if (![newBookmark objectForKey:KEY_NAME]) {
         [newBookmark setObject:@"Bookmark" forKey:KEY_NAME];
@@ -184,8 +182,8 @@
         [newBookmark setObject:@"No" forKey:KEY_DEFAULT_BOOKMARK];
     }
 
-	bookmark = [[newBookmark copy] autorelease];
-	
+    bookmark = [[newBookmark copy] autorelease];
+
     if (sort) {
         // Insert alphabetically. Sort so that objects with the "bonjour" tag come after objects without.
         int insertionPoint = -1;
