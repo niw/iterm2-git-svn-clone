@@ -184,6 +184,8 @@
 
     bookmark = [[newBookmark copy] autorelease];
 
+    // FIXME: Just add the bookmark and sort afterwards? 
+    //        insertion sort is optimal, but looks a bit overcomplicated.
     if (sort) {
         // Insert alphabetically. Sort so that objects with the "bonjour" tag come after objects without.
         int insertionPoint = -1;
@@ -208,6 +210,7 @@
                 break;
             }
         }
+        // FIXME: Inserting immutable objects in collections should be done just with retain, not recreating the object
         if (insertionPoint == -1) {
             [bookmarks_ addObject:[NSDictionary dictionaryWithDictionary:bookmark]];
         } else {
