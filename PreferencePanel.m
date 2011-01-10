@@ -34,6 +34,7 @@
 #import <iTerm/PseudoTerminal.h>
 #import <iTerm/BookmarkModel.h>
 #import "PasteboardHistory.h"
+#import "SessionView.h"
 
 static float versionNumber;
 
@@ -380,13 +381,13 @@ static float versionNumber;
     defaultCopySelection=[prefs objectForKey:@"CopySelection"]?[[prefs objectForKey:@"CopySelection"] boolValue]:YES;
     defaultPasteFromClipboard=[prefs objectForKey:@"PasteFromClipboard"]?[[prefs objectForKey:@"PasteFromClipboard"] boolValue]:YES;
     defaultHideTab=[prefs objectForKey:@"HideTab"]?[[prefs objectForKey:@"HideTab"] boolValue]: YES;
-    defaultPromptOnClose = [prefs objectForKey:@"PromptOnClose"]?[[prefs objectForKey:@"PromptOnClose"] boolValue]: NO;
-    defaultOnlyWhenMoreTabs = [prefs objectForKey:@"OnlyWhenMoreTabs"]?[[prefs objectForKey:@"OnlyWhenMoreTabs"] boolValue]: NO;
+    defaultPromptOnClose = [prefs objectForKey:@"PromptOnClose"]?[[prefs objectForKey:@"PromptOnClose"] boolValue]: YES;
+    defaultOnlyWhenMoreTabs = [prefs objectForKey:@"OnlyWhenMoreTabs"]?[[prefs objectForKey:@"OnlyWhenMoreTabs"] boolValue]: YES;
     defaultFocusFollowsMouse = [prefs objectForKey:@"FocusFollowsMouse"]?[[prefs objectForKey:@"FocusFollowsMouse"] boolValue]: NO;
     defaultEnableBonjour = [prefs objectForKey:@"EnableRendezvous"]?[[prefs objectForKey:@"EnableRendezvous"] boolValue]: NO;
     defaultEnableGrowl = [prefs objectForKey:@"EnableGrowl"]?[[prefs objectForKey:@"EnableGrowl"] boolValue]: NO;
     defaultCmdSelection = [prefs objectForKey:@"CommandSelection"]?[[prefs objectForKey:@"CommandSelection"] boolValue]: YES;
-    defaultMaxVertically = [prefs objectForKey:@"MaxVertically"]?[[prefs objectForKey:@"MaxVertically"] boolValue]: YES;
+    defaultMaxVertically = [prefs objectForKey:@"MaxVertically"] ? [[prefs objectForKey:@"MaxVertically"] boolValue] : NO;
     defaultUseCompactLabel = [prefs objectForKey:@"UseCompactLabel"]?[[prefs objectForKey:@"UseCompactLabel"] boolValue]: YES;
     defaultHighlightTabLabels = [prefs objectForKey:@"HighlightTabLabels"]?[[prefs objectForKey:@"HighlightTabLabels"] boolValue]: YES;
     [defaultWordChars release];
@@ -412,8 +413,11 @@ static float versionNumber;
     }
     defaultIrMemory = [prefs objectForKey:@"IRMemory"]?[[prefs objectForKey:@"IRMemory"] intValue] : 4;
     defaultCheckTestRelease = [prefs objectForKey:@"CheckTestRelease"]?[[prefs objectForKey:@"CheckTestRelease"] boolValue]: YES;
-    defaultColorInvertedCursor = [prefs objectForKey:@"ColorInvertedCursor"]?[[prefs objectForKey:@"ColorInvertedCursor"] boolValue]: NO;
+    defaultColorInvertedCursor = [prefs objectForKey:@"ColorInvertedCursor"]?[[prefs objectForKey:@"ColorInvertedCursor"] boolValue]: YES;
     defaultDimInactiveSplitPanes = [prefs objectForKey:@"DimInactiveSplitPanes"]?[[prefs objectForKey:@"DimInactiveSplitPanes"] boolValue]: YES;
+    if (![SessionView dimmingSupported]) {
+        defaultDimInactiveSplitPanes = NO;
+    }
 
     NSString *appCast = defaultCheckTestRelease ?
         [[NSBundle mainBundle] objectForInfoDictionaryKey:@"SUFeedURLForTesting"] :
@@ -618,9 +622,21 @@ static float versionNumber;
         defaultHideTab=([hideTab state]==NSOnState);
         defaultCursorType = [[cursorType selectedCell] tag];
         defaultColorInvertedCursor = ([checkColorInvertedCursor state] == NSOnState);
-        defaultDimInactiveSplitPanes = ([dimInactiveSplitPanes state] == NSOnState);
+        if ([dimInactiveSplitPanes state] == NSOnState && ! [SessionView dimmingSupported]) {
+            NSRunAlertPanel(@"Dimming Not Supported.",
+                            @"Sorry, dimming inactive split panes requires OS X 10.6 or later.",
+                            @"OK",
+                            nil,
+                            nil,
+                            nil);
+            [dimInactiveSplitPanes setState:NSOffState];
+        } else {
+            defaultDimInactiveSplitPanes = ([dimInactiveSplitPanes state] == NSOnState);
+        }
         defaultHideScrollbar = ([hideScrollbar state] == NSOnState);
-        [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermRefreshTerminal" object: nil userInfo: nil];
+        [[NSNotificationCenter defaultCenter] postNotificationName:@"iTermRefreshTerminal"
+                                                            object:nil
+                                                          userInfo:nil];
     } else if (sender == windowNumber || sender == jobName) {
         defaultWindowNumber = ([windowNumber state] == NSOnState);
         defaultJobName = ([jobName state] == NSOnState);

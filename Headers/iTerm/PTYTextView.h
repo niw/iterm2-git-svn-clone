@@ -158,6 +158,7 @@ typedef struct PTYFontInfo PTYFontInfo;
     // Positive value: scroll down.
     // Zero: don't scroll.
     int selectionScrollDirection;
+    NSTimeInterval lastSelectionScroll;
 
     // Scrolls view when you drag a selection to top or bottom of view.
     NSTimer* selectionScrollTimer;
@@ -246,6 +247,12 @@ typedef struct PTYFontInfo PTYFontInfo;
 - (void)setCursorColor:(NSColor*)color;
 - (void)setSelectedTextColor:(NSColor *)aColor;
 - (void)setCursorTextColor:(NSColor*)color;
+
+- (int)selectionStartX;
+- (int)selectionStartY;
+- (int)selectionEndX;
+- (int)selectionEndY;
+- (void)setSelectionFromX:(int)fromX fromY:(int)fromY toX:(int)toX toY:(int)toY;
 
 - (float)excess;
 

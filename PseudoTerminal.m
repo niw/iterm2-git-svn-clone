@@ -445,6 +445,7 @@ NSString *sessionsKey = @"sessions";
         aTabViewItem = [aTab tabViewItem];
         [TABVIEW removeTabViewItem:aTabViewItem];
         PtyLog(@"closeSession - calling fitWindowToTabs");
+        pbbfValid = NO;
         [self fitWindowToTabs];
     }
 }
@@ -737,6 +738,10 @@ NSString *sessionsKey = @"sessions";
           __FILE__, __LINE__, aNotification);
 #endif
 
+    // Close popups.
+    [pbHistoryView close];
+    [autocompleteView close];
+
     // tabBarControl is holding on to us, so we have to tell it to let go
     [tabBarControl setDelegate:nil];
 
@@ -866,7 +871,7 @@ NSString *sessionsKey = @"sessions";
 
 - (NSSize)windowWillResize:(NSWindow *)sender toSize:(NSSize)proposedFrameSize
 {
-
+    pbbfValid = NO;
     PtyLog(@"%s(%d):-[PseudoTerminal windowWillResize: obj=%d, proposedFrameSize width = %f; height = %f]",
           __FILE__, __LINE__, [self window], proposedFrameSize.width, proposedFrameSize.height);
 
@@ -936,9 +941,12 @@ NSString *sessionsKey = @"sessions";
                         [session rows]];
     [self setWindowTitle:aTitle];
     tempTitle = YES;
+    [self fitTabsToWindow];
 
     // Post a notification
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"iTermWindowDidResize" object: self userInfo: nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"iTermWindowDidResize"
+                                                        object:self
+                                                      userInfo:nil];
 }
 
 // PTYWindowDelegateProtocol
@@ -949,6 +957,7 @@ NSString *sessionsKey = @"sessions";
 - (void)windowDidToggleToolbarVisibility:(id)sender
 {
     PtyLog(@"windowDidToggleToolbarVisibility - calling fitWindowToTabs");
+    pbbfValid = NO;
     [self fitWindowToTabs];
 }
 
@@ -956,6 +965,7 @@ NSString *sessionsKey = @"sessions";
 - (IBAction)toggleFullScreen:(id)sender
 {
     PtyLog(@"toggleFullScreen called");
+    pbbfValid = NO;
     PseudoTerminal *newTerminal;
     if (!_fullScreen) {
         NSScreen *currentScreen = [[[[iTermController sharedInstance] currentTerminal] window]screen];
@@ -970,6 +980,8 @@ NSString *sessionsKey = @"sessions";
         [NSMenu setMenuBarVisible:YES];
         PtyLog(@"toggleFullScreen - allocate new terminal");
         newTerminal = [[PseudoTerminal alloc] initWithSmartLayout:NO fullScreen:nil];
+        PtyLog(@"toggleFullScreen - set new frame to old frame: %fx%f", oldFrame_.size.width, oldFrame_.size.height);
+        [[newTerminal window] setFrame:oldFrame_ display:YES];
     }
 
     _fullScreen = !_fullScreen;
@@ -1026,10 +1038,7 @@ NSString *sessionsKey = @"sessions";
     // copy of ourselves and release it when we're all done.
     [self retain];
     [[self window] close];
-    if (!fs) {
-        PtyLog(@"toggleFullScreen - set new frame to old frame: %fx%f", oldFrame_.size.width, oldFrame_.size.height);
-        [[newTerminal window] setFrame:oldFrame_ display:YES];
-    } else {
+    if (fs) {
         PtyLog(@"toggleFullScreen - call adjustFullScreenWindowForBottomBarChange");
         [newTerminal adjustFullScreenWindowForBottomBarChange];
         [newTerminal hideMenuBar];
@@ -1413,6 +1422,7 @@ NSString *sessionsKey = @"sessions";
     PseudoTerminal *term = [aTabBarControl delegate];
 
     if ([term numberOfTabs] == 1) {
+        pbbfValid = NO;
         [term fitWindowToTabs];
     } else {
         [term fitTabToWindow:aTab];
@@ -1516,6 +1526,7 @@ NSString *sessionsKey = @"sessions";
     if (([TABVIEW numberOfTabViewItems] == 1) || ([[PreferencePanel sharedInstance] hideTab] &&
         ([TABVIEW numberOfTabViewItems] > 1 && [tabBarControl isHidden]))) {
         PtyLog(@"tabViewDidChangeNumberOfTabViewItems - calling fitWindowToTab");
+        pbbfValid = NO;
         [self fitWindowToTabs];
     }
 
@@ -1810,13 +1821,21 @@ NSString *sessionsKey = @"sessions";
 - (void)showHideBottomBar
 {
     BOOL hide = ![bottomBar isHidden];
+    if (!hide) {
+        preBottomBarFrame = [[self window] frame];
+    }
     [bottomBar setHidden:hide];
     [self arrangeBottomBarSubviews];
     if (_fullScreen) {
         [self adjustFullScreenWindowForBottomBarChange];
     } else {
         PtyLog(@"showHideFindBar - calling fitWindowToTabs");
-        [self fitWindowToTabs];
+        if (hide && pbbfValid) {
+            [[self window] setFrame:preBottomBarFrame display:YES];
+            [self fitTabsToWindow];
+        } else {
+            [self fitWindowToTabs];
+        }
     }
 
     // On OS X 10.5.8, the scroll bar and resize indicator are messed up at this point. Resizing the tabview fixes it. This seems to be fixed in 10.6.
@@ -1828,6 +1847,8 @@ NSString *sessionsKey = @"sessions";
 
     if (hide) {
         [[self window] makeFirstResponder:[[self currentSession] TEXTVIEW]];
+    } else {
+        pbbfValid = YES;
     }
 }
 
@@ -1955,6 +1976,7 @@ NSString *sessionsKey = @"sessions";
 // Toggle instant replay bar.
 - (void)showHideInstantReplay
 {
+    pbbfValid = NO;
     BOOL hide = ![instantReplaySubview isHidden];
     if (!hide) {
         [self updateInstantReplay];
@@ -2264,7 +2286,7 @@ NSString *sessionsKey = @"sessions";
     [sessionView addSubview:scrollView];
     [scrollView release];
 
-
+    pbbfValid = NO;
     [self fitWindowToTabs];
 
     [self runCommandInSession:newSession inCwd:oldCWD];
@@ -2508,6 +2530,7 @@ NSString *sessionsKey = @"sessions";
 - (void)_refreshTerminal:(NSNotification *)aNotification
 {
     PtyLog(@"_refreshTerminal - calling fitWindowToTabs");
+    pbbfValid = NO;
     [self fitWindowToTabs];
 
     BOOL canDim = [[PreferencePanel sharedInstance] dimInactiveSplitPanes];
@@ -3236,6 +3259,7 @@ NSString *sessionsKey = @"sessions";
     [TABVIEW selectTabViewItemAtIndex:anIndex];
 
     // Bring the window to the fore.
+    pbbfValid = NO;
     [self fitWindowToTabs];
     if ([self windowInited] && !_fullScreen) {
         [[self window] makeKeyAndOrderFront:self];
@@ -3466,6 +3490,7 @@ NSString *sessionsKey = @"sessions";
     // add the session to the new terminal
     [term insertTab:aTab atIndex: 0];
     PtyLog(@"moveTabToNewWindowContextMenuAction - call fitWindowToTabs");
+    pbbfValid = NO;
     [term fitWindowToTabs];
 
     // release the tabViewItem
