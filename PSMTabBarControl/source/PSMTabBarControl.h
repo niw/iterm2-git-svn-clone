@@ -114,6 +114,8 @@ enum {
     // orientation, top or bottom
     int                         _tabLocation;
 
+    // iTerm2 additions
+    int                         _modifier;
 }
 
 // control characteristics
@@ -200,6 +202,7 @@ enum {
 //Drag and drop methods
 - (BOOL)tabView:(NSTabView *)aTabView shouldDragTabViewItem:(NSTabViewItem *)tabViewItem fromTabBar:(PSMTabBarControl *)tabBarControl;
 - (BOOL)tabView:(NSTabView *)aTabView shouldDropTabViewItem:(NSTabViewItem *)tabViewItem inTabBar:(PSMTabBarControl *)tabBarControl;
+- (void)tabView:(NSTabView*)aTabView willDropTabViewItem:(NSTabViewItem *)tabViewItem inTabBar:(PSMTabBarControl *)tabBarControl;
 - (void)tabView:(NSTabView*)aTabView didDropTabViewItem:(NSTabViewItem *)tabViewItem inTabBar:(PSMTabBarControl *)tabBarControl;
 
 //Tear-off tabs methods
@@ -229,7 +232,13 @@ enum {
 
 // iTerm add-on
 - (void)setLabelColor:(NSColor *)aColor forTabViewItem:(NSTabViewItem *) tabViewItem;
+- (void)setTabColor:(NSColor *)aColor forTabViewItem:(NSTabViewItem *) tabViewItem;
+- (NSColor*)tabColorForTabViewItem:(NSTabViewItem*)tabViewItem;
 - (void)tabView:(NSTabView *)tabView doubleClickTabViewItem:(NSTabViewItem *)tabViewItem;
 - (void)tabViewDoubleClickTabBar:(NSTabView *)tabView;
+- (void)setModifier:(int)mask;
+- (NSString*)_modifierString;
+- (void)fillPath:(NSBezierPath*)path;
+
 
 @end

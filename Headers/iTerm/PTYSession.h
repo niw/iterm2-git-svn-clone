@@ -30,6 +30,7 @@
 #import "DVR.h"
 #import "WindowControllerInterface.h"
 #import "TextViewWrapper.h"
+#import "FindViewController.h"
 
 #include <sys/time.h>
 
@@ -60,7 +61,7 @@ static const float kBackgroundSessionIntervalSec = 1;
 
 @class PTYTab;
 @class SessionView;
-@interface PTYSession : NSResponder
+@interface PTYSession : NSResponder <FindViewControllerDelegate>
 {
     // Owning tab.
     PTYTab* tab_;
@@ -78,6 +79,9 @@ static const float kBackgroundSessionIntervalSec = 1;
     // should be used.
     NSString* windowTitle;
 
+    // The original bookmark name.
+    NSString* bookmarkName;
+    
     // Shell wraps the underlying file descriptor pair.
     PTYTask* SHELL;
 
@@ -183,7 +187,23 @@ static const float kBackgroundSessionIntervalSec = 1;
 
     // The name of the foreground job at the moment as best we can tell.
     NSString* jobName_;
+
+    // Ignore resize notifications. This would be set because the session's size musn't be changed
+    // due to temporary changes in the window size, as code later on may need to know the session's
+    // size to set the window size properly.
+    BOOL ignoreResizeNotifications_;
+
+    // Last time this session became active
+    NSDate* lastActiveAt_;
+
+    // saved scroll position or -1
+    long long savedScrollPosition_;
 }
+
+// Return the current pasteboard value as a string.
++ (NSString*)pasteboardString;
++ (BOOL)handleShortcutWithoutTerminal:(NSEvent*)event;
++ (void)selectMenuItem:(NSString*)theName;
 
 // init/dealloc
 - (id)init;
@@ -217,10 +237,16 @@ static const float kBackgroundSessionIntervalSec = 1;
 // Session specific methods
 - (BOOL)setScreenSize:(NSRect)aRect parent:(id<WindowControllerInterface>)parent;
 
++ (PTYSession*)sessionFromArrangement:(NSDictionary*)arrangement inView:(SessionView*)sessionView inTab:(PTYTab*)theTab;
+
+- (void)runCommandWithOldCwd:(NSString*)oldCWD;
+
 - (void)startProgram:(NSString *)program
            arguments:(NSArray *)prog_argv
          environment:(NSDictionary *)prog_env
-              isUTF8:(BOOL)isUTF8;
+              isUTF8:(BOOL)isUTF8
+      asLoginSession:(BOOL)asLoginSession;
+
 - (void)terminate;
 
 - (void)setNewOutput:(BOOL)value;
@@ -235,7 +261,7 @@ static const float kBackgroundSessionIntervalSec = 1;
 - (void)brokenPipe;
 
 // PTYTextView
-- (BOOL)hasKeyMappingForEvent: (NSEvent *)event highPriority: (BOOL)priority;
+- (BOOL)hasActionableKeyMappingForEvent: (NSEvent *)event;
 - (void)keyDown:(NSEvent *)event;
 - (BOOL)willHandleEvent: (NSEvent *)theEvent;
 - (void)handleEvent: (NSEvent *)theEvent;
@@ -255,7 +281,6 @@ static const float kBackgroundSessionIntervalSec = 1;
 - (void)deleteForward:(id)sender;
 - (void)textViewDidChangeSelection: (NSNotification *)aNotification;
 - (void)textViewResized: (NSNotification *)aNotification;
-- (void)tabViewWillRedraw: (NSNotification *)aNotification;
 
 
 // misc
@@ -268,6 +293,7 @@ static const float kBackgroundSessionIntervalSec = 1;
 
 // get/set methods
 - (PTYTab*)tab;
+- (PTYTab*)ptytab;
 - (void)setTab:(PTYTab*)tab;
 - (struct timeval)lastOutput;
 - (void)setGrowlIdle:(BOOL)value;
@@ -276,12 +302,15 @@ static const float kBackgroundSessionIntervalSec = 1;
 - (BOOL)growlNewOutput;
 
 - (NSString *)name;
+- (NSString*)rawName;
+- (void)setBookmarkName:(NSString*)theName;
 - (void)setName: (NSString *)theName;
 - (NSString *)defaultName;
 - (NSString*)joblessDefaultName;
 - (void)setDefaultName: (NSString *)theName;
 - (NSString *)uniqueID;
 - (void)setUniqueID: (NSString *)uniqueID;
+- (NSString*)formattedName:(NSString*)base;
 - (NSString *)windowTitle;
 - (void)setWindowTitle: (NSString *)theTitle;
 - (PTYTask *)SHELL;
@@ -340,6 +369,8 @@ static const float kBackgroundSessionIntervalSec = 1;
 - (void)setBoldColor:(NSColor*)color;
 - (NSColor *)cursorColor;
 - (void)setCursorColor:(NSColor*)color;
+- (void)setSmartCursorColor:(BOOL)value;
+- (void)setMinimumContrast:(float)value;
 - (NSColor *)selectedTextColor;
 - (void)setSelectedTextColor: (NSColor *)aColor;
 - (NSColor *)cursorTextColor;
@@ -351,14 +382,17 @@ static const float kBackgroundSessionIntervalSec = 1;
 - (void)setColorTable:(int)index color:(NSColor *)c;
 - (int)optionKey;
 - (int)rightOptionKey;
+- (BOOL)shouldSendEscPrefixForModifier:(unsigned int)modmask;
 
 // Session status
 
 - (BOOL)exited;
 - (BOOL)bell;
-- (void)setBell: (BOOL)flag;
+- (void)setBell:(BOOL)flag;
 
-- (void)sendCommand: (NSString *)command;
+- (void)sendCommand:(NSString *)command;
+
+- (NSDictionary*)arrangement;
 
 // Display timer stuff
 - (void)updateDisplay;
@@ -380,6 +414,32 @@ static const float kBackgroundSessionIntervalSec = 1;
 - (void)scheduleUpdateIn:(NSTimeInterval)timeout;
 
 - (NSString*)jobName;
+- (NSString*)uncachedJobName;
+
+- (void)setIgnoreResizeNotifications:(BOOL)ignore;
+- (BOOL)ignoreResizeNotifications;
+
+- (void)setLastActiveAt:(NSDate*)date;
+- (NSDate*)lastActiveAt;
+
+// Save the current scroll position
+- (void)saveScrollPosition;
+
+// Jump to the saved scroll position
+- (void)jumpToSavedScrollPosition;
+
+// Is there a saved scroll position?
+- (BOOL)hasSavedScrollPosition;
+
+// Search for the selected text.
+- (void)findWithSelection;
+
+// Show/hide the find view
+- (void)toggleFind;
+
+// Find next/previous occurrence of find string.
+- (void)searchNext;
+- (void)searchPrevious;
 
 @end
 
@@ -397,6 +457,8 @@ static const float kBackgroundSessionIntervalSec = 1;
 @interface PTYSession (Private)
 
 - (NSString*)_getLocale;
+- (NSString*)_lang;
+- (NSString*)encodingName;
 - (void)setDvrFrame;
 
 @end

@@ -10,30 +10,32 @@
 #import "iTerm/PseudoTerminal.h"
 #import "WindowControllerInterface.h"
 
-@interface FakeWindow : NSObject <WindowControllerInterface> 
+@interface FakeWindow : NSObject <WindowControllerInterface>
 {
     // FakeWindow always has exactly one session.
     PTYSession* session;
-    
+
     // Saved state from old window.
     BOOL isFullScreen;
     BOOL isMiniaturized;
     NSRect frame;
     NSScreen* screen;
-    
+    PseudoTerminal* realWindow;
+
     // Changes the session has initiated that will be delayed and performed
     // in -[rejoin:].
     BOOL hasPendingBlurChange;
     BOOL pendingBlur;
     BOOL hasPendingClose;
-    BOOL hasPendingFitWindowToSession;
+    BOOL hasPendingFitWindowToTab;
     BOOL hasPendingSizeChange;
     int pendingW;
     int pendingH;
     BOOL hasPendingSetWindowTitle;
     BOOL hasPendingResetTempTitle;
-    
+
     NSColor* pendingLabelColor;
+    NSColor* pendingTabColor;
 }
 
 - (id)initFromRealWindow:(PseudoTerminal*)aTerm session:(PTYSession*)aSession;
@@ -46,13 +48,14 @@
 - (BOOL)fullScreen;
 - (BOOL)sendInputToAllSessions;
 - (void)closeSession:(PTYSession*)aSession;
-- (IBAction)nextSession:(id)sender;
-- (IBAction)previousSession:(id)sender;
+- (IBAction)nextTab:(id)sender;
+- (IBAction)previousTab:(id)sender;
 - (void)setLabelColor:(NSColor *)color forTabViewItem:tabViewItem;
+- (void)setTabColor:(NSColor *)color forTabViewItem:tabViewItem;
+- (NSColor*)tabColorForTabViewItem:(NSTabViewItem*)tabViewItem;
 - (void)enableBlur;
 - (void)disableBlur;
 - (BOOL)tempTitle;
-- (void)fitWindowToSession:(PTYSession*)session;
 - (PTYTabView *)tabView;
 - (PTYSession *)currentSession;
 - (void)sendInputToAllSessions:(NSData *)data;

@@ -26,13 +26,34 @@
  */
 
 #import <Cocoa/Cocoa.h>
+#import "FindViewController.h"
 
 @class PTYSession;
 @interface SessionView : NSView {
     PTYSession* session_;
+    BOOL dim_;
+
+    float currentDimmingAmount_;
+    NSDate* previousUpdate_;
+    float changePerSecond_;
+    float targetDimmingAmount_;
+    NSTimer* timer_;
+    BOOL shuttingDown_;
+
+    // Find window
+    FindViewController* findView_;
+
+    // Unique per-process id of view, used for ordering them in PTYTab.
+    int viewId_;
 }
 
 - (id)initWithFrame:(NSRect)frame session:(PTYSession*)session;
+- (void)dealloc;
 - (PTYSession*)session;
+- (void)setSession:(PTYSession*)session;
+- (void)setDimmed:(BOOL)isDimmed;
+- (void)cancelTimers;
+- (FindViewController*)findViewController;
+- (int)viewId;
 
 @end

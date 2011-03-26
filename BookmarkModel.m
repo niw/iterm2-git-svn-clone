@@ -401,7 +401,7 @@
     return [temp allKeys];
 }
 
-- (void)setObject:(id)object forKey:(NSString*)key inBookmark:(Bookmark*)bookmark
+- (Bookmark*)setObject:(id)object forKey:(NSString*)key inBookmark:(Bookmark*)bookmark
 {
     NSMutableDictionary* newDict = [NSMutableDictionary dictionaryWithDictionary:bookmark];
     if (object == nil) {
@@ -410,8 +410,10 @@
         [newDict setObject:object forKey:key];
     }
     NSString* guid = [bookmark objectForKey:KEY_GUID];
-    [self setBookmark:[NSDictionary dictionaryWithDictionary:newDict]
+    Bookmark* newBookmark = [NSDictionary dictionaryWithDictionary:newDict];
+    [self setBookmark:newBookmark
              withGuid:guid];
+    return newBookmark;
 }
 
 - (void)setDefaultByGuid:(NSString*)guid
@@ -452,6 +454,20 @@
         Bookmark* bookmark = [self bookmarkAtIndex:i];
         NSLog(@"%d: %@ %@", i, [bookmark objectForKey:KEY_NAME], [bookmark objectForKey:KEY_GUID]);
     }
+}
+
+- (NSArray*)bookmarks
+{
+    return bookmarks_;
+}
+
+- (NSArray*)guids
+{
+    NSMutableArray* guids = [NSMutableArray arrayWithCapacity:[bookmarks_ count]];
+    for (Bookmark* bookmark in bookmarks_) {
+        [guids addObject:[bookmark objectForKey:KEY_GUID]];
+    }
+    return guids;
 }
 
 @end

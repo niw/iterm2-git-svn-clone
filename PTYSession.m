@@ -59,6 +59,12 @@ static NSString *COLORFGBG_ENVNAME = @"COLORFGBG";
 static NSString *PWD_ENVNAME = @"PWD";
 static NSString *PWD_ENVVALUE = @"~";
 
+// Constants for saved window arrangement keys.
+static NSString* SESSION_ARRANGEMENT_COLUMNS = @"Columns";
+static NSString* SESSION_ARRANGEMENT_ROWS = @"Rows";
+static NSString* SESSION_ARRANGEMENT_BOOKMARK = @"Bookmark";
+static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
+
 // init/dealloc
 - (id)init
 {
@@ -71,7 +77,7 @@ static NSString *PWD_ENVVALUE = @"~";
     lastOutput = lastInput;
     lastUpdate = lastInput;
     EXIT=NO;
-
+    savedScrollPosition_ = -1;
     updateTimer = nil;
     antiIdleTimer = nil;
     addressBookEntry=nil;
@@ -91,21 +97,20 @@ static NSString *PWD_ENVVALUE = @"~";
     growlIdle = growlNewOutput = NO;
 
     slowPasteBuffer = [[NSMutableString alloc] init];
-    return (self);
+
+    return self;
 }
 
 - (void)dealloc
 {
-#if DEBUG_ALLOC
-    NSLog(@"%s: 0x%x", __PRETTY_FUNCTION__, self);
-#endif
     [slowPasteBuffer release];
     if (slowPasteTimer) {
         [slowPasteTimer invalidate];
     }
+    [lastActiveAt_ release];
+    [bookmarkName release];
     [TERM_VALUE release];
     [COLORFGBG_VALUE release];
-    [view release];
     [name release];
     [windowTitle release];
     [addressBookEntry release];
@@ -116,7 +121,7 @@ static NSString *PWD_ENVVALUE = @"~";
     [updateTimer release];
     [originalAddressBookEntry release];
     [liveSession_ release];
-    
+
     [SHELL release];
     SHELL = nil;
     [SCREEN release];
@@ -139,6 +144,7 @@ static NSString *PWD_ENVVALUE = @"~";
 
 - (void)cancelTimers
 {
+    [view cancelTimers];
     [updateTimer invalidate];
     [antiIdleTimer invalidate];
 }
@@ -216,11 +222,44 @@ static NSString *PWD_ENVVALUE = @"~";
     return liveSession_;
 }
 
++ (PTYSession*)sessionFromArrangement:(NSDictionary*)arrangement inView:(SessionView*)sessionView inTab:(PTYTab*)theTab
+{
+    PTYSession* aSession = [[[PTYSession alloc] init] autorelease];
+    aSession->view = sessionView;
+    [[sessionView findViewController] setDelegate:aSession];
+    Bookmark* theBookmark = [[BookmarkModel sharedInstance] bookmarkWithGuid:[[arrangement objectForKey:SESSION_ARRANGEMENT_BOOKMARK] objectForKey:KEY_GUID]];
+    BOOL needDivorce = NO;
+    if (!theBookmark) {
+        theBookmark = [arrangement objectForKey:SESSION_ARRANGEMENT_BOOKMARK];
+        needDivorce = YES;
+    }
+    [[aSession SCREEN] setUnlimitedScrollback:[[theBookmark objectForKey:KEY_UNLIMITED_SCROLLBACK] boolValue]];
+    [[aSession SCREEN] setScrollback:[[theBookmark objectForKey:KEY_SCROLLBACK_LINES] intValue]];
+
+     // set our preferences
+    [aSession setAddressBookEntry:theBookmark];
+
+    [aSession setScreenSize:[sessionView frame] parent:[theTab realParentWindow]];
+
+    [aSession setPreferencesFromAddressBookEntry:theBookmark];
+    [[aSession SCREEN] setDisplay:[aSession TEXTVIEW]];
+    [aSession runCommandWithOldCwd:[arrangement objectForKey:SESSION_ARRANGEMENT_WORKING_DIRECTORY]];
+    [aSession setName:[theBookmark objectForKey:KEY_NAME]];
+    if ([[[[theTab realParentWindow] window] title] compare:@"Window"] == NSOrderedSame) {
+        [[theTab realParentWindow] setWindowTitle];
+    }
+    [aSession setTab:theTab];
+
+    if (needDivorce) {
+        [aSession divorceAddressBookEntryFromPreferences];
+    }
+
+    return aSession;
+}
+
 // Session specific methods
 - (BOOL)setScreenSize:(NSRect)aRect parent:(id<WindowControllerInterface>)parent
 {
-    NSSize aSize;
-
 #if DEBUG_METHOD_TRACE
     NSLog(@"%s(%d):-[PTYSession setScreenSize:parent:]", __FILE__, __LINE__);
 #endif
@@ -228,9 +267,11 @@ static NSString *PWD_ENVVALUE = @"~";
     [SCREEN setSession:self];
 
     // Allocate a container to hold the scrollview
-    view = [[SessionView alloc] initWithFrame:NSMakeRect(0, 0, aRect.size.width, aRect.size.height)
-                                      session:self];
-    [view retain];
+    if (!view) {
+        view = [[[SessionView alloc] initWithFrame:NSMakeRect(0, 0, aRect.size.width, aRect.size.height)
+                                          session:self] autorelease];
+        [[view findViewController] setDelegate:self];
+    }
 
     // Allocate a scrollview
     SCROLLVIEW = [[PTYScrollView alloc] initWithFrame: NSMakeRect(0, 0, aRect.size.width, aRect.size.height)];
@@ -241,6 +282,7 @@ static NSString *PWD_ENVVALUE = @"~";
 
     // assign the main view
     [view addSubview:SCROLLVIEW];
+    [view setAutoresizesSubviews:YES];
     // TODO(georgen): I disabled setCopiesOnScroll because there is a vertical margin in the PTYTextView and
     // we would not want that copied. This is obviously bad for performance when scrolling, but it's unclear
     // whether the difference will ever be noticable. I believe it could be worked around (painfully) by
@@ -252,7 +294,7 @@ static NSString *PWD_ENVVALUE = @"~";
     [[SCROLLVIEW contentView] setCopiesOnScroll:NO];
 
     // Allocate a text view
-    aSize = [SCROLLVIEW contentSize];
+    NSSize aSize = [SCROLLVIEW contentSize];
     WRAPPER = [[TextViewWrapper alloc] initWithFrame:NSMakeRect(0, 0, aSize.width, aSize.height)];
     [WRAPPER setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
 
@@ -275,8 +317,8 @@ static NSString *PWD_ENVVALUE = @"~";
     [SHELL setDelegate:self];
 
     // initialize the screen
-    int width = aRect.size.width / [TEXTVIEW charWidth];
-    int height = aRect.size.height / [TEXTVIEW lineHeight];
+    int width = (aSize.width - MARGIN*2) / [TEXTVIEW charWidth];
+    int height = (aSize.height - VMARGIN*2) / [TEXTVIEW lineHeight];
     if ([SCREEN initScreenWithWidth:width Height:height]) {
         [self setName:@"Shell"];
         [self setDefaultName:@"Shell"];
@@ -296,12 +338,6 @@ static NSString *PWD_ENVVALUE = @"~";
         antiIdleTimer = nil;
         newOutput = NO;
 
-        // register for some notifications
-        [[NSNotificationCenter defaultCenter] addObserver:self
-                                                 selector:@selector(tabViewWillRedraw:)
-                                                     name:@"iTermTabViewWillRedraw"
-                                                   object:nil];
-
         return YES;
     } else {
         [SCREEN release];
@@ -316,10 +352,45 @@ static NSString *PWD_ENVVALUE = @"~";
     }
 }
 
+- (void)runCommandWithOldCwd:(NSString*)oldCWD
+{
+    NSMutableString *cmd;
+    NSArray *arg;
+    NSString *pwd;
+    BOOL isUTF8;
+
+    // Grab the addressbook command
+    Bookmark* addressbookEntry = [self addressBookEntry];
+    BOOL loginSession;
+    cmd = [[[NSMutableString alloc] initWithString:[ITAddressBookMgr bookmarkCommand:addressbookEntry isLoginSession:&loginSession]] autorelease];
+    NSMutableString* theName = [[[NSMutableString alloc] initWithString:[addressbookEntry objectForKey:KEY_NAME]] autorelease];
+    // Get session parameters
+    [[[self tab] realParentWindow] getSessionParameters:cmd withName:theName];
+
+    [PseudoTerminal breakDown:cmd cmdPath:&cmd cmdArgs:&arg];
+
+    pwd = [ITAddressBookMgr bookmarkWorkingDirectory:addressbookEntry];
+    if ([pwd length] == 0) {
+        if (oldCWD) {
+            pwd = oldCWD;
+        } else {
+            pwd = NSHomeDirectory();
+        }
+    }
+    NSDictionary *env = [NSDictionary dictionaryWithObject: pwd forKey:@"PWD"];
+    isUTF8 = ([[addressbookEntry objectForKey:KEY_CHARACTER_ENCODING] unsignedIntValue] == NSUTF8StringEncoding);
+
+    [[[self tab] realParentWindow] setName:theName forSession:self];
+
+    // Start the command
+    [self startProgram:cmd arguments:arg environment:env isUTF8:isUTF8 asLoginSession:loginSession];
+}
+
 - (void)setWidth:(int)width height:(int)height
 {
     [SCREEN resizeWidth:width height:height];
     [SHELL setWidth:width height:height];
+    [TEXTVIEW clearHighlights];
 }
 
 - (void)setNewOutput:(BOOL)value
@@ -336,6 +407,7 @@ static NSString *PWD_ENVVALUE = @"~";
            arguments:(NSArray *)prog_argv
          environment:(NSDictionary *)prog_env
               isUTF8:(BOOL)isUTF8
+      asLoginSession:(BOOL)asLoginSession
 {
     NSString *path = program;
     NSMutableArray *argv = [NSMutableArray arrayWithArray:prog_argv];
@@ -352,9 +424,11 @@ static NSString *PWD_ENVVALUE = @"~";
     if ([env objectForKey:COLORFGBG_ENVNAME] == nil && COLORFGBG_VALUE != nil)
         [env setObject:COLORFGBG_VALUE forKey:COLORFGBG_ENVNAME];
 
-    NSString* locale = [self _getLocale];
-    if (locale) {
-        [env setObject:locale forKey:@"LANG"];
+    NSString* lang = [self _lang];
+    if (lang) {
+        [env setObject:lang forKey:@"LANG"];
+    } else {
+        [env setObject:[self encodingName] forKey:@"LC_CTYPE"];
     }
 
     if ([env objectForKey:PWD_ENVNAME] == nil)
@@ -366,7 +440,7 @@ static NSString *PWD_ENVVALUE = @"~";
                     width:[SCREEN width]
                    height:[SCREEN height]
                    isUTF8:isUTF8
-    ];
+           asLoginSession:asLoginSession];
 
 }
 
@@ -386,22 +460,28 @@ static NSString *PWD_ENVVALUE = @"~";
     // final update of display
     [self updateDisplay];
 
-    [addressBookEntry release];
-    addressBookEntry = nil;
-
     [TEXTVIEW setDataSource: nil];
     [TEXTVIEW setDelegate: nil];
     [TEXTVIEW removeFromSuperview];
+    TEXTVIEW = nil;
 
     [SHELL setDelegate:nil];
     [SCREEN setShellTask:nil];
-    [SCREEN setSession: nil];
-    [SCREEN setTerminal: nil];
-    [TERMINAL setScreen: nil];
+    [SCREEN setSession:nil];
+    [SCREEN setTerminal:nil];
+    [TERMINAL setScreen:nil];
 
     [updateTimer invalidate];
     [updateTimer release];
     updateTimer = nil;
+
+    if (slowPasteTimer) {
+        [slowPasteTimer invalidate];
+        slowPasteTimer = nil;
+    }
+
+    [tab_ removeSession:self];
+    tab_ = nil;
 }
 
 - (void)writeTask:(NSData*)data
@@ -410,9 +490,9 @@ static NSString *PWD_ENVVALUE = @"~";
     id<WindowControllerInterface> parent = [[self tab] parentWindow];
     if ([parent sendInputToAllSessions] == NO) {
         if (!EXIT) {
-            [self setBell: NO];
-            PTYScroller* ptys=(PTYScroller*)[SCROLLVIEW verticalScroller];
-            [SHELL writeTask: data];
+            [self setBell:NO];
+            PTYScroller* ptys = (PTYScroller*)[SCROLLVIEW verticalScroller];
+            [SHELL writeTask:data];
             [ptys setUserScroll:NO];
         }
     } else {
@@ -474,22 +554,21 @@ static NSString *PWD_ENVVALUE = @"~";
 
 - (void)brokenPipe
 {
-#if DEBUG_METHOD_TRACE
-    NSLog(@"%s(%d):-[PTYSession brokenPipe]", __FILE__, __LINE__);
-#endif
-    [gd growlNotify:NSLocalizedStringFromTableInBundle(@"Broken Pipe",
-                                                       @"iTerm",
-                                                       [NSBundle bundleForClass:[self class]],
-                                                       @"Growl Alerts")
-    withDescription:[NSString stringWithFormat:NSLocalizedStringFromTableInBundle(@"Session %@ #%d just terminated.",
-                                                                                  @"iTerm",
-                                                                                  [NSBundle bundleForClass:[self class]],
-                                                                                  @"Growl Alerts"),
-                     [self name],
-                     [[self tab] realObjectCount]]
-    andNotification:@"Broken Pipes"];
+    if ([SCREEN growl]) {
+        [gd growlNotify:NSLocalizedStringFromTableInBundle(@"Broken Pipe",
+                                                           @"iTerm",
+                                                           [NSBundle bundleForClass:[self class]],
+                                                           @"Growl Alerts")
+            withDescription:[NSString stringWithFormat:NSLocalizedStringFromTableInBundle(@"Session %@ #%d just terminated.",
+                                                                                          @"iTerm",
+                                                                                          [NSBundle bundleForClass:[self class]],
+                                                                                          @"Growl Alerts"),
+                             [self name],
+                             [[self tab] realObjectCount]]
+            andNotification:@"Broken Pipes"];
+    }
 
-    EXIT=YES;
+    EXIT = YES;
     [[self tab] setLabelAttributes];
 
     if ([self autoClose]) {
@@ -499,14 +578,13 @@ static NSString *PWD_ENVVALUE = @"~";
     }
 }
 
-- (BOOL)hasKeyMappingForEvent:(NSEvent *)event highPriority:(BOOL)priority
+- (BOOL)hasActionableKeyMappingForEvent:(NSEvent *)event
 {
     unsigned int modflag;
     NSString *unmodkeystr;
     unichar unmodunicode;
     int keyBindingAction;
     NSString *keyBindingText;
-    BOOL keyBindingPriority;
 
     modflag = [event modifierFlags];
     unmodkeystr = [event charactersIgnoringModifiers];
@@ -523,15 +601,122 @@ static NSString *PWD_ENVVALUE = @"~";
 
     keyBindingAction = [iTermKeyBindingMgr actionForKeyCode:unmodunicode
                                                   modifiers:modflag
-                                               highPriority:&keyBindingPriority
                                                        text:&keyBindingText
                                                 keyMappings:[[self addressBookEntry] objectForKey: KEY_KEYBOARD_MAP]];
 
 
-    return (keyBindingAction >= 0);
+    return (keyBindingAction >= 0) && (keyBindingAction != KEY_ACTION_DO_NOT_REMAP_MODIFIERS) && (keyBindingAction != KEY_ACTION_REMAP_LOCALLY);
 }
 
-// Screen for special keys
++ (void)reloadAllBookmarks
+{
+    int n = [[iTermController sharedInstance] numberOfTerminals];
+    for (int i = 0; i < n; ++i) {
+        PseudoTerminal* pty = [[iTermController sharedInstance] terminalAtIndex:i];
+        [pty reloadBookmarks];
+    }
+}
+
+- (BOOL)_askAboutOutdatedKeyMappings
+{
+    NSNumber* n = [addressBookEntry objectForKey:KEY_ASK_ABOUT_OUTDATED_KEYMAPS];
+    return n ? [n boolValue] : YES;
+}
+
+- (void)_removeOutdatedKeyMapping
+{
+    NSMutableDictionary* temp = [NSMutableDictionary dictionaryWithDictionary:addressBookEntry];
+    [iTermKeyBindingMgr removeMappingWithCode:NSLeftArrowFunctionKey
+                                    modifiers:NSCommandKeyMask | NSAlternateKeyMask | NSNumericPadKeyMask
+                                   inBookmark:temp];
+    [iTermKeyBindingMgr removeMappingWithCode:NSRightArrowFunctionKey
+                                    modifiers:NSCommandKeyMask | NSAlternateKeyMask | NSNumericPadKeyMask
+                                   inBookmark:temp];
+
+    BookmarkModel* model;
+    if (isDivorced) {
+        model = [BookmarkModel sessionsInstance];
+    } else {
+        model = [BookmarkModel sharedInstance];
+    }
+    [model setBookmark:temp withGuid:[temp objectForKey:KEY_GUID]];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"iTermKeyBindingsChanged"
+                                                        object:nil
+                                                      userInfo:nil];
+    [PTYSession reloadAllBookmarks];
+}
+
+- (void)_setKeepOutdatedKeyMapping
+{
+    BookmarkModel* model;
+    if (isDivorced) {
+        model = [BookmarkModel sessionsInstance];
+    } else {
+        model = [BookmarkModel sharedInstance];
+    }
+    [model setObject:[NSNumber numberWithBool:NO]
+                                       forKey:KEY_ASK_ABOUT_OUTDATED_KEYMAPS
+                                   inBookmark:addressBookEntry];
+    [PTYSession reloadAllBookmarks];
+}
+
++ (BOOL)_recursiveSelectMenuItem:(NSString*)theName inMenu:(NSMenu*)menu
+{
+    for (NSMenuItem* item in [menu itemArray]) {
+        if (![item isEnabled] || [item isHidden] || [item isAlternate]) {
+            continue;
+        }
+        if ([item hasSubmenu]) {
+            if ([PTYSession _recursiveSelectMenuItem:theName inMenu:[item submenu]]) {
+                return YES;
+            }
+        } else if ([theName isEqualToString:[item title]]) {
+            [NSApp sendAction:[item action]
+                           to:[item target]
+                         from:nil];
+            return YES;
+        }
+    }
+    return NO;
+}
+
++ (BOOL)handleShortcutWithoutTerminal:(NSEvent*)event
+{
+    unsigned int modflag;
+    NSString *unmodkeystr;
+    unichar unmodunicode;
+    int keyBindingAction;
+    NSString *keyBindingText;
+
+    modflag = [event modifierFlags];
+    unmodkeystr = [event charactersIgnoringModifiers];
+    unmodunicode = [unmodkeystr length]>0?[unmodkeystr characterAtIndex:0]:0;
+
+    // Check if we have a custom key mapping for this event
+    keyBindingAction = [iTermKeyBindingMgr actionForKeyCode:unmodunicode
+                                                  modifiers:modflag
+                                                       text:&keyBindingText
+                                                keyMappings:[iTermKeyBindingMgr globalKeyMap]];
+
+
+    if (keyBindingAction == KEY_ACTION_SELECT_MENU_ITEM) {
+        [PTYSession selectMenuItem:keyBindingText];
+        return YES;
+    } else {
+        return NO;
+    }
+}
+
+
++ (void)selectMenuItem:(NSString*)theName
+{
+    if (![self _recursiveSelectMenuItem:theName inMenu:[NSApp mainMenu]]) {
+        NSBeep();
+    }
+}
+
+// Handle bookmark- and global-scope keybindings. If there is no keybinding then
+// pass the keystroke as input.
 - (void)keyDown:(NSEvent *)event
 {
     unsigned char *send_str = NULL;
@@ -541,7 +726,6 @@ static NSString *PWD_ENVVALUE = @"~";
     int send_pchr = -1;
     int keyBindingAction;
     NSString *keyBindingText;
-    BOOL priority;
 
     unsigned int modflag;
     NSString *keystr;
@@ -553,17 +737,35 @@ static NSString *PWD_ENVVALUE = @"~";
           __FILE__, __LINE__, event);
 #endif
 
-    if (EXIT) {
-      return;
-    }
-
     modflag = [event modifierFlags];
     keystr  = [event characters];
     unmodkeystr = [event charactersIgnoringModifiers];
-    unicode = [keystr length]>0?[keystr characterAtIndex:0]:0;
-    unmodunicode = [unmodkeystr length]>0?[unmodkeystr characterAtIndex:0]:0;
+    if ([unmodkeystr length] == 0) {
+        return;
+    }
+    unicode = [keystr length] > 0 ? [keystr characterAtIndex:0] : 0;
+    unmodunicode = [unmodkeystr length] > 0 ? [unmodkeystr characterAtIndex:0] : 0;
 
     gettimeofday(&lastInput, NULL);
+
+    if ([[[self tab] realParentWindow] inInstantReplay]) {
+        // Special key handling in IR mode, and keys never get sent to the live
+        // session, even though it might be displayed.
+        if (unicode == 27) {
+            // Escape exits IR
+            [[[self tab] realParentWindow] closeInstantReplay:self];
+            return;
+        } else if (unmodunicode == NSLeftArrowFunctionKey) {
+            // Left arrow moves to prev frame
+            [[[self tab] realParentWindow] irPrev:self];
+        } else if (unmodunicode == NSRightArrowFunctionKey) {
+            // Right arrow moves to next frame
+            [[[self tab] realParentWindow] irNext:self];
+        } else {
+            NSBeep();
+        }
+        return;
+    }
 
     /*
     unsigned short keycode = [event keyCode];
@@ -573,28 +775,59 @@ static NSString *PWD_ENVVALUE = @"~";
     // Check if we have a custom key mapping for this event
     keyBindingAction = [iTermKeyBindingMgr actionForKeyCode:unmodunicode
                                                   modifiers:modflag
-                                               highPriority:&priority
                                                        text:&keyBindingText
                                                 keyMappings:[[self addressBookEntry] objectForKey:KEY_KEYBOARD_MAP]];
 
     if (keyBindingAction >= 0) {
         // A special action was bound to this key combination.
         NSString *aString;
-        unsigned char hexCode;
-        int hexCodeTmp;
+
+        if (keyBindingAction == KEY_ACTION_NEXT_SESSION ||
+            keyBindingAction == KEY_ACTION_PREVIOUS_SESSION) {
+            // Warn users about outdated default key bindings.
+            int tempMods = modflag & (NSAlternateKeyMask | NSControlKeyMask | NSShiftKeyMask | NSCommandKeyMask);
+            int tempKeyCode = unmodunicode;
+            if (tempMods == (NSCommandKeyMask | NSAlternateKeyMask) &&
+                (tempKeyCode == 0xf702 || tempKeyCode == 0xf703) &&
+                [[[self tab] sessions] count] > 1) {
+                if ([self _askAboutOutdatedKeyMappings]) {
+                    int result = NSRunAlertPanel(@"Outdated Key Mapping Found",
+                                                 @"It looks like you're trying to switch split panes but you have a key mapping from an old iTerm installation for ⌘⌥← or ⌘⌥→ that switches tabs instead. What would you like to do?",
+                                                 @"Remove it",
+                                                 @"Remind me later",
+                                                 @"Keep it");
+                    switch (result) {
+                        case NSAlertDefaultReturn:
+                            // Remove it
+                            [self _removeOutdatedKeyMapping];
+                            return;
+                            break;
+                        case NSAlertAlternateReturn:
+                            // Remind me later
+                            break;
+                        case NSAlertOtherReturn:
+                            // Keep it
+                            [self _setKeepOutdatedKeyMapping];
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
+        }
 
         switch (keyBindingAction) {
             case KEY_ACTION_NEXT_SESSION:
-                [[[self tab] parentWindow] nextSession: nil];
+                [[[self tab] parentWindow] nextTab:nil];
                 break;
             case KEY_ACTION_NEXT_WINDOW:
-                [[iTermController sharedInstance] nextTerminal: nil];
+                [[iTermController sharedInstance] nextTerminal:nil];
                 break;
             case KEY_ACTION_PREVIOUS_SESSION:
-                [[[self tab] parentWindow] previousSession: nil];
+                [[[self tab] parentWindow] previousTab:nil];
                 break;
             case KEY_ACTION_PREVIOUS_WINDOW:
-                [[iTermController sharedInstance] previousTerminal: nil];
+                [[iTermController sharedInstance] previousTerminal:nil];
                 break;
             case KEY_ACTION_SCROLL_END:
                 [TEXTVIEW scrollEnd];
@@ -605,48 +838,73 @@ static NSString *PWD_ENVVALUE = @"~";
                 [(PTYScrollView *)[TEXTVIEW enclosingScrollView] detectUserScroll];
                 break;
             case KEY_ACTION_SCROLL_LINE_DOWN:
-                [TEXTVIEW scrollLineDown: self];
+                [TEXTVIEW scrollLineDown:self];
                 [(PTYScrollView *)[TEXTVIEW enclosingScrollView] detectUserScroll];
                 break;
             case KEY_ACTION_SCROLL_LINE_UP:
-                [TEXTVIEW scrollLineUp: self];
+                [TEXTVIEW scrollLineUp:self];
                 [(PTYScrollView *)[TEXTVIEW enclosingScrollView] detectUserScroll];
                 break;
             case KEY_ACTION_SCROLL_PAGE_DOWN:
-                [TEXTVIEW scrollPageDown: self];
+                [TEXTVIEW scrollPageDown:self];
                 [(PTYScrollView *)[TEXTVIEW enclosingScrollView] detectUserScroll];
                 break;
             case KEY_ACTION_SCROLL_PAGE_UP:
-                [TEXTVIEW scrollPageUp: self];
+                [TEXTVIEW scrollPageUp:self];
                 [(PTYScrollView *)[TEXTVIEW enclosingScrollView] detectUserScroll];
                 break;
             case KEY_ACTION_ESCAPE_SEQUENCE:
+                if (EXIT) {
+                    return;
+                }
                 if ([keyBindingText length] > 0) {
                     aString = [NSString stringWithFormat:@"\e%@", keyBindingText];
-                    [self writeTask: [aString dataUsingEncoding: NSUTF8StringEncoding]];
+                    [self writeTask:[aString dataUsingEncoding:NSUTF8StringEncoding]];
                 }
                 break;
             case KEY_ACTION_HEX_CODE:
-                if ([keyBindingText length] > 0 &&
-                    sscanf([keyBindingText UTF8String], "%x", &hexCodeTmp) == 1) {
-                    hexCode = (unsigned char) hexCodeTmp;
-                    [self writeTask:[NSData dataWithBytes:&hexCode length: sizeof(hexCode)]];
+                if (EXIT) {
+                    return;
+                }
+                if ([keyBindingText length]) {
+                    NSArray* components = [keyBindingText componentsSeparatedByString:@" "];
+                    for (NSString* part in components) {
+                        const char* utf8 = [part UTF8String];
+                        char* endPtr;
+                        unsigned char c = strtol(utf8, &endPtr, 16);
+                        if (endPtr != utf8) {
+                            [self writeTask:[NSData dataWithBytes:&c length:sizeof(c)]];
+                        }
+                    }
                 }
                 break;
             case KEY_ACTION_TEXT:
+                if (EXIT) {
+                    return;
+                }
                 if([keyBindingText length] > 0) {
-                    NSMutableString *bindingText = [NSMutableString stringWithString: keyBindingText];
+                    NSMutableString *bindingText = [NSMutableString stringWithString:keyBindingText];
                     [bindingText replaceOccurrencesOfString:@"\\n" withString:@"\n" options:NSLiteralSearch range:NSMakeRange(0,[bindingText length])];
                     [bindingText replaceOccurrencesOfString:@"\\e" withString:@"\e" options:NSLiteralSearch range:NSMakeRange(0,[bindingText length])];
                     [bindingText replaceOccurrencesOfString:@"\\a" withString:@"\a" options:NSLiteralSearch range:NSMakeRange(0,[bindingText length])];
                     [bindingText replaceOccurrencesOfString:@"\\t" withString:@"\t" options:NSLiteralSearch range:NSMakeRange(0,[bindingText length])];
-                    [self writeTask: [bindingText dataUsingEncoding: NSUTF8StringEncoding]];
+                    [self writeTask:[bindingText dataUsingEncoding:NSUTF8StringEncoding]];
                 }
                 break;
+            case KEY_ACTION_SELECT_MENU_ITEM:
+                [PTYSession selectMenuItem:keyBindingText];
+                break;
+
             case KEY_ACTION_SEND_C_H_BACKSPACE:
+                if (EXIT) {
+                    return;
+                }
                 [self writeTask:[@"\010" dataUsingEncoding:NSUTF8StringEncoding]];
                 break;
             case KEY_ACTION_SEND_C_QM_BACKSPACE:
+                if (EXIT) {
+                    return;
+                }
                 [self writeTask:[@"\177" dataUsingEncoding:NSUTF8StringEncoding]]; // decimal 127
                 break;
             case KEY_ACTION_IGNORE:
@@ -657,49 +915,90 @@ static NSString *PWD_ENVVALUE = @"~";
             case KEY_ACTION_IR_BACKWARD:
                 [[iTermController sharedInstance] irAdvance:-1];
                 break;
+            case KEY_ACTION_SELECT_PANE_LEFT:
+                [[[iTermController sharedInstance] currentTerminal] selectPaneLeft:nil];
+                break;
+            case KEY_ACTION_SELECT_PANE_RIGHT:
+                [[[iTermController sharedInstance] currentTerminal] selectPaneRight:nil];
+                break;
+            case KEY_ACTION_SELECT_PANE_ABOVE:
+                [[[iTermController sharedInstance] currentTerminal] selectPaneUp:nil];
+                break;
+            case KEY_ACTION_SELECT_PANE_BELOW:
+                [[[iTermController sharedInstance] currentTerminal] selectPaneDown:nil];
+                break;
+            case KEY_ACTION_DO_NOT_REMAP_MODIFIERS:
+            case KEY_ACTION_REMAP_LOCALLY:
+                break;
+            case KEY_ACTION_TOGGLE_FULLSCREEN:
+                [[[iTermController sharedInstance] currentTerminal] toggleFullScreen:nil];
+                break;
+            case KEY_ACTION_NEW_WINDOW_WITH_PROFILE:
+                [[[self tab] realParentWindow] newWindowWithBookmarkGuid:keyBindingText];
+                break;
+            case KEY_ACTION_NEW_TAB_WITH_PROFILE:
+                [[[self tab] realParentWindow] newTabWithBookmarkGuid:keyBindingText];
+                break;
+            case KEY_ACTION_SPLIT_HORIZONTALLY_WITH_PROFILE:
+                [[[self tab] realParentWindow] splitVertically:NO withBookmarkGuid:keyBindingText];
+                break;
+            case KEY_ACTION_SPLIT_VERTICALLY_WITH_PROFILE:
+                [[[self tab] realParentWindow] splitVertically:YES withBookmarkGuid:keyBindingText];
+                break;
             default:
                 NSLog(@"Unknown key action %d", keyBindingAction);
                 break;
         }
     } else {
+        if (EXIT) {
+            return;
+        }
         // No special binding for this key combination.
         if (modflag & NSFunctionKeyMask) {
             // Handle all "special" keys (arrows, etc.)
             NSData *data = nil;
 
+            // Set the alternate key mask iff an esc-generating modifier is
+            // pressed.
+            unsigned int hackedModflag = modflag & (~NSAlternateKeyMask);
+            if ([self shouldSendEscPrefixForModifier:modflag]) {
+                hackedModflag |= NSAlternateKeyMask;
+            }
+
             switch (unicode) {
                 case NSUpArrowFunctionKey:
-                    data = [TERMINAL keyArrowUp:modflag];
+                    data = [TERMINAL keyArrowUp:hackedModflag];
                     break;
                 case NSDownArrowFunctionKey:
-                    data = [TERMINAL keyArrowDown:modflag];
+                    data = [TERMINAL keyArrowDown:hackedModflag];
                     break;
                 case NSLeftArrowFunctionKey:
-                    data = [TERMINAL keyArrowLeft:modflag];
+                    data = [TERMINAL keyArrowLeft:hackedModflag];
                     break;
                 case NSRightArrowFunctionKey:
-                    data = [TERMINAL keyArrowRight:modflag];
+                    data = [TERMINAL keyArrowRight:hackedModflag];
                     break;
                 case NSInsertFunctionKey:
                     data = [TERMINAL keyInsert];
                     break;
                 case NSDeleteFunctionKey:
+                    // This is forward delete, not backspace.
                     data = [TERMINAL keyDelete];
                     break;
                 case NSHomeFunctionKey:
-                    data = [TERMINAL keyHome:modflag];
+                    data = [TERMINAL keyHome:hackedModflag];
                     break;
                 case NSEndFunctionKey:
-                    data = [TERMINAL keyEnd:modflag];
+                    data = [TERMINAL keyEnd:hackedModflag];
                     break;
                 case NSPageUpFunctionKey:
-                    data = [TERMINAL keyPageUp];
+                    data = [TERMINAL keyPageUp:hackedModflag];
                     break;
                 case NSPageDownFunctionKey:
-                    data = [TERMINAL keyPageDown];
+                    data = [TERMINAL keyPageDown:hackedModflag];
                     break;
                 case NSClearLineFunctionKey:
-                    data = [@"\e" dataUsingEncoding: NSUTF8StringEncoding];
+                    data = [@"\e" dataUsingEncoding:NSUTF8StringEncoding];
                     break;
             }
 
@@ -763,15 +1062,24 @@ static NSString *PWD_ENVVALUE = @"~";
             }
             // Check if we are in keypad mode
             if (modflag & NSNumericPadKeyMask) {
-                data = [TERMINAL keypadData: unicode keystr: keystr];
+                data = [TERMINAL keypadData:unicode keystr:keystr];
             }
 
-            if (data != nil ) {
+            int indMask = modflag & NSDeviceIndependentModifierFlagsMask;
+            if ((indMask & NSCommandKeyMask) &&   // pressing cmd
+                ([keystr isEqualToString:@"0"] ||  // pressed 0 key
+                 ([keystr intValue] > 0 && [keystr intValue] <= 9))) {   // or any other digit key
+                // Do not send anything for cmd+number because the user probably
+                // fat-fingered switching of tabs/windows.
+                data = nil;
+            }
+            if (data != nil) {
                 send_str = (unsigned char *)[data bytes];
                 send_strlen = [data length];
+                DebugLog([NSString stringWithFormat:@"modflag = 0x%x; send_strlen = %d; send_str[0] = '%c (0x%x)'",
+                          modflag, send_strlen, send_str[0]]);
             }
 
-            DebugLog([NSString stringWithFormat:@"modflag = 0x%x; send_strlen = %d; send_str[0] = '%c (0x%x)'", modflag, send_strlen, send_str[0]]);
             if ((modflag & NSControlKeyMask) &&
                 send_strlen == 1 &&
                 send_str[0] == '|') {
@@ -815,18 +1123,16 @@ static NSString *PWD_ENVVALUE = @"~";
                 dataLength = send_strlen;
                 [self writeTask:[NSData dataWithBytes:dataPtr length:dataLength]];
             }
-
         }
     }
-
 }
 
-- (BOOL)willHandleEvent: (NSEvent *) theEvent
+- (BOOL)willHandleEvent:(NSEvent *) theEvent
 {
     return NO;
 }
 
-- (void)handleEvent: (NSEvent *) theEvent
+- (void)handleEvent:(NSEvent *) theEvent
 {
 }
 
@@ -841,7 +1147,7 @@ static NSString *PWD_ENVVALUE = @"~";
         return;
     }
 
-    //    NSLog(@"insertText: %@",string);
+    //    NSLog(@"insertText:%@",string);
     mstring = [NSMutableString stringWithString:string];
     max = [string length];
     for (i = 0; i < max; i++) {
@@ -928,7 +1234,7 @@ static NSString *PWD_ENVVALUE = @"~";
     NSLog(@"%s(%d):-[PTYSession pageUp:%@]",
           __FILE__, __LINE__, sender);
 #endif
-    [self writeTask:[TERMINAL keyPageUp]];
+    [self writeTask:[TERMINAL keyPageUp:0]];
 }
 
 - (void)pageDown:(id)sender
@@ -937,33 +1243,53 @@ static NSString *PWD_ENVVALUE = @"~";
     NSLog(@"%s(%d):-[PTYSession pageDown:%@]",
           __FILE__, __LINE__, sender);
 #endif
-    [self writeTask:[TERMINAL keyPageDown]];
+    [self writeTask:[TERMINAL keyPageDown:0]];
+}
+
++ (NSString*)pasteboardString
+{
+    NSPasteboard *board;
+
+    board = [NSPasteboard generalPasteboard];
+    assert(board != nil);
+
+    NSArray *supportedTypes = [NSArray arrayWithObjects:NSFilenamesPboardType, NSStringPboardType, nil];
+    NSString *bestType = [board availableTypeFromArray:supportedTypes];
+
+    NSString* info = nil;
+    if ([bestType isEqualToString:NSFilenamesPboardType]) {
+        NSArray *filenames = [board propertyListForType:NSFilenamesPboardType];
+        if ([filenames count] > 0) {
+            info = [filenames componentsJoinedByString:@"\n"];
+            if ([info length] == 0) {
+                info = nil;
+            }
+        }
+    } else {
+        info = [board stringForType:NSStringPboardType];
+    }
+    return info;
 }
 
 - (void)paste:(id)sender
 {
-    NSPasteboard *board;
-    NSMutableString *str;
-
-#if DEBUG_METHOD_TRACE
-    NSLog(@"%s(%d):-[PTYSession paste:...]", __FILE__, __LINE__);
-#endif
-
-    board = [NSPasteboard generalPasteboard];
-    NSParameterAssert(board != nil );
-    str = [[[NSMutableString alloc] initWithString:[board stringForType:NSStringPboardType]] autorelease];
-    if ([sender tag] & 1) {
-        // paste with escape;
-        [str replaceOccurrencesOfString:@"\\" withString:@"\\\\" options:NSLiteralSearch range:NSMakeRange(0, [str length])];
-        [str replaceOccurrencesOfString:@"'" withString:@"\\'" options:NSLiteralSearch range:NSMakeRange(0, [str length])];
-        [str replaceOccurrencesOfString:@"\"" withString:@"\\\"" options:NSLiteralSearch range:NSMakeRange(0, [str length])];
-        [str replaceOccurrencesOfString:@" " withString:@"\\ " options:NSLiteralSearch range:NSMakeRange(0, [str length])];
-    }
-    if ([sender tag] & 2) {
-        [slowPasteBuffer setString:str];
-        [self pasteSlowly:nil];
-    } else {
-        [self pasteString: str];
+    NSString* pbStr = [PTYSession pasteboardString];
+    if (pbStr) {
+        NSMutableString *str;
+        str = [[[NSMutableString alloc] initWithString:pbStr] autorelease];
+        if ([sender tag] & 1) {
+            // paste with escape;
+            [str replaceOccurrencesOfString:@"\\" withString:@"\\\\" options:NSLiteralSearch range:NSMakeRange(0, [str length])];
+            [str replaceOccurrencesOfString:@"'" withString:@"\\'" options:NSLiteralSearch range:NSMakeRange(0, [str length])];
+            [str replaceOccurrencesOfString:@"\"" withString:@"\\\"" options:NSLiteralSearch range:NSMakeRange(0, [str length])];
+            [str replaceOccurrencesOfString:@" " withString:@"\\ " options:NSLiteralSearch range:NSMakeRange(0, [str length])];
+        }
+        if ([sender tag] & 2) {
+            [slowPasteBuffer setString:str];
+            [self pasteSlowly:nil];
+        } else {
+            [self pasteString:str];
+        }
     }
 }
 
@@ -989,10 +1315,12 @@ static NSString *PWD_ENVVALUE = @"~";
                                                         selector:@selector(pasteSlowly:)
                                                         userInfo:nil
                                                          repeats:NO];
+    } else {
+        slowPasteTimer = nil;
     }
 }
 
-- (void) pasteString: (NSString *) aString
+- (void)pasteString:(NSString *)aString
 {
 
     if ([aString length] > 0) {
@@ -1052,9 +1380,7 @@ static NSString *PWD_ENVVALUE = @"~";
     h = (int)(([[SCROLLVIEW contentView] frame].size.height) / [TEXTVIEW lineHeight]);
     //NSLog(@"%s: w = %d; h = %d; old w = %d; old h = %d", __PRETTY_FUNCTION__, w, h, [SCREEN width], [SCREEN height]);
 
-    [SCREEN resizeWidth:w height:h];
-    [SHELL setWidth:w  height:h];
-
+    [self setWidth:w height:h];
 }
 
 - (BOOL) bell
@@ -1068,7 +1394,9 @@ static NSString *PWD_ENVVALUE = @"~";
         bell = flag;
         [[self tab] setBell:flag];
         if (bell) {
-            if ([TEXTVIEW keyIsARepeat] == NO && ![[TEXTVIEW window] isKeyWindow]) {
+            if ([TEXTVIEW keyIsARepeat] == NO &&
+                ![[TEXTVIEW window] isKeyWindow] &&
+                [SCREEN growl]) {
                 [gd growlNotify:NSLocalizedStringFromTableInBundle(@"Bell",
                                                                    @"iTerm",
                                                                    [NSBundle bundleForClass:[self class]],
@@ -1113,11 +1441,6 @@ static NSString *PWD_ENVVALUE = @"~";
 
 - (void)setPreferencesFromAddressBookEntry:(NSDictionary *) aePrefs
 {
-
-#if DEBUG_METHOD_TRACE
-    NSLog(@"%s(%d):-[PTYSession setPreferencesFromAddressBookEntry:");
-#endif
-
     NSColor *colorTable[2][8];
     int i;
     NSDictionary *aDict;
@@ -1137,21 +1460,38 @@ static NSString *PWD_ENVVALUE = @"~";
     [self setBoldColor:[ITAddressBookMgr decodeColor:[aDict objectForKey:KEY_BOLD_COLOR]]];
     [self setCursorColor:[ITAddressBookMgr decodeColor:[aDict objectForKey:KEY_CURSOR_COLOR]]];
     [self setCursorTextColor:[ITAddressBookMgr decodeColor:[aDict objectForKey:KEY_CURSOR_TEXT_COLOR]]];
+    BOOL scc;
+    if ([aDict objectForKey:KEY_SMART_CURSOR_COLOR]) {
+        scc = [[aDict objectForKey:KEY_SMART_CURSOR_COLOR] boolValue];
+    } else {
+        scc = [[PreferencePanel sharedInstance] legacySmartCursorColor];
+    }
+    [self setSmartCursorColor:scc];
+
+    float mc;
+    if ([aDict objectForKey:KEY_MINIMUM_CONTRAST]) {
+        mc = [[aDict objectForKey:KEY_MINIMUM_CONTRAST] floatValue];
+    } else {
+        mc = [[PreferencePanel sharedInstance] legacyMinimumContrast];
+    }
+    [self setMinimumContrast:mc];
+
     for (i = 0; i < 8; i++) {
         colorTable[0][i] = [ITAddressBookMgr decodeColor:[aDict objectForKey:[NSString stringWithFormat:KEYTEMPLATE_ANSI_X_COLOR, i]]];
         colorTable[1][i] = [ITAddressBookMgr decodeColor:[aDict objectForKey:[NSString stringWithFormat:KEYTEMPLATE_ANSI_X_COLOR, i + 8]]];
     }
-    for(i=0;i<8;i++) {
+    for(i = 0; i < 8; i++) {
         [self setColorTable:i color:colorTable[0][i]];
         [self setColorTable:i+8 color:colorTable[1][i]];
     }
-    for (i=0;i<216;++i) {
-        [self setColorTable:i+16 color:[NSColor colorWithCalibratedRed:(i/36) ? ((i/36)*40+55)/256.0:0
-                                                  green:(i%36)/6 ? (((i%36)/6)*40+55)/256.0:0
-                                                    blue:(i%6) ?((i%6)*40+55)/256.0:0
-                                                  alpha:1]];
+    for (i = 0; i < 216; i++) {
+        [self setColorTable:i+16
+                      color:[NSColor colorWithCalibratedRed:(i/36) ? ((i/36)*40+55)/256.0 : 0
+                                                      green:(i%36)/6 ? (((i%36)/6)*40+55)/256.0:0
+                                                       blue:(i%6) ?((i%6)*40+55)/256.0:0
+                                                      alpha:1]];
     }
-    for (i=0;i<24;++i) {
+    for (i = 0; i < 24; i++) {
         [self setColorTable:i+232 color:[NSColor colorWithCalibratedWhite:(i*10+8)/256.0 alpha:1]];
     }
 
@@ -1184,18 +1524,28 @@ static NSString *PWD_ENVVALUE = @"~";
     [SCREEN setShowBellFlag:[[aDict objectForKey:KEY_VISUAL_BELL] boolValue]];
     [SCREEN setFlashBellFlag:[[aDict objectForKey:KEY_FLASHING_BELL] boolValue]];
     [SCREEN setGrowlFlag:[[aDict objectForKey:KEY_BOOKMARK_GROWL_NOTIFICATIONS] boolValue]];
-    [SCREEN setBlinkingCursor: [[aDict objectForKey: KEY_BLINKING_CURSOR] boolValue]];
-    [TEXTVIEW setBlinkingCursor: [[aDict objectForKey: KEY_BLINKING_CURSOR] boolValue]];
-    [TEXTVIEW setUseTransparency:[[aDict objectForKey:KEY_TRANSPARENCY] boolValue]];
+    [SCREEN setBlinkingCursor:[[aDict objectForKey: KEY_BLINKING_CURSOR] boolValue]];
+    [TEXTVIEW setBlinkAllowed:[[aDict objectForKey:KEY_BLINK_ALLOWED] boolValue]];
+    [TEXTVIEW setBlinkingCursor:[[aDict objectForKey: KEY_BLINKING_CURSOR] boolValue]];
+    [TEXTVIEW setCursorType:([aDict objectForKey:KEY_CURSOR_TYPE] ? [[aDict objectForKey:KEY_CURSOR_TYPE] intValue] : [[PreferencePanel sharedInstance] legacyCursorType])];
+
     PTYTab* currentTab = [[[self tab] parentWindow] currentTab];
     if (currentTab == nil || currentTab == [self tab]) {
-        if ([[aDict objectForKey:KEY_BLUR] boolValue]) {
-            [[[self tab] parentWindow] enableBlur];
-        } else {
-            [[[self tab] parentWindow] disableBlur];
-        }
+        [[self tab] recheckBlur];
     }
-    [TEXTVIEW setAntiAlias:[[aDict objectForKey:KEY_ANTI_ALIASING] boolValue]];
+    BOOL asciiAA;
+    BOOL nonasciiAA;
+    if ([aDict objectForKey:KEY_ASCII_ANTI_ALIASED]) {
+        asciiAA = [[aDict objectForKey:KEY_ASCII_ANTI_ALIASED] boolValue];
+    } else {
+        asciiAA = [[aDict objectForKey:KEY_ANTI_ALIASING] boolValue];
+    }
+    if ([aDict objectForKey:KEY_NONASCII_ANTI_ALIASED]) {
+        nonasciiAA = [[aDict objectForKey:KEY_NONASCII_ANTI_ALIASED] boolValue];
+    } else {
+        nonasciiAA = [[aDict objectForKey:KEY_ANTI_ALIASING] boolValue];
+    }
+    [TEXTVIEW setAntiAlias:asciiAA nonAscii:nonasciiAA];
     [self setEncoding:[[aDict objectForKey:KEY_CHARACTER_ENCODING] unsignedIntValue]];
     [self setTERM_VALUE:[aDict objectForKey:KEY_TERMINAL_TYPE]];
     [self setAntiCode:[[aDict objectForKey:KEY_IDLE_CODE] intValue]];
@@ -1203,34 +1553,19 @@ static NSString *PWD_ENVVALUE = @"~";
     [self setAutoClose:[[aDict objectForKey:KEY_CLOSE_SESSIONS_ON_END] boolValue]];
     [self setDoubleWidth:[[aDict objectForKey:KEY_AMBIGUOUS_DOUBLE_WIDTH] boolValue]];
     [self setXtermMouseReporting:[[aDict objectForKey:KEY_XTERM_MOUSE_REPORTING] boolValue]];
+    [TERMINAL setDisableSmcupRmcup:[[aDict objectForKey:KEY_DISABLE_SMCUP_RMCUP] boolValue]];
+    [SCREEN setUnlimitedScrollback:[[aDict objectForKey:KEY_UNLIMITED_SCROLLBACK] intValue]];
     [SCREEN setScrollback:[[aDict objectForKey:KEY_SCROLLBACK_LINES] intValue]];
 
     [self setFont:[ITAddressBookMgr fontWithDesc:[aDict objectForKey:KEY_NORMAL_FONT]]
            nafont:[ITAddressBookMgr fontWithDesc:[aDict objectForKey:KEY_NON_ASCII_FONT]]
-    horizontalSpacing:[[aDict objectForKey:KEY_HORIZONTAL_SPACING] floatValue]
-  verticalSpacing:[[aDict objectForKey:KEY_VERTICAL_SPACING] floatValue]];
+        horizontalSpacing:[[aDict objectForKey:KEY_HORIZONTAL_SPACING] floatValue]
+        verticalSpacing:[[aDict objectForKey:KEY_VERTICAL_SPACING] floatValue]];
 }
 
 // Contextual menu
 - (void)menuForEvent:(NSEvent *)theEvent menu:(NSMenu *)theMenu
 {
-    NSMenuItem *aMenuItem;
-
-#if DEBUG_METHOD_TRACE
-    NSLog(@"%s(%d):-[PTYSession menuForEvent]", __FILE__, __LINE__);
-#endif
-
-    // Clear buffer
-    aMenuItem = [[NSMenuItem alloc] initWithTitle:NSLocalizedStringFromTableInBundle(@"Clear Buffer",
-                                                                                     @"iTerm",
-                                                                                     [NSBundle bundleForClass: [self class]],
-                                                                                     @"Context menu")
-                                           action:@selector(clearBuffer:)
-                                    keyEquivalent:@""];
-    [aMenuItem setTarget:[[self tab] parentWindow]];
-    [theMenu addItem: aMenuItem];
-    [aMenuItem release];
-
     // Ask the parent if it has anything to add
     if ([[self tab] realParentWindow] &&
         [[[self tab] realParentWindow] respondsToSelector:@selector(menuForEvent: menu:)]) {
@@ -1248,13 +1583,28 @@ static NSString *PWD_ENVVALUE = @"~";
     NSLog(@"Not allowed to set unique ID");
 }
 
+- (NSString*)formattedName:(NSString*)base
+{
+    BOOL baseIsBookmarkName = [base isEqualToString:bookmarkName];
+    PreferencePanel* panel = [PreferencePanel sharedInstance];
+    if ([panel jobName] && jobName_) {
+        if (baseIsBookmarkName && ![panel showBookmarkName]) {
+            return [NSString stringWithString:[self jobName]];
+        } else {
+            return [NSString stringWithFormat:@"%@ (%@)", base, [self jobName]];
+        }
+    } else {
+        if (baseIsBookmarkName && ![panel showBookmarkName]) {
+            return @"Shell";
+        } else {
+            return base;
+        }
+    }
+}
+
 - (NSString*)defaultName
 {
-    if (jobName_) {
-        return [NSString stringWithFormat:@"%@ (%@)", defaultName, [self jobName]];
-    } else {
-        return defaultName;
-    }
+    return [self formattedName:defaultName];
 }
 
 - (NSString*)joblessDefaultName
@@ -1291,6 +1641,11 @@ static NSString *PWD_ENVVALUE = @"~";
     return tab_;
 }
 
+- (PTYTab*)ptytab
+{
+    return tab_;
+}
+
 - (void)setTab:(PTYTab*)tab
 {
     tab_ = tab;
@@ -1323,15 +1678,25 @@ static NSString *PWD_ENVVALUE = @"~";
 
 - (NSString*)name
 {
-    if (jobName_) {
-        return [NSString stringWithFormat:@"%@ (%@)", name, [self jobName]];
-    } else {
-        return name;
-    }
+    return [self formattedName:name];
+}
+
+- (NSString*)rawName
+{
+    return name;
+}
+
+- (void)setBookmarkName:(NSString*)theName
+{
+    [bookmarkName release];
+    bookmarkName = [theName copy];
 }
 
 - (void)setName:(NSString*)theName
 {
+    if (!bookmarkName) {
+        bookmarkName = [theName copy];
+    }
     if ([name isEqualToString:theName]) {
         return;
     }
@@ -1373,12 +1738,7 @@ static NSString *PWD_ENVVALUE = @"~";
     if (!windowTitle) {
         return nil;
     }
-    NSString* jobName = [self jobName];
-    if (jobName) {
-        return [NSString stringWithFormat:@"%@ (%@)", windowTitle, [self jobName]];
-    } else {
-        return windowTitle;
-    }
+    return [self formattedName:windowTitle];
 }
 
 - (void)setWindowTitle:(NSString*)theTitle
@@ -1467,8 +1827,9 @@ static NSString *PWD_ENVVALUE = @"~";
 
 - (void)setView:(SessionView*)newView
 {
-    [view autorelease];
-    view = [newView retain];
+    // View holds a reference to us so we don't hold a reference to it.
+    view = newView;
+    [[view findViewController] setDelegate:self];
 }
 
 - (PTYTextView *)TEXTVIEW
@@ -1616,6 +1977,16 @@ static NSString *PWD_ENVVALUE = @"~";
     [[self TEXTVIEW] setCursorColor: color];
 }
 
+- (void)setSmartCursorColor:(BOOL)value
+{
+    [[self TEXTVIEW] setSmartCursorColor:value];
+}
+
+- (void)setMinimumContrast:(float)value
+{
+    [[self TEXTVIEW] setMinimumContrast:value];
+}
+
 - (NSColor *)selectionColor
 {
     return [TEXTVIEW selectionColor];
@@ -1660,13 +2031,9 @@ static NSString *PWD_ENVVALUE = @"~";
         transparency = 0.9;
     }
 
-    if ([[[self tab] parentWindow] fullScreen]) {
-        transparency = 0;
-    }
     // set transparency of background image
-    [SCROLLVIEW setTransparency: transparency];
-    [TEXTVIEW setTransparency: transparency];
-
+    [SCROLLVIEW setTransparency:transparency];
+    [TEXTVIEW setTransparency:transparency];
 }
 
 - (void)setColorTable:(int)theIndex color:(NSColor *)theColor
@@ -1805,6 +2172,21 @@ static NSString *PWD_ENVVALUE = @"~";
     return EXIT;
 }
 
+- (BOOL)shouldSendEscPrefixForModifier:(unsigned int)modmask
+{
+    if ([self optionKey] == OPT_ESC) {
+        if ((modmask & NSLeftAlternateKeyMask) == NSLeftAlternateKeyMask) {
+            return YES;
+        }
+    }
+    if ([self rightOptionKey] == OPT_ESC) {
+        if ((modmask & NSRightAlternateKeyMask) == NSRightAlternateKeyMask) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
 - (int)optionKey
 {
     return [[[self addressBookEntry] objectForKey:KEY_OPTION_KEY_SENDS] intValue];
@@ -1844,7 +2226,7 @@ static NSString *PWD_ENVVALUE = @"~";
     return gd;
 }
 
--(void)sendCommand:(NSString *)command
+- (void)sendCommand:(NSString *)command
 {
     NSData *data = nil;
     NSString *aString = nil;
@@ -1857,6 +2239,17 @@ static NSString *PWD_ENVVALUE = @"~";
     if (data != nil) {
         [self writeTask:data];
     }
+}
+
+- (NSDictionary*)arrangement
+{
+    NSMutableDictionary* result = [NSMutableDictionary dictionaryWithCapacity:3];
+    [result setObject:[NSNumber numberWithInt:[SCREEN width]] forKey:SESSION_ARRANGEMENT_COLUMNS];
+    [result setObject:[NSNumber numberWithInt:[SCREEN height]] forKey:SESSION_ARRANGEMENT_ROWS];
+    [result setObject:addressBookEntry forKey:SESSION_ARRANGEMENT_BOOKMARK];
+    NSString* pwd = [SHELL getWorkingDirectory];
+    [result setObject:pwd ? pwd : @"" forKey:SESSION_ARRANGEMENT_WORKING_DIRECTORY];
+    return result;
 }
 
 - (void)updateScroll
@@ -1874,24 +2267,27 @@ static long long timeInTenthsOfSeconds(struct timeval t)
 - (void)updateDisplay
 {
     timerRunning_ = YES;
-
-    if (![[self tab] isForegroundTab]) {
+    BOOL isForegroundTab = [[self tab] isForegroundTab];
+    if (!isForegroundTab) {
         // Set color, other attributes of a background tab.
         [[self tab] setLabelAttributes];
-    } else if ([[self tab] activeSession] == self) {
+    }
+    if ([[self tab] activeSession] == self) {
         // Update window info for the active tab.
         struct timeval now;
         gettimeofday(&now, NULL);
-        if (timeInTenthsOfSeconds(now) >= timeInTenthsOfSeconds(lastUpdate) + 7) {
-            // It has been more than 700ms since the last time we were here.
-            if ([[[self tab] parentWindow] tempTitle]) {
+        if (!jobName_ ||
+            timeInTenthsOfSeconds(now) >= timeInTenthsOfSeconds(lastUpdate) + 7) {
+            // It has been more than 700ms since the last time we were here or
+            // the job doesn't ahve a name
+            if (isForegroundTab && [[[self tab] parentWindow] tempTitle]) {
                 // Revert to the permanent tab title.
                 [[[self tab] parentWindow] setWindowTitle];
                 [[[self tab] parentWindow] resetTempTitle];
             } else {
                 // Update the job name in the tab title.
                 NSString* oldName = jobName_;
-                jobName_ = [[SHELL currentJob] copy];
+                jobName_ = [[SHELL currentJob:NO] copy];
                 [jobName_ retain];
                 if (![oldName isEqualToString:jobName_]) {
                     [[self tab] nameOfSession:self didChangeTo:[self name]];
@@ -1964,14 +2360,6 @@ static long long timeInTenthsOfSeconds(struct timeval t)
     }
 }
 
-// Notification
-- (void)tabViewWillRedraw:(NSNotification *)aNotification
-{
-    if ([aNotification object] == [[[self tab] tabViewItem] tabView]) {
-        [TEXTVIEW setNeedsDisplay:YES];
-    }
-}
-
 - (int)rows
 {
     return [SCREEN height];
@@ -1996,13 +2384,29 @@ static long long timeInTenthsOfSeconds(struct timeval t)
 
 - (void)setFont:(NSFont*)font nafont:(NSFont*)nafont horizontalSpacing:(float)horizontalSpacing verticalSpacing:(float)verticalSpacing
 {
+    if ([[TEXTVIEW font] isEqualTo:font] &&
+        [[TEXTVIEW nafont] isEqualTo:nafont] &&
+        [TEXTVIEW horizontalSpacing] == horizontalSpacing &&
+        [TEXTVIEW verticalSpacing] == verticalSpacing) {
+        return;
+    }
     [TEXTVIEW setFont:font nafont:nafont horizontalSpacing:horizontalSpacing verticalSpacing:verticalSpacing];
-    // Calling fitWindowToSession:self works but causes window size to change if self has an excess margin.
-    // fitWIndowToSessions doesn't work because it may leave self too small (# rows) for the window when shrinking the font.
+    if (![[[self tab] parentWindow] fullScreen]) {
+        [[[self tab] parentWindow] fitWindowToTab:[self tab]];
+    }
+    // If the window isn't able to adjust, or adjust enough, make the session
+    // work with whatever size we ended up having.
+    [[self tab] fitSessionToCurrentViewSize:self];
+}
 
-    // Adjust the window size to perfectly fit this session. But this may cause the excess margin to
-    // be too small if another tab has a larger font.
-    [[[self tab] parentWindow] fitWindowToSession:self];
+- (void)setIgnoreResizeNotifications:(BOOL)ignore
+{
+    ignoreResizeNotifications_ = ignore;
+}
+
+- (BOOL)ignoreResizeNotifications
+{
+    return ignoreResizeNotifications_;
 }
 
 - (void)changeFontSizeDirection:(int)dir
@@ -2046,6 +2450,9 @@ static long long timeInTenthsOfSeconds(struct timeval t)
     // than its bookmark. Changes to the bookmark will no longer affect this
     // session, and changes to this session won't affect its originating bookmark
     // (which may not evene exist any longer).
+    bookmark = [[BookmarkModel sessionsInstance] setObject:guid
+                                                    forKey:KEY_ORIGINAL_GUID
+                                                inBookmark:bookmark];
     guid = [BookmarkModel freshGuid];
     [[BookmarkModel sessionsInstance] setObject:guid
                                          forKey:KEY_GUID
@@ -2057,6 +2464,117 @@ static long long timeInTenthsOfSeconds(struct timeval t)
 - (NSString*)jobName
 {
     return jobName_;
+}
+
+- (NSString*)uncachedJobName
+{
+    return [SHELL currentJob:YES];
+}
+
+- (void)setLastActiveAt:(NSDate*)date
+{
+    [lastActiveAt_ release];
+    lastActiveAt_ = [date copy];
+}
+
+- (NSDate*)lastActiveAt
+{
+    return lastActiveAt_;
+}
+
+// Save the current scroll position
+- (void)saveScrollPosition
+{
+    savedScrollPosition_ = [TEXTVIEW absoluteScrollPosition];
+}
+
+// Jump to the saved scroll position
+- (void)jumpToSavedScrollPosition
+{
+    assert(savedScrollPosition_ != -1);
+    if (savedScrollPosition_ < [SCREEN totalScrollbackOverflow]) {
+        NSBeep();
+    } else {
+        [TEXTVIEW scrollToAbsoluteOffset:savedScrollPosition_];
+    }
+}
+
+// Is there a saved scroll position?
+- (BOOL)hasSavedScrollPosition
+{
+    return savedScrollPosition_ != -1;
+}
+
+- (void)findWithSelection
+{
+    if ([TEXTVIEW selectedText]) {
+        [[view findViewController] findString:[TEXTVIEW selectedText]];
+    }
+}
+
+- (void)toggleFind
+{
+    [[view findViewController] toggleVisibility];
+}
+
+- (void)searchNext
+{
+    [[view findViewController] searchNext];
+}
+
+- (void)searchPrevious
+{
+    [[view findViewController] searchPrevious];
+}
+
+- (void)resetFindCursor
+{
+    [TEXTVIEW resetFindCursor];
+}
+
+- (BOOL)findInProgress
+{
+    return [TEXTVIEW findInProgress];
+}
+
+- (BOOL)continueFind
+{
+    return [TEXTVIEW continueFind];
+}
+
+- (BOOL)growSelectionLeft
+{
+    return [TEXTVIEW growSelectionLeft];
+}
+
+- (void)growSelectionRight
+{
+    [TEXTVIEW growSelectionRight];
+}
+
+- (NSString*)selectedText
+{
+    return [TEXTVIEW selectedText];
+}
+
+- (NSString*)unpaddedSelectedText
+{
+    return [TEXTVIEW selectedTextWithPad:NO];
+}
+
+- (void)copySelection
+{
+    return [TEXTVIEW copy:self];
+}
+
+- (void)takeFocus
+{
+    [[[[self tab] realParentWindow] window] makeFirstResponder:TEXTVIEW];
+}
+
+- (void)clearHighlights
+{
+    [TEXTVIEW clearHighlights];
 }
 
 @end
@@ -2111,15 +2629,14 @@ static long long timeInTenthsOfSeconds(struct timeval t)
     NSArray *arg;
 
     [PseudoTerminal breakDown:command cmdPath:&cmd cmdArgs:&arg];
-
-    [self startProgram:cmd arguments:arg environment:[NSDictionary dictionary] isUTF8:isUTF8];
+    [self startProgram:cmd arguments:arg environment:[NSDictionary dictionary] isUTF8:isUTF8 asLoginSession:NO];
 
     return;
 }
 
 -(void)handleSelectScriptCommand:(NSScriptCommand *)command
 {
-    [[[[self tab] parentWindow] tabView] selectTabViewItemWithIdentifier:self];
+    [[[[self tab] parentWindow] tabView] selectTabViewItemWithIdentifier:[self tab]];
 }
 
 -(void)handleWriteScriptCommand: (NSScriptCommand *)command
@@ -2135,16 +2652,16 @@ static long long timeInTenthsOfSeconds(struct timeval t)
 
     if (text != nil) {
         if ([text characterAtIndex:[text length]-1]==' ') {
-            data = [text dataUsingEncoding: [TERMINAL encoding]];
+            data = [text dataUsingEncoding:[TERMINAL encoding]];
         } else {
             aString = [NSString stringWithFormat:@"%@\n", text];
-            data = [aString dataUsingEncoding: [TERMINAL encoding]];
+            data = [aString dataUsingEncoding:[TERMINAL encoding]];
         }
     }
 
     if (contentsOfFile != nil) {
-        aString = [NSString stringWithContentsOfFile: contentsOfFile];
-        data = [aString dataUsingEncoding: [TERMINAL encoding]];
+        aString = [NSString stringWithContentsOfFile:contentsOfFile];
+        data = [aString dataUsingEncoding:[TERMINAL encoding]];
     }
 
     if (data != nil && [SHELL pid] > 0) {
@@ -2155,7 +2672,7 @@ static long long timeInTenthsOfSeconds(struct timeval t)
             i += 50000;
         }
 
-        [self writeTask: data];
+        [self writeTask:data];
     }
 }
 
@@ -2169,18 +2686,14 @@ static long long timeInTenthsOfSeconds(struct timeval t)
 
 @implementation PTYSession (Private)
 
-- (NSString*)_getLocale
+- (NSString*)encodingName
 {
-    // Keep a copy of the current locale setting for this process
-    char* backupLocale = setlocale(LC_CTYPE, NULL);
-
-    // Start with the locale
-    NSString* locale = [[NSLocale currentLocale] localeIdentifier];
-
-    // Append the encoding
+    // Get the encoding, perhaps as a fully written out name.
     CFStringEncoding cfEncoding = CFStringConvertNSStringEncodingToEncoding([self encoding]);
+    // Convert it to the expected (IANA) format.
     NSString* ianaEncoding = (NSString*)CFStringConvertEncodingToIANACharSetName(cfEncoding);
-
+    
+    // Fix up lowercase letters.
     static NSDictionary* lowerCaseEncodings;
     if (!lowerCaseEncodings) {
         NSString* plistFile = [[NSBundle bundleForClass: [self class]] pathForResource:@"EncodingsWithLowerCase" ofType:@"plist"];
@@ -2197,31 +2710,62 @@ static long long timeInTenthsOfSeconds(struct timeval t)
             }
         }
     }
-
+    
     if (ianaEncoding != nil) {
         // Mangle the names slightly
-        NSMutableString* encoding = [[NSMutableString alloc] initWithString:ianaEncoding];
+        NSMutableString* encoding = [[[NSMutableString alloc] initWithString:ianaEncoding] autorelease];
         [encoding replaceOccurrencesOfString:@"ISO-" withString:@"ISO" options:0 range:NSMakeRange(0, [encoding length])];
         [encoding replaceOccurrencesOfString:@"EUC-" withString:@"euc" options:0 range:NSMakeRange(0, [encoding length])];
-
-        NSString* test = [locale stringByAppendingFormat:@".%@", encoding];
-        if (NULL != setlocale(LC_CTYPE, [test UTF8String])) {
-            locale = test;
-        }
-
-        [encoding release];
+        return encoding;
     }
 
-    // Check the locale is valid
-    if (NULL == setlocale(LC_CTYPE, [locale UTF8String])) {
-        locale = nil;
+    return nil;
+}
+
+- (NSString*)_getLocale
+{
+    NSString* theLocale = nil;
+    NSString* languageCode = [[NSLocale currentLocale] objectForKey:NSLocaleLanguageCode];
+    NSString* countryCode = [[NSLocale currentLocale] objectForKey:NSLocaleCountryCode];
+    if (languageCode && countryCode) {
+        theLocale = [NSString stringWithFormat:@"%@_%@", languageCode, countryCode];
+    }
+    return theLocale;
+}
+
+- (BOOL)_localeIsSupported:(NSString*)theLocale
+{
+    // Keep a copy of the current locale setting for this process
+    char* backupLocale = setlocale(LC_CTYPE, NULL);
+
+    // Try to set it to the proposed locale
+    BOOL supported;
+    if (setlocale(LC_CTYPE, [theLocale UTF8String])) {
+        supported = YES;
+    } else {
+        supported = NO;
     }
 
     // Restore locale and return
     setlocale(LC_CTYPE, backupLocale);
-    return locale;
+    return supported;
 }
 
+- (NSString*)_lang
+{
+    NSString* theLocale = [self _getLocale];
+    NSString* encoding = [self encodingName];
+    if (encoding && theLocale) {
+        NSString* result = [NSString stringWithFormat:@"%@.%@", theLocale, encoding];
+        if ([self _localeIsSupported:result]) {
+            return result;
+        } else {
+            return nil;
+        }
+    } else {
+        return nil;
+    }
+}
 
 - (void)setDvrFrame
 {

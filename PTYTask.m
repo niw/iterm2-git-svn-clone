@@ -101,6 +101,9 @@
     BOOL tasksChanged;
     // Protects 'tasks' and 'tasksChanged'.
     NSRecursiveLock* tasksLock;
+
+    // A set of NSNumber*s holding pids of tasks that need to be wait()ed on
+    NSMutableSet* deadpool;
     int unblockPipeR;
     int unblockPipeW;
 }
@@ -138,6 +141,7 @@ static TaskNotifier* taskNotifier = nil;
         return nil;
     }
 
+    deadpool = [[NSMutableSet alloc] init];
     tasks = [[NSMutableArray alloc] init];
     tasksLock = [[NSRecursiveLock alloc] init];
     tasksChanged = NO;
@@ -155,8 +159,10 @@ static TaskNotifier* taskNotifier = nil;
 
 - (void)dealloc
 {
+    taskNotifier = nil;
     [tasks release];
     [tasksLock release];
+    [deadpool release];
     close(unblockPipeR);
     close(unblockPipeW);
     [super dealloc];
@@ -180,6 +186,8 @@ static TaskNotifier* taskNotifier = nil;
     PtyTaskDebugLog(@"deregisterTask: lock\n");
     [tasksLock lock];
     PtyTaskDebugLog(@"Begin remove task 0x%x\n", (void*)task);
+    PtyTaskDebugLog(@"Add %d to deadpool", [task pid]);
+    [deadpool addObject:[NSNumber numberWithInt:[task pid]]];
     [tasks removeObject:task];
     tasksChanged = YES;
     PtyTaskDebugLog(@"End remove task 0x%x. There are now %d tasks.\n", (void*)task, [tasks count]);
@@ -216,7 +224,7 @@ static TaskNotifier* taskNotifier = nil;
         // Unblock pipe to interrupt select() whenever a PTYTask register/unregisters
         highfd = unblockPipeR;
         FD_SET(unblockPipeR, &rfds);
-        CFMutableSetRef handledFds = CFSetCreateMutable (NULL, [tasks count], NULL);
+        NSMutableSet* handledFds = [[NSMutableSet alloc] initWithCapacity:[tasks count]];
 
         // Add all the PTYTask pipes
         PtyTaskDebugLog(@"run1: lock");
@@ -230,6 +238,26 @@ static TaskNotifier* taskNotifier = nil;
                 [self deregisterTask:theTask];
             }
         }
+
+        if ([deadpool count] > 0) {
+            // waitpid() on pids that we think are dead or will be dead soon.
+            NSMutableSet* newDeadpool = [NSMutableSet setWithCapacity:[deadpool count]];
+            for (NSNumber* pid in deadpool) {
+                int statLoc;
+                PtyTaskDebugLog(@"wait on %d", [pid intValue]);
+                if (waitpid([pid intValue], &statLoc, WNOHANG) < 0) {
+                    if (errno != ECHILD) {
+                        PtyTaskDebugLog(@"  wait failed with %d (%s), adding back to deadpool", errno, strerror(errno));
+                        [newDeadpool addObject:pid];
+                    } else {
+                        PtyTaskDebugLog(@"  wait failed with ECHILD, I guess we already waited on it.");
+                    }
+                }
+            }
+            [deadpool release];
+            deadpool = [newDeadpool retain];
+        }
+
         PtyTaskDebugLog(@"Begin enumeration over %d tasks\n", [tasks count]);
         iter = [tasks objectEnumerator];
         int i = 0;
@@ -290,13 +318,11 @@ static TaskNotifier* taskNotifier = nil;
                 // and there was a race condition) then trying
                 // to read twice would hang.
 
-                // The cast warning on this line can be ignored.
-                if (CFSetContainsValue(handledFds, (void*)fd)) {
+                if ([handledFds containsObject:[NSNumber numberWithInt:fd]]) {
                     PtyTaskDebugLog(@"Duplicate fd %d", fd);
                     continue;
                 }
-                // The cast warning on this line can be ignored.
-                CFSetAddValue(handledFds, (void*)fd);
+                [handledFds addObject:[NSNumber numberWithInt:fd]];
 
                 if (FD_ISSET(fd, &rfds)) {
                     PtyTaskDebugLog(@"run/processRead: unlock");
@@ -325,6 +351,8 @@ static TaskNotifier* taskNotifier = nil;
                 if (FD_ISSET(fd, &efds)) {
                     PtyTaskDebugLog(@"run/brokenPipe: unlock");
                     [tasksLock unlock];
+                    // brokenPipe will call deregisterTask and add the pid to
+                    // deadpool.
                     [task brokenPipe];
                     PtyTaskDebugLog(@"run/brokenPipe: lock");
                     [tasksLock lock];
@@ -342,7 +370,7 @@ static TaskNotifier* taskNotifier = nil;
         [tasksLock unlock];
 
     breakloop:
-        CFRelease(handledFds);
+        [handledFds release];
         [innerPool drain];
     }
 
@@ -446,16 +474,14 @@ setup_tty_param(
     [super dealloc];
 }
 
-// Signal handler for SIGCHLD. Be careful changing this - there's very little
-// that can be safely done in a signal handler. For some reason, it sometimes
-// happens that there is no child to reap, so we use WNOHANG and reap everything
-// that is available.
 static void reapchild(int n)
 {
-    int statLoc;
-    while (waitpid(-1, &statLoc, WNOHANG) > 0) {
-        ;
-    }
+  // This intentionally does nothing.
+  // We cannot ignore SIGCHLD because Sparkle (the software updater) opens a
+  // Safari control which uses some buggy Netscape code that calls wait()
+  // until it succeeds. If we wait() on its pid, that process locks because
+  // it doesn't check if wait()'s failure is ECHLD. Instead of wait()ing here,
+  // we reap our children when our select() loop sees that a pipes is broken.
 }
 
 - (void)launchWithPath:(NSString*)progpath
@@ -464,6 +490,7 @@ static void reapchild(int n)
                  width:(int)width
                 height:(int)height
                 isUTF8:(BOOL)isUTF8
+        asLoginSession:(BOOL)asLoginSession
 {
     struct termios term;
     struct winsize win;
@@ -477,17 +504,22 @@ static void reapchild(int n)
 #endif
 
     setup_tty_param(&term, &win, width, height, isUTF8);
-    // Register a handler for the child death signal that just wait()s on it.
+    // Register a handler for the child death signal.
     signal(SIGCHLD, reapchild);
     pid = forkpty(&fd, theTtyname, &term, &win);
     if (pid == (pid_t)0) {
-        const char* argpath = [[progpath stringByStandardizingPath] UTF8String];
+        const char* argpath;
+        argpath = [[progpath stringByStandardizingPath] UTF8String];
         // Do not start the new process with a signal handler.
         signal(SIGCHLD, SIG_DFL);
         int max = (args == nil) ? 0 : [args count];
         const char* argv[max + 2];
 
-        argv[0] = argpath;
+        if (asLoginSession) {
+            argv[0] = [[NSString stringWithFormat:@"-%@", [progpath stringByStandardizingPath]] UTF8String];
+        } else {
+            argv[0] = [[progpath stringByStandardizingPath] UTF8String];
+        }
         if (args != nil) {
             int i;
             for (i = 0; i < max; ++i) {
@@ -684,12 +716,13 @@ static void reapchild(int n)
 - (void)sendSignal:(int)signo
 {
     if (pid >= 0) {
-        killpg(pid, signo);
+        kill(pid, signo);
     }
 }
 
 - (void)setWidth:(int)width height:(int)height
 {
+    PtyTaskDebugLog(@"Set terminal size to %dx%d", width, height);
     struct winsize winsize;
 
     if (fd == -1) {
@@ -712,14 +745,6 @@ static void reapchild(int n)
 - (pid_t)pid
 {
     return pid;
-}
-
-- (int)wait
-{
-    if (pid >= 0) {
-        waitpid(pid, &status, 0);
-    }
-    return status;
 }
 
 - (void)stop
@@ -795,18 +820,25 @@ static void reapchild(int n)
 
 - (pid_t)getFirstChildOfPid:(pid_t)parentPid
 {
-    int numPids;
-    numPids = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
-    if (numPids <= 0) {
+    int numBytes;
+    numBytes = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
+    if (numBytes <= 0) {
         return -1;
     }
 
-    int* pids = (int*) malloc(sizeof(int) * numPids);
-    numPids = proc_listpids(PROC_ALL_PIDS, 0, pids, numPids);
-    if (numPids <= 0) {
+    int* pids = (int*) malloc(numBytes+sizeof(int));
+    // Save a magic int at the end to be sure that the buffer isn't overrun.
+    const int PID_MAGIC = 0xdeadbeef;
+    int magicIndex = numBytes/sizeof(int);
+    pids[magicIndex] = PID_MAGIC;
+    numBytes = proc_listpids(PROC_ALL_PIDS, 0, pids, numBytes);
+    assert(pids[magicIndex] == PID_MAGIC);
+    if (numBytes <= 0) {
         free(pids);
         return -1;
     }
+
+    int numPids = numBytes / sizeof(int);
 
     long long oldestTime = 0;
     pid_t oldestPid = -1;
@@ -831,6 +863,7 @@ static void reapchild(int n)
         }
     }
 
+    assert(pids[magicIndex] == PID_MAGIC);
     free(pids);
     return oldestPid;
 }
@@ -870,13 +903,14 @@ static void reapchild(int n)
 // arbitrary tty-controller in the tty's pgid that has this task as an ancestor
 // may be chosen. This function also implements a chache to avoid doing the
 // potentially expensive system calls too often.
-- (NSString*)currentJob
+- (NSString*)currentJob:(BOOL)forceRefresh
 {
     static NSMutableDictionary* pidInfoCache;
     static NSDate* lastCacheUpdate;
 
     const double kMaxCacheAge = 0.5;
-    if (lastCacheUpdate == nil ||
+    if (forceRefresh ||
+        lastCacheUpdate == nil ||
         [lastCacheUpdate timeIntervalSinceNow] < -kMaxCacheAge) {
         if (pidInfoCache == nil) {
             pidInfoCache = [[NSMutableDictionary alloc] init];
@@ -894,23 +928,25 @@ static void reapchild(int n)
 - (void)refreshProcessCache:(NSMutableDictionary*)cache
 {
     [cache removeAllObjects];
-    int numPids;
-    numPids = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
-    if (numPids <= 0) {
+    int numBytes = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
+    if (numBytes <= 0) {
         return;
     }
 
-    int* pids = (int*) malloc(sizeof(int) * numPids);
-    numPids = proc_listpids(PROC_ALL_PIDS, 0, pids, numPids);
-    if (numPids <= 0) {
+    int* pids = (int*) malloc(numBytes);
+    numBytes = proc_listpids(PROC_ALL_PIDS, 0, pids, numBytes);
+    if (numBytes <= 0) {
         free(pids);
         return;
     }
 
+    int numPids = numBytes / sizeof(int);
+    
     NSMutableDictionary* temp = [NSMutableDictionary dictionaryWithCapacity:numPids];
     NSMutableDictionary* ancestry = [NSMutableDictionary dictionaryWithCapacity:numPids];
     for (int i = 0; i < numPids; ++i) {
         struct proc_taskallinfo taskAllInfo;
+        memset(&taskAllInfo, 0, sizeof(taskAllInfo));
         int rc = proc_pidinfo(pids[i],
                               PROC_PIDTASKALLINFO,
                               0,

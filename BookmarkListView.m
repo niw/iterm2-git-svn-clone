@@ -26,6 +26,7 @@
 #import <iTerm/BookmarkModel.h>
 #import <iTerm/ITAddressBookMgr.h>
 #import <iTerm/PTYSession.h>
+#import "iTermSearchField.h"
 
 #define BookmarkTableViewDataType @"iTerm2BookmarkGuid"
 
@@ -257,41 +258,16 @@ typedef enum { IsDefault = 1, IsNotDefault = 2 } BookmarkRowIsDefault;
 
 @end
 
-@implementation BookmarkSearchField
-
-- (void)setArrowHandler:(id)handler
-{
-    arrowHandler_ = handler;
-}
-
-- (BOOL)performKeyEquivalent:(NSEvent *)theEvent
-{
-    unsigned int modflag;
-    unsigned short keycode;
-    modflag = [theEvent modifierFlags];
-    keycode = [theEvent keyCode];
-
-    const int mask = NSShiftKeyMask | NSControlKeyMask | NSAlternateKeyMask | NSCommandKeyMask;
-    // TODO(georgen): Not getting normal keycodes here, but 125 and 126 are up and down arrows.
-    // This is a pretty ugly hack. Also, calling keyDown from here is probably not cool.
-    BOOL handled = NO;
-    if (!(mask & modflag) && (keycode == 125 || keycode == 126)) {
-        [arrowHandler_ keyDown:theEvent];
-        handled = YES;
-
-    } else {
-        handled = [super performKeyEquivalent:theEvent];
-    }
-    return handled;
-}
-
-@end
-
 @implementation BookmarkListView
 
 
 - (void)awakeFromNib
 {
+}
+
+- (void)focusSearchField
+{
+    [[self window] makeFirstResponder:searchField_];
 }
 
 // Drag drop -------------------------------
@@ -443,7 +419,7 @@ typedef enum { IsDefault = 1, IsNotDefault = 2 } BookmarkRowIsDefault;
     searchFieldFrame.origin.y = frame.size.height - kSearchWidgetHeight;
     searchFieldFrame.size.height = kSearchWidgetHeight;
     searchFieldFrame.size.width = frame.size.width;
-    searchField_ = [[BookmarkSearchField alloc] initWithFrame:searchFieldFrame];
+    searchField_ = [[iTermSearchField alloc] initWithFrame:searchFieldFrame];
     [self _addTags:[[dataSource_ underlyingModel] allTags] toSearchField:searchField_];
     [searchField_ setDelegate:self];
     [self addSubview:searchField_];

@@ -45,6 +45,7 @@
     screen = [[aTerm window] screen];
     session = aSession;
     [session retain];
+    realWindow = aTerm;
     return self;
 }
 
@@ -52,6 +53,9 @@
 {
     if (pendingLabelColor) {
         [pendingLabelColor release];
+    }
+    if (pendingTabColor) {
+        [pendingTabColor release];
     }
     [super dealloc];
 }
@@ -74,11 +78,14 @@
     if (hasPendingSizeChange) {
         [aTerm sessionInitiatedResize:session width:pendingW height:pendingH];
     }
-    if (hasPendingFitWindowToSession) {
-        [aTerm fitWindowToSession:session];
+    if (hasPendingFitWindowToTab) {
+        [aTerm fitWindowToTab:[session tab]];
     }
     if (pendingLabelColor) {
         [aTerm setLabelColor:pendingLabelColor forTabViewItem:[[session tab] tabViewItem]];
+    }
+    if (pendingTabColor) {
+        [aTerm setTabColor:pendingTabColor forTabViewItem:[[session tab]tabViewItem]];
     }
     if (hasPendingSetWindowTitle) {
         [aTerm setWindowTitle];
@@ -122,11 +129,11 @@
     hasPendingClose = YES;
 }
 
-- (IBAction)nextSession:(id)sender
+- (IBAction)nextTab:(id)sender
 {
 }
 
-- (IBAction)previousSession:(id)sender
+- (IBAction)previousTab:(id)sender
 {
 }
 
@@ -135,6 +142,22 @@
     [pendingLabelColor release];
     pendingLabelColor = color;
     [pendingLabelColor retain];
+}
+
+- (void)setTabColor:(NSColor *)color forTabViewItem:tabViewItem
+{
+    [pendingTabColor release];
+    pendingTabColor = color;
+    [pendingTabColor retain];
+}
+
+- (NSColor*)tabColorForTabViewItem:(NSTabViewItem*)tabViewItem
+{
+    if (pendingTabColor) {
+        return pendingTabColor;
+    } else {
+        return [realWindow tabColorForTabViewItem:tabViewItem];
+    }
 }
 
 - (void)enableBlur
@@ -154,9 +177,9 @@
     return NO;
 }
 
-- (void)fitWindowToSession:(PTYSession*)session
+- (void)fitWindowToTab:(PTYTab*)tab
 {
-    hasPendingFitWindowToSession = YES;
+    hasPendingFitWindowToTab = YES;
 }
 
 - (PTYTabView *)tabView

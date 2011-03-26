@@ -34,7 +34,7 @@
 
 - (void)drawRect:(NSRect)rect
 {
-    [child_ drawBackground:NSMakeRect(0,
+    [child_ drawFlippedBackground:NSMakeRect(0,
                                       [[child_ enclosingScrollView] documentVisibleRect].origin.y - VMARGIN,
                                       [self frame].size.width,
                                       VMARGIN)

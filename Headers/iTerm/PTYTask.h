@@ -68,9 +68,10 @@
            environment:(NSDictionary*)env
                  width:(int)width
                 height:(int)height
-                isUTF8:(BOOL)isUTF8;
+                isUTF8:(BOOL)isUTF8
+        asLoginSession:(BOOL)asLoginSession;
 
-- (NSString*)currentJob;
+- (NSString*)currentJob:(BOOL)forceRefresh;
 
 - (void)setDelegate:(id)object;
 - (id)delegate;
@@ -79,7 +80,6 @@
 
 - (void)sendSignal:(int)signo;
 - (void)setWidth:(int)width height:(int)height;
-- (int)wait;
 - (void)stop;
 
 - (int)fd;

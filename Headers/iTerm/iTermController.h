@@ -45,36 +45,65 @@
     // App-wide hotkey
     int hotkeyCode_;
     int hotkeyModifiers_;
+    CFMachPortRef machPortRef;
+    CFRunLoopSourceRef eventSrc;
+    int keyWindowIndexMemo_;
+    BOOL itermWasActiveWhenHotkeyOpened;
+    BOOL rollingIn_;
 }
 
 + (iTermController*)sharedInstance;
 + (void)sharedInstanceRelease;
 
-// actions are forwarded form application
++ (void)switchToSpaceInBookmark:(NSDictionary*)aDict;
+- (BOOL)rollingInHotkeyTerm;
+
+// actions are forwarded from application
 - (IBAction)newWindow:(id)sender;
 - (IBAction)newSession:(id)sender;
-- (IBAction) previousTerminal: (id) sender;
-- (IBAction) nextTerminal: (id) sender;
+- (IBAction) previousTerminal:(id)sender;
+- (IBAction) nextTerminal:(id)sender;
 - (void)arrangeHorizontally;
-- (void)newSessionInTabAtIndex: (id) sender;
-- (void)newSessionInWindowAtIndex: (id) sender;
+- (void)newSessionInTabAtIndex:(id)sender;
+- (void)newSessionInWindowAtIndex:(id)sender;
 - (void)showHideFindBar;
 
-- (PseudoTerminal *) currentTerminal;
-- (void) terminalWillClose: (PseudoTerminal *) theTerminalWindow;
-- (NSArray *) sortedEncodingList;
-- (void)addBookmarksToMenu:(NSMenu *)aMenu target:(id)aTarget withShortcuts:(BOOL)withShortcuts;
-- (id)launchBookmark: (NSDictionary *) bookmarkData inTerminal: (PseudoTerminal *) theTerm;
-- (id)launchBookmark: (NSDictionary *) bookmarkData inTerminal: (PseudoTerminal *) theTerm withCommand: (NSString *)command;
-- (id)launchBookmark: (NSDictionary *) bookmarkData inTerminal: (PseudoTerminal *) theTerm withURL: (NSString *)url;
-- (PTYTextView *) frontTextView;
+- (void)stopEventTap;
+
+- (int)keyWindowIndexMemo;
+- (void)setKeyWindowIndexMemo:(int)i;
+- (void)showHotKeyWindow;
+- (void)fastHideHotKeyWindow;
+- (void)hideHotKeyWindow:(PseudoTerminal*)hotkeyTerm;
+- (BOOL)isHotKeyWindowOpen;
+- (void)showNonHotKeyWindowsAndSetAlphaTo:(float)a;
+- (PseudoTerminal*)hotKeyWindow;
+
+- (PseudoTerminal*)terminalWithNumber:(int)n;
+- (int)allocateWindowNumber;
+
+- (BOOL)hasWindowArrangement;
+- (void)saveWindowArrangement;
+- (void)loadWindowArrangement;
+
+- (PseudoTerminal *)currentTerminal;
+- (void)terminalWillClose:(PseudoTerminal*)theTerminalWindow;
+- (NSArray*)sortedEncodingList;
+- (void)addBookmarksToMenu:(NSMenu *)aMenu target:(id)aTarget withShortcuts:(BOOL)withShortcuts selector:(SEL)selector openAllSelector:(SEL)openAllSelector alternateSelector:(SEL)alternateSeelctor;
+- (id)launchBookmark:(NSDictionary*)bookmarkData inTerminal:(PseudoTerminal*)theTerm;
+- (id)launchBookmark:(NSDictionary *)bookmarkData inTerminal:(PseudoTerminal *)theTerm withCommand:(NSString *)command;
+- (id)launchBookmark:(NSDictionary*)bookmarkData inTerminal:(PseudoTerminal*)theTerm withURL:(NSString*)url;
+- (PTYTextView*)frontTextView;
 - (int)numberOfTerminals;
 - (PseudoTerminal*)terminalAtIndex:(int)i;
 - (void)irAdvance:(int)dir;
 - (NSUInteger)indexOfTerminal:(PseudoTerminal*)terminal;
 
+- (BOOL)eventIsHotkey:(NSEvent*)e;
 - (void)unregisterHotkey;
-- (void)registerHotkey:(int)keyCode modifiers:(int)modifiers;
+- (BOOL)haveEventTap;
+- (BOOL)registerHotkey:(int)keyCode modifiers:(int)modifiers;
+- (void)beginRemappingModifiers;
 
 @end
 
@@ -97,6 +126,8 @@
 
 // a class method to provide the keys for KVC:
 - (NSArray*)kvcKeys;
+
+void OnHotKeyEvent(void);
 
 @end
 

@@ -35,6 +35,7 @@
 #import <iTerm/PTYSession.h>
 #import <iTerm/PreferencePanel.h>
 #import <iTerm/PTYTextView.h>
+#import "iTermKeyBindingMgr.h"
 
 @implementation iTermApplication
 
@@ -56,19 +57,46 @@
 - (void)sendEvent:(NSEvent*)event
 {
     if ([event type] == NSKeyDown) {
+        iTermController* cont = [iTermController sharedInstance];
+#ifdef FAKE_EVENT_TAP
+        event = [cont runEventTapHandler:event];
+        if (!event) {
+            return;
+        }
+#endif
         PreferencePanel* prefPanel = [PreferencePanel sharedInstance];
+        if ([prefPanel isAnyModifierRemapped] && 
+            (IsSecureEventInputEnabled() || ![cont haveEventTap])) {
+            // The event tap is not working, but we can still remap modifiers for non-system
+            // keys. Only things like cmd-tab will not be remapped in this case. Otherwise,
+            // the event tap performs the remapping.
+            event = [iTermKeyBindingMgr remapModifiers:event prefPanel:prefPanel];
+        }
+        if (IsSecureEventInputEnabled() &&
+            [cont eventIsHotkey:event]) {
+            // User pressed the hotkey while secure input is enabled so the event
+            // tap won't get it. Do what the event tap would do in this case.
+            OnHotKeyEvent();
+            return;
+        }
         PreferencePanel* privatePrefPanel = [PreferencePanel sessionsInstance];
-        PseudoTerminal* currentTerminal = [[iTermController sharedInstance] currentTerminal];
+        PseudoTerminal* currentTerminal = [cont currentTerminal];
         PTYTabView* tabView = [currentTerminal tabView];
         PTYSession* currentSession = [currentTerminal currentSession];
         NSResponder *responder;
 
-        if (([event modifierFlags] & (NSCommandKeyMask | NSAlternateKeyMask)) == (NSCommandKeyMask | NSAlternateKeyMask)) {
-            // Command-Alt number: Switch to window by number.
+        if (([event modifierFlags] & (NSCommandKeyMask | NSAlternateKeyMask | NSControlKeyMask)) == [prefPanel modifierTagToMask:[prefPanel switchWindowModifier]]) {
+            // Command-Alt (or selected modifier) + number: Switch to window by number.
             int digit = [[event charactersIgnoringModifiers] intValue];
-            if (digit >= 1 && digit <= 9 && [[iTermController sharedInstance] numberOfTerminals] >= digit) {
-                PseudoTerminal* termWithNumber = [[iTermController sharedInstance] terminalAtIndex:(digit - 1)];
-                [[termWithNumber window] makeKeyAndOrderFront:self];
+            if (digit >= 1 && digit <= 9) {
+                PseudoTerminal* termWithNumber = [cont terminalWithNumber:(digit - 1)];
+                if (termWithNumber) {
+                    if ([termWithNumber isHotKeyWindow] && [[termWithNumber window] alphaValue] < 1) {
+                        [[iTermController sharedInstance] showHotKeyWindow];
+                    } else {
+                        [[termWithNumber window] makeKeyAndOrderFront:self];
+                    }
+                }
                 return;
             }
         }
@@ -97,24 +125,34 @@
             if (inTextView &&
                 [(PTYTextView *)responder hasMarkedText]) {
                 // Let the IM process it
+                NSLog(@"IM is handling it");
                 [(PTYTextView *)responder interpretKeyEvents:[NSArray arrayWithObject:event]];
                 return;
             }
 
             const int mask = NSShiftKeyMask | NSControlKeyMask | NSAlternateKeyMask | NSCommandKeyMask;
-            if (([event modifierFlags] & mask) == NSCommandKeyMask) {
+            if (([event modifierFlags] & mask) == [prefPanel modifierTagToMask:[prefPanel switchTabModifier]]) {
                 int digit = [[event charactersIgnoringModifiers] intValue];
                 if (digit >= 1 && digit <= [tabView numberOfTabViewItems]) {
-                    // Command+number: Switch to tab by number.
+                    // Command (or selected modifier)+number: Switch to tab by number.
                     [tabView selectTabViewItemAtIndex:digit-1];
+                    return;
+                }
+                if (digit == 9 && [tabView numberOfTabViewItems] > 0) {
+                    // Command (or selected modifier)+9: Switch to last tab if there are fewer than 9.
+                    [tabView selectTabViewItemAtIndex:[tabView numberOfTabViewItems]-1];
                     return;
                 }
             }
 
-            if (inTextView &&
-                [currentSession hasKeyMappingForEvent:event highPriority:YES]) {
+            if (inTextView && [currentSession hasActionableKeyMappingForEvent:event]) {
                 // Remap key.
                 [currentSession keyDown:event];
+                return;
+            }
+        } else {
+            // Focus not in terminal window.
+            if ([PTYSession handleShortcutWithoutTerminal:event]) {
                 return;
             }
         }

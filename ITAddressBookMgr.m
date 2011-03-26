@@ -30,7 +30,8 @@
 #import <iTerm/iTermKeyBindingMgr.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
+#include <sys/types.h>
+#include <pwd.h>
 
 @implementation ITAddressBookMgr
 
@@ -323,38 +324,11 @@
     [aDict setObject:NSHomeDirectory() forKey: KEY_WORKING_DIRECTORY];
 }
 
-// NSNetService delegate
-- (void)netServiceDidResolveAddress:(NSNetService *)sender
+- (void)_addBonjourHostProfileWithName:(NSString *)serviceName
+                       ipAddressString:(NSString *)ipAddressString
+                           serviceType:(NSString *)serviceType
 {
-    NSData  *address = nil;
-    struct sockaddr_in  *socketAddress;
-    NSString    *ipAddressString = nil;
-    char buffer[INET6_ADDRSTRLEN + 1];
-
-    //NSLog(@"%s: %@", __PRETTY_FUNCTION__, sender);
-
-    // cancel the resolution
-    [sender stop];
-
-    if ([bonjourServices containsObject: sender] == NO) {
-        return;
-    }
-
-    // grab the address
-    if ([[sender addresses] count] == 0) {
-        return;
-    }
-    address = [[sender addresses] objectAtIndex: 0];
-    socketAddress = (struct sockaddr_in *)[address bytes];
-    const char* strAddr = inet_ntop(socketAddress->sin_family, socketAddress,
-                                    buffer, [address length]);
-    if (strAddr) {
-        ipAddressString = [NSString stringWithFormat:@"%s", strAddr];
-    } else {
-        return;
-    }
-
-    NSMutableDictionary *newBookmark;
+  NSMutableDictionary *newBookmark;
     Bookmark* prototype = [[BookmarkModel sharedInstance] defaultBookmark];
     if (prototype) {
         newBookmark = [NSMutableDictionary dictionaryWithDictionary:prototype];
@@ -363,10 +337,9 @@
         [ITAddressBookMgr setDefaultsInBookmark:newBookmark];
     }
 
-    NSString* serviceType = [self getBonjourServiceType:[sender type]];
 
-    [newBookmark setObject:[NSString stringWithFormat:@"%@", [sender name]] forKey:KEY_NAME];
-    [newBookmark setObject:[NSString stringWithFormat:@"%@", [sender name]] forKey:KEY_DESCRIPTION];
+    [newBookmark setObject:serviceName forKey:KEY_NAME];
+    [newBookmark setObject:serviceName forKey:KEY_DESCRIPTION];
     [newBookmark setObject:[NSString stringWithFormat:@"%@ %@", serviceType, ipAddressString] forKey:KEY_COMMAND];
     [newBookmark setObject:@"" forKey:KEY_WORKING_DIRECTORY];
     [newBookmark setObject:@"Yes" forKey:KEY_CUSTOM_COMMAND];
@@ -380,18 +353,47 @@
 
     // No bonjour service for sftp. Rides over ssh, so try to detect that
     if ([serviceType isEqualToString:@"ssh"]) {
-        [newBookmark setObject:[NSString stringWithFormat:@"%@-sftp", [sender name]] forKey:KEY_NAME];
+        [newBookmark setObject:[NSString stringWithFormat:@"%@-sftp", serviceName] forKey:KEY_NAME];
         [newBookmark setObject:[NSArray arrayWithObjects:@"bonjour", @"sftp", nil] forKey:KEY_TAGS];
         [newBookmark setObject:[BookmarkModel freshGuid] forKey:KEY_GUID];
         [newBookmark setObject:[NSString stringWithFormat:@"sftp %@", ipAddressString] forKey:KEY_COMMAND];
         [[BookmarkModel sharedInstance] addBookmark:newBookmark];
     }
 
-    // remove from array now that resolving is done
-    if ([bonjourServices containsObject:sender]) {
-        [bonjourServices removeObject:sender];
+}
+// NSNetService delegate
+- (void)netServiceDidResolveAddress:(NSNetService *)sender
+{
+    //NSLog(@"%s: %@", __PRETTY_FUNCTION__, sender);
+
+    // cancel the resolution
+    [sender stop];
+
+    if ([bonjourServices containsObject: sender] == NO) {
+        return;
     }
 
+    // grab the address
+    if ([[sender addresses] count] == 0) {
+        return;
+    }
+    NSString* serviceType = [self getBonjourServiceType:[sender type]];
+    NSString* serviceName = [sender name];
+    NSData* address = [[sender addresses] objectAtIndex: 0];
+    struct sockaddr_in *socketAddress = (struct sockaddr_in *)[address bytes];
+    char buffer[INET6_ADDRSTRLEN + 1];
+    const char* strAddr = inet_ntop(socketAddress->sin_family, socketAddress,
+                                    buffer, [address length]);
+    if (strAddr) {
+          [self _addBonjourHostProfileWithName:serviceName
+                               ipAddressString:[NSString stringWithFormat:@"%s", strAddr]
+                                   serviceType:serviceType];
+
+        // remove from array now that resolving is done
+        if ([bonjourServices containsObject:sender]) {
+            [bonjourServices removeObject:sender];
+        }
+    }
 }
 
 - (void)netService:(NSNetService *)aNetService didNotResolve:(NSDictionary *)errorDict
@@ -424,33 +426,49 @@
     }
 }
 
-+ (NSString*)loginShellCommandForBookmark:(Bookmark*)bookmark
+static NSString* UserShell() {
+    struct passwd* pw;
+    pw = getpwuid(geteuid());
+    NSString* shell = [NSString stringWithUTF8String:pw->pw_shell];
+    endpwent();
+    return shell;
+}
+
++ (NSString*)loginShellCommandForBookmark:(Bookmark*)bookmark asLoginShell:(BOOL*)asLoginShell
 {
     NSString* thisUser = NSUserName();
-    char* userShell = getenv("SHELL");
-    if (thisUser) {
-        if (![[bookmark objectForKey:KEY_CUSTOM_DIRECTORY] isEqualToString:@"No"]) {
-            // -l specifies a login shell which goes to the home dir
-            // there is either a custom dir or we're recycling the last tab's dir
-            return [NSString stringWithFormat:@"login -fpl \"%@\"", thisUser];
-        } else {
-            // Using either a custom dir or recycling the last tab's dir. Caller will set CWD appropriately.
-            return [NSString stringWithFormat:@"login -fp \"%@\"", thisUser];
-        }
+    NSString* userShell = UserShell();
+    if ([[bookmark objectForKey:KEY_CUSTOM_DIRECTORY] isEqualToString:@"No"]) {
+        // Run login without -l argument: this is a login session and will use the home dir.
+        *asLoginShell = NO;
+        return [NSString stringWithFormat:@"login -fp \"%@\"", thisUser];
     } else if (userShell) {
-        return [NSString stringWithCString:userShell];
+        // This is the normal case when using a custom dir or reusing previous tab's dir:
+        // Run the shell with - as the first char of argv[0]. It won't update
+        // utmpx (only login does), though.
+        *asLoginShell = YES;
+        return userShell;
+    } else if (thisUser) {
+        // No shell known (not sure why this would happen) and we want a non-login shell.
+        *asLoginShell = NO;
+        // -l specifies a NON-LOGIN shell which doesn't changed the pwd.
+        // (there is either a custom dir or we're recycling the last tab's dir)
+        return [NSString stringWithFormat:@"login -fpl \"%@\"", thisUser];
     } else {
+        // Can't get the shell or the user name. Should never happen.
+        *asLoginShell = YES;
         return @"/bin/bash --login";
     }
 }
 
-+ (NSString*)bookmarkCommand:(Bookmark*)bookmark
++ (NSString*)bookmarkCommand:(Bookmark*)bookmark isLoginSession:(BOOL*)isLoginSession
 {
     BOOL custom = [[bookmark objectForKey:KEY_CUSTOM_COMMAND] isEqualToString:@"Yes"];
     if (custom) {
+        *isLoginSession = NO;
         return [bookmark objectForKey:KEY_COMMAND];
     } else {
-        return [ITAddressBookMgr loginShellCommandForBookmark:bookmark];
+        return [ITAddressBookMgr loginShellCommandForBookmark:bookmark asLoginShell:isLoginSession];
     }
 }
 

@@ -95,9 +95,14 @@ static long long now()
 
     // Deallocate leading blocks until the first one is a key frame. If the first
     // block is a diff frame it's useless.
-    while (hadToFree &&
-           [buffer_ entryForKey:[buffer_ firstKey]]->info.frameType != DVRFrameTypeKeyFrame) {
-        [buffer_ deallocateBlock];
+    while (![buffer_ isEmpty] && hadToFree) {
+        DVRIndexEntry* entry = [buffer_ entryForKey:[buffer_ firstKey]];
+        assert(entry);
+        if (entry->info.frameType == DVRFrameTypeKeyFrame) {
+            break;
+        } else {
+            [buffer_ deallocateBlock];
+        }
     }
     return hadToFree;
 }
@@ -113,8 +118,8 @@ static long long now()
     int i;
     for (i = 0; i * sizeof(screen_char_t) < length; i++) {
         screen_char_t s = ((screen_char_t*)buffer)[i];
-        if (s.ch) {
-            d[i] = s.ch;
+        if (s.code && !s.complexChar) {
+            d[i] = s.code;
         } else {
             d[i] = ' ';
         }
@@ -133,8 +138,8 @@ static long long now()
     int i;
     for (i = 0; i < length / sizeof(screen_char_t); i++) {
         screen_char_t s = ((screen_char_t*)buffer)[i];
-        if (s.ch) {
-            d[i] = s.ch;
+        if (s.code && !s.complexChar) {
+            d[i] = s.code;
         } else {
             d[i] = ' ';
         }

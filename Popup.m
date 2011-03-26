@@ -158,6 +158,15 @@ DebugLog([NSString stringWithFormat:args]); \
     }
 }
 
+- (void)close
+{
+    // The OS will send a hotkey window to the background if it's open and in
+    // all spaces. So make it key before closing.
+    iTermApplicationDelegate* theDelegate = [NSApp delegate];
+    [theDelegate makeHotKeyWindowKeyIfOpen];
+    [super close];
+}
+
 @end
 
 @implementation PopupModel
@@ -302,6 +311,11 @@ DebugLog([NSString stringWithFormat:args]); \
     [super dealloc];
 }
 
+- (BOOL)disableFocusFollowsMouse
+{
+    return YES;
+}
+
 - (void)popInSession:(PTYSession*)session
 {
     [self setSession:session];
@@ -338,6 +352,7 @@ DebugLog([NSString stringWithFormat:args]); \
         timer_ = nil;
     }
     [substring_ setString:@""];
+    [self setSession:nil];
 }
 
 - (void)onOpen
@@ -567,7 +582,6 @@ DebugLog([NSString stringWithFormat:args]); \
     return YES;
 }
 
-
 // Delegate methods
 - (void)windowDidResignKey:(NSNotification *)aNotification
 {
@@ -621,7 +635,7 @@ DebugLog([NSString stringWithFormat:args]); \
         int rowNum = [tableView_ selectedRow];
         NSString* s = nil;
         if (rowNum >= 0) {
-            s = [[model_ objectAtIndex:rowNum] mainValue];
+            s = [[model_ objectAtIndex:[self convertIndex:rowNum]] mainValue];
         }
         if (!s) {
             s = @"";
