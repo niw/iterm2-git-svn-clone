@@ -162,10 +162,10 @@
     [super removeTabViewItem: aTabViewItem];
 }
 
-- (void)insertTabViewItem:(NSTabViewItem *)tabViewItem atIndex:(int)theIndex
+- (void)insertTabViewItem:(NSTabViewItem *)tabViewItem atIndex:(NSInteger)theIndex
 {
 #if DEBUG_METHOD_TRACE
-    NSLog(@"PTYTabView: -insertTabViewItem atIndex: %d", theIndex);
+    NSLog(@"PTYTabView: -insertTabViewItem atIndex: %ld", theIndex);
 #endif
 
     // Let our delegate know
@@ -173,7 +173,7 @@
 
     // Check the boundary
     if (theIndex>[super numberOfTabViewItems]) {
-        NSLog(@"Warning: index(%d) > numberOfTabViewItems(%d)", theIndex, [super numberOfTabViewItems]);
+        NSLog(@"Warning: index(%ld) > numberOfTabViewItems(%ld)", theIndex, [super numberOfTabViewItems]);
         theIndex = [super numberOfTabViewItems];
     }
 
@@ -182,7 +182,7 @@
 
     [super insertTabViewItem:tabViewItem atIndex:theIndex];
 #if DEBUG_METHOD_TRACE
-    NSLog(@"PTYTabView: -insertTabViewItem atIndex: %d, done", theIndex);
+    NSLog(@"PTYTabView: -insertTabViewItem atIndex: %ld, done", theIndex);
 #endif
 }
 

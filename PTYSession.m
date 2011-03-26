@@ -28,7 +28,7 @@
 #import <iTerm/PTYSession.h>
 #import <iTerm/PTYTask.h>
 #import <iTerm/PTYTextView.h>
-#import <iTerm/PTYScrollView.h>;
+#import <iTerm/PTYScrollView.h>
 #import <iTerm/VT100Screen.h>
 #import <iTerm/VT100Terminal.h>
 #import <iTerm/PreferencePanel.h>
