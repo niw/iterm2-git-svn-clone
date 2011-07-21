@@ -1,4 +1,26 @@
-These release notes are for the development builds of iTerm2. Beta versions are very stable as we near release.
+These release notes are for the development builds of iTerm2. The last stable release was 1.0.0.
+
+iTerm2 1.0.0.20110720
+This test release adds bug fixes and Lion fullscreen support.
+
+Enhancements:
+- Add support for Lion fullscreen mode.
+- Improve find performance for long lines.
+- Improve find performance when there are lots and lots of matches.
+
+Bug fixes:
+- Improve wording of preferences option to "Closing hotkey window restores focus but may switch spaces".
+- Fix bug where fullscreen windows are stuck to one space even if they're set to "all spaces".
+- Fix bug where minaturiaze button was missing when a new window was created while a fullscreen window was open.
+- Fix control key behavior with certain keyboards and custom layouts.
+- Change how font size is estimated to be more consistent and work better with broken fonts like Consolas.
+- Handle control-pgup and control-pgdn correctly.
+- Fix bug where the top two pixels weren't drawn in fullscreen mode.
+- Remove infocmp spam from console logs.
+- Fix bug where find highlights didn't wrap around to the next line.
+- Fix race condition with session logging.
+- Cmd-key no longer sends input to the terminal if it's not bound to anything.
+
 
 iTerm2 1.0.0
 The first release is here!
