@@ -8,7 +8,7 @@
                 <item>
                         <title>Version 1.0.0.20120108</title>
                         <sparkle:releaseNotesLink>
-                                http://iterm2.googlecode.com/svn/trunk/appcasts/testing_changes.html
+                                http://iterm2.googlecode.com/svn/trunk/appcasts/canary_changes.html
                         </sparkle:releaseNotesLink>
                         <pubDate>Sun, 08 Jan 2012 14:53:26 -0800</pubDate>
                         <enclosure url="http://iterm2.googlecode.com/files/iTerm2-1_0_0_20120108.zip"
