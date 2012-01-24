@@ -6,14 +6,14 @@
 		<description>Most recent changes with links to updates.</description>
 		<language>en</language>
                 <item>
-                        <title>Version 1.0.0.20120108</title>
+                        <title>Version 1.0.0.20120123</title>
                         <sparkle:releaseNotesLink>
-                                http://iterm2.googlecode.com/svn/trunk/appcasts/canary_changes.html
+                                http://iterm2.googlecode.com/svn/trunk/appcasts/testing_changes.html
                         </sparkle:releaseNotesLink>
-                        <pubDate>Sun, 08 Jan 2012 14:53:26 -0800</pubDate>
-                        <enclosure url="http://iterm2.googlecode.com/files/iTerm2-1_0_0_20120108.zip"
-                                sparkle:version="1.0.0.20120108" length="4624746" type="application/octet-stream"
-                                sparkle:dsaSignature="MC0CFD2HCk6pd5kcVnFJ+JtZK2qZd23SAhUAjRrZKqDdNPAkCaVQknehrnStjns=" />
+                        <pubDate>Mon, 23 Jan 2012 20:18:53 -0800</pubDate>
+                        <enclosure url="http://iterm2.googlecode.com/files/iTerm2-1_0_0_20120123.zip"
+                                sparkle:version="1.0.0.20120123" length="4672627" type="application/octet-stream"
+                                sparkle:dsaSignature="MCwCFGn4JMEqiBLn5f4oGEiA+uCSnQQCAhR6TcZ8tzCKQqzvWZd0UUiP4iPUWw==" />
                 </item>
 	</channel>
 </rss>
