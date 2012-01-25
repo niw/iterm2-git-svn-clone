@@ -46,6 +46,14 @@ DebugLog([NSString stringWithFormat:args]); \
 extern BOOL gDebugLogging;
 void DebugLog(NSString* value);
 
+@interface iTermAboutWindow : NSPanel
+{
+}
+
+- (IBAction)closeCurrentSession:(id)sender;
+
+@end
+
 @interface iTermApplicationDelegate : NSObject
 {
     // about window
@@ -84,7 +92,11 @@ void DebugLog(NSString* value);
 - (BOOL)application:(NSApplication *)theApplication openFile:(NSString *)filename;
 - (BOOL)applicationOpenUntitledFile:(NSApplication *)app;
 - (NSMenu *)applicationDockMenu:(NSApplication *)sender;
+- (NSMenu*)bookmarksMenu;
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)app;
+
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)theApplication hasVisibleWindows:(BOOL)flag;
+
 - (void)applicationDidBecomeActive:(NSNotification *)aNotification;
 - (void)applicationDidResignActive:(NSNotification *)aNotification;
 
@@ -121,7 +133,6 @@ void DebugLog(NSString* value);
 // Notifications
 - (void) reloadMenus: (NSNotification *) aNotification;
 - (void) buildSessionSubmenu: (NSNotification *) aNotification;
-- (void) buildAddressBookMenu: (NSNotification *) aNotification;
 - (void) reloadSessionMenus: (NSNotification *) aNotification;
 - (void) nonTerminalWindowBecameKey: (NSNotification *) aNotification;
 

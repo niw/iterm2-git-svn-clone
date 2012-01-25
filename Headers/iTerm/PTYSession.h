@@ -202,6 +202,10 @@ static const float kBackgroundSessionIntervalSec = 1;
 
     // Time session was created
     NSDate* creationDate_;
+    
+    // After receiving new output, we keep running the updateDisplay timer for a few seconds to catch
+    // changes in job name.
+    NSDate* updateDisplayUntil_;
 }
 
 // Return the current pasteboard value as a string.
@@ -251,6 +255,7 @@ static const float kBackgroundSessionIntervalSec = 1;
               isUTF8:(BOOL)isUTF8
       asLoginSession:(BOOL)asLoginSession;
 
+- (void)softTerminate;
 - (void)terminate;
 
 - (void)setNewOutput:(BOOL)value;
@@ -265,6 +270,7 @@ static const float kBackgroundSessionIntervalSec = 1;
 - (void)brokenPipe;
 
 // PTYTextView
+- (BOOL)hasTextSendingKeyMappingForEvent:(NSEvent*)event;
 - (BOOL)hasActionableKeyMappingForEvent: (NSEvent *)event;
 - (void)keyDown:(NSEvent *)event;
 - (BOOL)willHandleEvent: (NSEvent *)theEvent;
@@ -416,6 +422,9 @@ static const float kBackgroundSessionIntervalSec = 1;
 
 // Schedule the screen update timer to run in a specified number of seconds.
 - (void)scheduleUpdateIn:(NSTimeInterval)timeout;
+
+// Call refresh on the textview and schedule a timer if anything is blinking.
+- (void)refreshAndStartTimerIfNeeded;
 
 - (NSString*)jobName;
 - (NSString*)uncachedJobName;

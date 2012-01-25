@@ -222,19 +222,34 @@ static const int ambiguous_chars[] = {
 
 - (NSString *)stringWithEscapedShellCharacters
 {
-    NSMutableString *aMutableString = [[NSMutableString alloc] initWithString: self];
-    [aMutableString replaceOccurrencesOfString: @"\\" withString: @"\\\\" options: 0 range: NSMakeRange(0, [aMutableString length])];
-    [aMutableString replaceOccurrencesOfString: @" " withString: @"\\ " options: 0 range: NSMakeRange(0, [aMutableString length])];
-    [aMutableString replaceOccurrencesOfString: @"(" withString: @"\\(" options: 0 range: NSMakeRange(0, [aMutableString length])];
-    [aMutableString replaceOccurrencesOfString: @")" withString: @"\\)" options: 0 range: NSMakeRange(0, [aMutableString length])];
-    [aMutableString replaceOccurrencesOfString: @"\"" withString: @"\\\"" options: 0 range: NSMakeRange(0, [aMutableString length])];
-    [aMutableString replaceOccurrencesOfString: @"&" withString: @"\\&" options: 0 range: NSMakeRange(0, [aMutableString length])];
-    [aMutableString replaceOccurrencesOfString: @"'" withString: @"\\'" options: 0 range: NSMakeRange(0, [aMutableString length])];
+    NSMutableString *aMutableString = [[[NSMutableString alloc] initWithString: self] autorelease];
+    NSString* charsToEscape = @"\\ ()\"&'!$<>;|*?[]#`";
+    for (int i = 0; i < [charsToEscape length]; i++) {
+        NSString* before = [charsToEscape substringWithRange:NSMakeRange(i, 1)];
+        NSString* after = [@"\\" stringByAppendingString:before];
+        [aMutableString replaceOccurrencesOfString:before
+                                        withString:after
+                                           options:0
+                                             range:NSMakeRange(0, [aMutableString length])];
+    }
 
-    NSString *ret = [NSString stringWithString: aMutableString];
-    [aMutableString release];
-    return ret;
+    return [NSString stringWithString:aMutableString];
+}
 
+- (NSString*)stringWithPercentEscape
+{
+    // From
+    // http://stackoverflow.com/questions/705448/iphone-sdk-problem-with-ampersand-in-the-url-string
+    return [(NSString *)CFURLCreateStringByAddingPercentEscapes(NULL,
+                                                                (CFStringRef)[[self mutableCopy] autorelease],
+                                                                NULL,
+                                                                CFSTR("￼=,!$&'()*+;@?\n\"<>#\t :/"),
+                                                                kCFStringEncodingUTF8) autorelease];
+}
+
+- (NSString*)stringWithLinefeedNewlines
+{
+    return [[self stringReplaceSubstringFrom:@"\r\n" to:@"\r"] stringReplaceSubstringFrom:@"\n" to:@"\r"];
 }
 
 @end

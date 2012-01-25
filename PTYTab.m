@@ -53,6 +53,9 @@ DebugLog([NSString stringWithFormat:args]); \
 } while (0)
 #endif
 
+// No growl output/idle alerts for a few seconds after a window is resized because there will be bogus bg activity
+const int POST_WINDOW_RESIZE_SILENCE_SEC = 5;
+
 @interface MySplitView : NSSplitView
 {
 }
@@ -331,7 +334,7 @@ static const BOOL USE_THIN_SPLITTERS = YES;
     if (i != NSNotFound) {
         currentViewIndex_ = i;
     }
-    
+
     --preserveOrder_;
 }
 
@@ -646,7 +649,7 @@ static NSString* FormatRect(NSRect r) {
     return [self _sessionAdjacentTo:session verticalDir:YES after:YES];
 }
 
-- (void)setLabelAttributes
+- (BOOL)setLabelAttributes
 {
     PtyLog(@"PTYTab setLabelAttributes");
     struct timeval now;
@@ -655,20 +658,24 @@ static NSString* FormatRect(NSRect r) {
     if ([[self activeSession] exited]) {
         // Session has terminated.
         [self _setLabelAttributesForDeadSession];
+        return NO;
     } else if ([[tabViewItem_ tabView] selectedTabViewItem] != [self tabViewItem]) {
         // We are not the foreground tab.
         if (now.tv_sec > [[self activeSession] lastOutput].tv_sec+2) {
             // At least two seconds have passed since the last call.
             [self _setLabelAttributesForIdleBackgroundTabAtTime:now];
+            return NO;
         } else {
             // Less than 2 seconds has passed since the last output in the session.
             if ([self anySessionHasNewOutput]) {
                 [self _setLabelAttributesForActiveBackgroundTab];
             }
+            return YES;
         }
     } else {
         // This tab is the foreground tab and the session hasn't exited.
         [self _setLabelAttributesForForegroundTab];
+        return NO;
     }
 }
 
@@ -1318,6 +1325,21 @@ static NSString* FormatRect(NSRect r) {
 {
     BOOL ignore;
     return [self _recursiveSize:root_ containsLock:&ignore];
+}
+
+- (void)setReportIdealSizeAsCurrent:(BOOL)v
+{
+    reportIdeal_ = v;
+}
+
+// This returns the current size
+- (NSSize)currentSize
+{
+    if (reportIdeal_) {
+        return [self size];
+    } else {
+        return [root_ frame].size;
+    }
 }
 
 - (NSSize)minSize
@@ -2449,6 +2471,7 @@ static void SetAgainstGrainDim(BOOL isVertical, NSSize* dest, CGFloat value)
             // Idle after new output
             if (![session growlIdle] &&
                 [[session SCREEN] growl] &&
+                [[NSDate date] timeIntervalSinceDate:[SessionView lastResizeDate]] > POST_WINDOW_RESIZE_SILENCE_SEC &&
                 now.tv_sec > [session lastOutput].tv_sec + 1) {
                 [[iTermGrowlDelegate sharedInstance] growlNotify:NSLocalizedStringFromTableInBundle(@"Idle",
                                                                                                     @"iTerm",
@@ -2483,15 +2506,13 @@ static void SetAgainstGrainDim(BOOL isVertical, NSSize* dest, CGFloat value)
 
     if (![[self activeSession] growlNewOutput] &&
         ![[self parentWindow] sendInputToAllSessions] &&
-        [[[self activeSession] SCREEN] growl] ) {
+        [[[self activeSession] SCREEN] growl] &&
+        [[NSDate date] timeIntervalSinceDate:[SessionView lastResizeDate]] > POST_WINDOW_RESIZE_SILENCE_SEC) {
         [[iTermGrowlDelegate sharedInstance] growlNotify:NSLocalizedStringFromTableInBundle(@"New Output",
                                                                                             @"iTerm",
                                                                                             [NSBundle bundleForClass:[self class]],
                                                                                             @"Growl Alerts")
-                                         withDescription:[NSString stringWithFormat:NSLocalizedStringFromTableInBundle(@"New Output was received in %@, tab #%d.",
-                                                                                                                       @"iTerm",
-                                                                                                                       [NSBundle bundleForClass:[self class]],
-                                                                                                                       @"Growl Alerts"),
+                                         withDescription:[NSString stringWithFormat:@"New output was received in %@, tab #%d.",
                                                           [[self activeSession] name],
                                                           [self realObjectCount]]
                                          andNotification:@"New Output"];

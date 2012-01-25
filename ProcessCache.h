@@ -1,14 +1,15 @@
+// -*- mode:objc -*-
 /*
- **  PTToolbarController.h
+ **  ProcessCache.m
  **
- **  Copyright (c) 2002, 2003
+ **  Copyright (c) 2011
  **
- **  Author: Fabian, Ujwal S. Setlur
- **      Initial code by Kiichi Kusama
+ **  Author: George Nachman
  **
- **  Project: iTerm
+ **  Project: iTerm2
  **
- **  Description: manages an the toolbar.
+ **  Description: Keeps an ancestorPid->foregroundJobName map and refreshes it
+ **               in a separate thread.
  **
  **  This program is free software; you can redistribute it and/or modify
  **  it under the terms of the GNU General Public License as published by
@@ -25,24 +26,20 @@
  **  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
+
 #import <Cocoa/Cocoa.h>
 
-extern NSString *NewToolbarItem;
-extern NSString *ABToolbarItem;
-extern NSString *CloseToolbarItem;
-extern NSString *ConfigToolbarItem;
-extern NSString *CommandToolbarItem;
 
-@class PseudoTerminal;
-
-@interface PTToolbarController : NSObject
-{
-    NSToolbar* _toolbar;
-    PseudoTerminal* _pseudoTerminal;
-    NSMenu* iconMenu_;
-    NSMenu* textMenu_;
+@interface ProcessCache : NSObject {
+    NSMutableDictionary* pidInfoCache_;
+    BOOL newOutput_;
+    NSLock* lock_;
 }
 
-- (id)initWithPseudoTerminal:(PseudoTerminal*)terminal;
++ (ProcessCache*)sharedInstance;
+
+// Get the name of the foreground job owned by pid.
+- (NSString*)jobNameWithPid:(int)pid;
+- (void)notifyNewOutput;
 
 @end

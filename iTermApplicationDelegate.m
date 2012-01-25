@@ -52,6 +52,15 @@ static BOOL usingAutoLaunchScript = NO;
 BOOL gDebugLogging = NO;
 int gDebugLogFile = -1;
 
+@implementation iTermAboutWindow
+
+- (IBAction)closeCurrentSession:(id)sender
+{
+    [self close];
+}
+
+@end
+
 
 @implementation iTermApplicationDelegate
 
@@ -92,8 +101,6 @@ int gDebugLogFile = -1;
     CFPreferencesSetAppValue(CFSTR("NSRepeatCountBinding"),
                              CFSTR(""),
                              kCFPreferencesCurrentApplication);
-
-    [self buildAddressBookMenu:nil];
 
     PreferencePanel* ppanel = [PreferencePanel sharedInstance];
     if ([ppanel hotkey]) {
@@ -219,12 +226,47 @@ int gDebugLogFile = -1;
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)app
 {
-    const double kMinRunningTime = 10;
+    NSNumber* pref = [[NSUserDefaults standardUserDefaults] objectForKey:@"MinRunningTime"];
+    const double kMinRunningTime =  pref ? [pref floatValue] : 10;
     if ([[NSDate date] timeIntervalSinceDate:launchTime_] < kMinRunningTime) {
         return NO;
     }
     quittingBecauseLastWindowClosed_ = [[PreferencePanel sharedInstance] quitWhenAllWindowsClosed];
     return quittingBecauseLastWindowClosed_;
+}
+
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)theApplication hasVisibleWindows:(BOOL)flag
+{
+    PreferencePanel* prefPanel = [PreferencePanel sharedInstance];
+    if ([prefPanel hotkey] &&
+        [prefPanel hotkeyTogglesWindow]) {
+        // The hotkey window is configured.
+        PseudoTerminal* hotkeyTerm = [[iTermController sharedInstance] hotKeyWindow];
+        if (hotkeyTerm) {
+            // Hide the existing window or open it if enabled by preference.
+            if ([[hotkeyTerm window] alphaValue] == 1) {
+                [[iTermController sharedInstance] hideHotKeyWindow:hotkeyTerm];
+                return NO;
+            } else if ([prefPanel dockIconTogglesWindow]) {
+                [[iTermController sharedInstance] showHotKeyWindow];
+                return NO;
+            }
+        } else if ([prefPanel dockIconTogglesWindow]) {
+            // No existing hotkey window but preference is to toggle it by dock icon so open a new
+            // one.
+            [[iTermController sharedInstance] showHotKeyWindow];
+            return NO;
+        }
+    }
+    return YES;
+}
+
+- (void)applicationDidChangeScreenParameters:(NSNotification *)aNotification
+{
+    // Make sure that all top-of-screen windows are the proper width.
+    for (PseudoTerminal* term in [self terminals]) {
+        [term screenParametersDidChange];
+    }
 }
 
 // init
@@ -239,7 +281,7 @@ int gDebugLogFile = -1;
                                                object:nil];
 
     [[NSNotificationCenter defaultCenter] addObserver: self
-                                             selector: @selector(buildAddressBookMenu:)
+                                             selector: @selector(updateAddressBookMenu:)
                                                  name: @"iTermReloadAddressBook"
                                                object: nil];
 
@@ -365,12 +407,15 @@ int gDebugLogFile = -1;
     bookmarksMenu = [[[NSMenu alloc] init] autorelease];
 
     [[iTermController sharedInstance] addBookmarksToMenu:bookmarksMenu
-                                                  target:aTarget
-                                           withShortcuts:NO
-                                                selector:selector
+                                            withSelector:selector
                                          openAllSelector:openAllSelector
-                                       alternateSelector:nil];
+                                              startingAt:0];
     [newMenuItem setSubmenu:bookmarksMenu];
+}
+
+- (NSMenu*)bookmarksMenu
+{
+    return bookmarkMenu;
 }
 
 - (NSMenu *)applicationDockMenu:(NSApplication *)sender
@@ -382,7 +427,7 @@ int gDebugLogFile = -1;
     [self _newSessionMenu:aMenu title:@"New Window"
                    target:[iTermController sharedInstance]
                  selector:@selector(newSessionInWindowAtIndex:)
-          openAllSelector:@selector(newSessionsInManyWindows:)];
+          openAllSelector:@selector(newSessionsInNewWindow:)];
     [self _newSessionMenu:aMenu title:@"New Tab"
                    target:frontTerminal
                  selector:@selector(newSessionInTabAtIndex:)
@@ -396,13 +441,13 @@ int gDebugLogFile = -1;
     DLog(@"******** Become Active");
     for (PseudoTerminal* term in [self terminals]) {
         if ([term isHotKeyWindow]) {
-            NSLog(@"Visor is open; not rescuing orphans.");
+            //NSLog(@"Visor is open; not rescuing orphans.");
             return;
         }
     }
     for (PseudoTerminal* term in [self terminals]) {
         if ([term isOrderedOut]) {
-            NSLog(@"term %p was orphaned, order front.", term);
+            //NSLog(@"term %p was orphaned, order front.", term);
             [[term window] orderFront:nil];
         }
     }
@@ -559,7 +604,7 @@ void DebugLog(NSString* value)
     NSDictionary *myDict = [[NSBundle bundleForClass:[self class]] infoDictionary];
     NSString *versionString = [NSString stringWithFormat: @"Build %@\n\n", [myDict objectForKey:@"CFBundleVersion"]];
 
-    NSAttributedString *webAString = [self _linkTo:@"http://sites.google.com/site/iterm2home/" title:@"Home Page\n"];
+    NSAttributedString *webAString = [self _linkTo:@"http://iterm2.com/" title:@"Home Page\n"];
     NSAttributedString *bugsAString = [self _linkTo:@"http://code.google.com/p/iterm2/issues/entry" title:@"Report a bug\n\n"];
     NSAttributedString *creditsAString = [self _linkTo:@"http://code.google.com/p/iterm2/wiki/Credits" title:@"Credits"];
 
@@ -619,7 +664,6 @@ void DebugLog(NSString* value)
     [nextTerminal setAction: (frontTerminal ? @selector(nextTerminal:) : nil)];
 
     [self buildSessionSubmenu: aNotification];
-    [self buildAddressBookMenu: aNotification];
     // reset the close tab/window shortcuts
     [closeTab setAction:@selector(closeCurrentTab:)];
     [closeTab setTarget:frontTerminal];
@@ -705,28 +749,19 @@ void DebugLog(NSString* value)
     }
 }
 
-- (void)buildAddressBookMenu:(NSNotification *)aNotification
+- (void)updateAddressBookMenu:(NSNotification*)aNotification
 {
-    // clear Bookmark menu
-    const int kNumberOfStaticMenuItems = 5;
-    for (; [bookmarkMenu numberOfItems] > kNumberOfStaticMenuItems;) {
-        NSMenuItem* anItem = [bookmarkMenu itemAtIndex:kNumberOfStaticMenuItems];
-        [anItem retain];
-        [bookmarkMenu removeItemAtIndex:kNumberOfStaticMenuItems];
-        NSMenu* sub = [anItem submenu];
-        if (sub) {
-            [self _removeItemsFromMenu:sub];
-        }
-        [anItem release];
-    }
+    JournalParams params;
+    params.selector = @selector(newSessionInTabAtIndex:);
+    params.openAllSelector = @selector(newSessionsInWindow:);
+    params.alternateSelector = @selector(newSessionInWindowAtIndex:);
+    params.alternateOpenAllSelector = @selector(newSessionsInWindow:);
+    params.target = [iTermController sharedInstance];
 
-    // add bookmarks into Bookmark menu
-    [[iTermController sharedInstance] addBookmarksToMenu:bookmarkMenu
-                                                  target:[[iTermController sharedInstance] currentTerminal]
-                                           withShortcuts:YES
-                                                selector:@selector(newSessionInTabAtIndex:)
-                                         openAllSelector:@selector(newSessionsInWindow:)
-                                       alternateSelector:@selector(newSessionInWindowAtIndex:)];
+    [BookmarkModel applyJournal:[aNotification userInfo]
+                         toMenu:bookmarkMenu
+                 startingAtItem:5
+                         params:&params];
 }
 
 // This is called whenever a tab becomes key or logging starts/stops.
@@ -960,7 +995,10 @@ void DebugLog(NSString* value)
         [[iTermController sharedInstance] showHideFindBar];
 }
 
-- (IBAction) findNext: (id) sender
+// findNext and findPrevious are reversed here because in the search UI next
+// goes backwards and previous goes forwards.
+// Internally, next=forward and prev=backwards.
+- (IBAction)findPrevious:(id)sender
 {
     PseudoTerminal* pty = [[iTermController sharedInstance] currentTerminal];
     if (pty) {
@@ -968,7 +1006,7 @@ void DebugLog(NSString* value)
     }
 }
 
-- (IBAction) findPrevious: (id) sender
+- (IBAction)findNext:(id)sender
 {
     PseudoTerminal* pty = [[iTermController sharedInstance] currentTerminal];
     if (pty) {

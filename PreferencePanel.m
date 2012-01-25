@@ -505,6 +505,16 @@ static float versionNumber;
     // Add presets to preset color selection.
     [self _rebuildColorPresetsMenu];
 
+    // Add preset keybindings to button-popup-list.
+    NSArray* presetArray = [iTermKeyBindingMgr presetKeyMappingsNames];
+    if (presetArray != nil) {
+        [presetsPopupButton addItemsWithTitles:presetArray];
+    } else {
+        [presetsPopupButton setEnabled:NO];
+        [presetsErrorLabel setFont:[NSFont boldSystemFontOfSize:12]];
+        [presetsErrorLabel setStringValue:@"PresetKeyMappings.plist failed to load"];
+    }
+
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(handleWindowWillCloseNotification:)
                                                  name:NSWindowWillCloseNotification object: [self window]];
@@ -871,6 +881,7 @@ static float versionNumber;
     defaultCmdSelection = [prefs objectForKey:@"CommandSelection"]?[[prefs objectForKey:@"CommandSelection"] boolValue]: YES;
     defaultPassOnControlLeftClick = [prefs objectForKey:@"PassOnControlClick"]?[[prefs objectForKey:@"PassOnControlClick"] boolValue] : NO;
     defaultMaxVertically = [prefs objectForKey:@"MaxVertically"] ? [[prefs objectForKey:@"MaxVertically"] boolValue] : NO;
+    defaultClosingHotkeySwitchesSpaces = [prefs objectForKey:@"ClosingHotkeySwitchesSpaces"] ? [[prefs objectForKey:@"ClosingHotkeySwitchesSpaces"] boolValue] : NO;
     defaultUseCompactLabel = [prefs objectForKey:@"UseCompactLabel"]?[[prefs objectForKey:@"UseCompactLabel"] boolValue]: YES;
     defaultHighlightTabLabels = [prefs objectForKey:@"HighlightTabLabels"]?[[prefs objectForKey:@"HighlightTabLabels"] boolValue]: YES;
     defaultAdvancedFontRendering = [prefs objectForKey:@"HiddenAdvancedFontRendering"]?[[prefs objectForKey:@"HiddenAdvancedFontRendering"] boolValue] : NO;
@@ -1003,6 +1014,7 @@ static float versionNumber;
     [prefs setBool:defaultCmdSelection forKey:@"CommandSelection"];
     [prefs setBool:defaultPassOnControlLeftClick forKey:@"PassOnControlClick"];
     [prefs setBool:defaultMaxVertically forKey:@"MaxVertically"];
+    [prefs setBool:defaultClosingHotkeySwitchesSpaces forKey:@"ClosingHotkeySwitchesSpaces"];
     [prefs setBool:defaultUseCompactLabel forKey:@"UseCompactLabel"];
     [prefs setBool:defaultHighlightTabLabels forKey:@"HighlightTabLabels"];
     [prefs setBool:defaultAdvancedFontRendering forKey:@"HiddenAdvancedFontRendering"];
@@ -1079,6 +1091,7 @@ static float versionNumber;
     [cmdSelection setState: defaultCmdSelection?NSOnState:NSOffState];
     [passOnControlLeftClick setState: defaultPassOnControlLeftClick?NSOnState:NSOffState];
     [maxVertically setState: defaultMaxVertically?NSOnState:NSOffState];
+    [closingHotkeySwitchesSpaces setState:defaultClosingHotkeySwitchesSpaces?NSOnState:NSOffState];
     [useCompactLabel setState: defaultUseCompactLabel?NSOnState:NSOffState];
     [highlightTabLabels setState: defaultHighlightTabLabels?NSOnState:NSOffState];
     [advancedFontRendering setState: defaultAdvancedFontRendering?NSOnState:NSOffState];
@@ -1321,6 +1334,7 @@ static float versionNumber;
         defaultCmdSelection = ([cmdSelection state] == NSOnState);
         defaultPassOnControlLeftClick = ([passOnControlLeftClick state] == NSOnState);
         defaultMaxVertically = ([maxVertically state] == NSOnState);
+        defaultClosingHotkeySwitchesSpaces = ([closingHotkeySwitchesSpaces state] == NSOnState);
         defaultOpenBookmark = ([openBookmark state] == NSOnState);
         [defaultWordChars release];
         defaultWordChars = [[wordChars stringValue] retain];
@@ -1498,6 +1512,11 @@ static float versionNumber;
 - (BOOL)maxVertically
 {
     return defaultMaxVertically;
+}
+
+- (BOOL)closingHotkeySwitchesSpaces
+{
+    return defaultClosingHotkeySwitchesSpaces;
 }
 
 - (BOOL)useCompactLabel
@@ -2118,6 +2137,7 @@ static float versionNumber;
     [flashingBell setState:[[dict objectForKey:KEY_FLASHING_BELL] boolValue] ? NSOnState : NSOffState];
     [xtermMouseReporting setState:[[dict objectForKey:KEY_XTERM_MOUSE_REPORTING] boolValue] ? NSOnState : NSOffState];
     [disableSmcupRmcup setState:[[dict objectForKey:KEY_DISABLE_SMCUP_RMCUP] boolValue] ? NSOnState : NSOffState];
+    [scrollbackWithStatusBar setState:[[dict objectForKey:KEY_SCROLLBACK_WITH_STATUS_BAR] boolValue] ? NSOnState : NSOffState];
     [bookmarkGrowlNotifications setState:[[dict objectForKey:KEY_BOOKMARK_GROWL_NOTIFICATIONS] boolValue] ? NSOnState : NSOffState];
     [characterEncoding setTitle:[NSString localizedNameOfStringEncoding:[[dict objectForKey:KEY_CHARACTER_ENCODING] unsignedIntValue]]];
     [scrollbackLines setIntValue:[[dict objectForKey:KEY_SCROLLBACK_LINES] intValue]];
@@ -2358,7 +2378,9 @@ static float versionNumber;
         for (int i = 0; i < [dataSource numberOfBookmarks]; ++i) {
             Bookmark* temp = [dataSource bookmarkAtIndex:i];
             NSString* existingShortcut = [temp objectForKey:KEY_SHORTCUT];
-            if ([existingShortcut isEqualToString:shortcut] && temp != origBookmark) {
+            if ([shortcut length] > 0 && 
+                [existingShortcut isEqualToString:shortcut] &&
+                temp != origBookmark) {
                 [dataSource setObject:nil forKey:KEY_SHORTCUT inBookmark:temp];
             }
         }
@@ -2457,6 +2479,7 @@ static float versionNumber;
     [newDict setObject:[NSNumber numberWithBool:([flashingBell state]==NSOnState)] forKey:KEY_FLASHING_BELL];
     [newDict setObject:[NSNumber numberWithBool:([xtermMouseReporting state]==NSOnState)] forKey:KEY_XTERM_MOUSE_REPORTING];
     [newDict setObject:[NSNumber numberWithBool:([disableSmcupRmcup state]==NSOnState)] forKey:KEY_DISABLE_SMCUP_RMCUP];
+    [newDict setObject:[NSNumber numberWithBool:([scrollbackWithStatusBar state]==NSOnState)] forKey:KEY_SCROLLBACK_WITH_STATUS_BAR];
     [newDict setObject:[NSNumber numberWithBool:([bookmarkGrowlNotifications state]==NSOnState)] forKey:KEY_BOOKMARK_GROWL_NOTIFICATIONS];
     [newDict setObject:[NSNumber numberWithUnsignedInt:[[characterEncoding selectedItem] tag]] forKey:KEY_CHARACTER_ENCODING];
     [newDict setObject:[NSNumber numberWithInt:[scrollbackLines intValue]] forKey:KEY_SCROLLBACK_LINES];
@@ -2872,14 +2895,9 @@ static float versionNumber;
     [self settingChanged:nil];
 }
 
-- (IBAction)useXtermWithNumKeyMappings:(id)sender;
+- (IBAction)presetKeyMappingsItemSelected:(id)sender
 {
-    [self setKeyMappingsToPreset:@"xterm with Numeric Keypad"];
-}
-
-- (IBAction)useXtermKeyMappings:(id)sender
-{
-    [self setKeyMappingsToPreset:@"xterm Defaults"];
+    [self setKeyMappingsToPreset:[[sender selectedItem] title]];
 }
 
 - (IBAction)useFactoryGlobalKeyMappings:(id)sender
@@ -2961,12 +2979,16 @@ static float versionNumber;
     for (NSString* guid in [[BookmarkModel sharedInstance] guids]) {
         Bookmark* bookmark = [[BookmarkModel sharedInstance] bookmarkWithGuid:guid];
         bookmark = [iTermKeyBindingMgr removeMappingsReferencingGuid:badRef fromBookmark:bookmark];
-        [[BookmarkModel sharedInstance] setBookmark:bookmark withGuid:guid];
+        if (bookmark) {
+            [[BookmarkModel sharedInstance] setBookmark:bookmark withGuid:guid];
+        }
     }
     for (NSString* guid in [[BookmarkModel sessionsInstance] guids]) {
         Bookmark* bookmark = [[BookmarkModel sessionsInstance] bookmarkWithGuid:guid];
         bookmark = [iTermKeyBindingMgr removeMappingsReferencingGuid:badRef fromBookmark:bookmark];
-        [[BookmarkModel sessionsInstance] setBookmark:bookmark withGuid:guid];
+        if (bookmark) {
+            [[BookmarkModel sessionsInstance] setBookmark:bookmark withGuid:guid];
+        }
     }
     [iTermKeyBindingMgr removeMappingsReferencingGuid:badRef fromBookmark:nil];
     [[PreferencePanel sharedInstance]->keyMappings reloadData];
@@ -3215,6 +3237,7 @@ static float versionNumber;
         KEY_BOOKMARK_GROWL_NOTIFICATIONS,
         KEY_CHARACTER_ENCODING,
         KEY_SCROLLBACK_LINES,
+        KEY_SCROLLBACK_WITH_STATUS_BAR,
         KEY_UNLIMITED_SCROLLBACK,
         KEY_TERMINAL_TYPE,
         KEY_SEND_CODE_WHEN_IDLE,
@@ -3267,6 +3290,12 @@ static float versionNumber;
 - (BOOL)hotkeyTogglesWindow
 {
     return defaultHotkeyTogglesWindow;
+}
+
+- (BOOL)dockIconTogglesWindow
+{
+    assert(prefs);
+    return [prefs boolForKey:@"dockIconTogglesWindow"];
 }
 
 - (Bookmark*)hotkeyBookmark

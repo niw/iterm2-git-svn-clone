@@ -129,6 +129,10 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     IBOutlet NSButton *maxVertically;
     BOOL defaultMaxVertically;
 
+    // Closing hotkey window may switch Spaces
+    IBOutlet NSButton* closingHotkeySwitchesSpaces;
+    BOOL defaultClosingHotkeySwitchesSpaces;
+
     // use compact tab labels
     IBOutlet NSButton *useCompactLabel;
     BOOL defaultUseCompactLabel;
@@ -354,6 +358,7 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     IBOutlet NSButton* flashingBell;
     IBOutlet NSButton* xtermMouseReporting;
     IBOutlet NSButton* disableSmcupRmcup;
+    IBOutlet NSButton* scrollbackWithStatusBar;
     IBOutlet NSButton* bookmarkGrowlNotifications;
     IBOutlet NSTextField* scrollbackLines;
     IBOutlet NSButton* unlimitedScrollback;
@@ -378,6 +383,9 @@ typedef enum { CURSOR_UNDERLINE, CURSOR_VERTICAL, CURSOR_BOX } ITermCursorType;
     IBOutlet NSMatrix *optionKeySends;
     IBOutlet NSMatrix *rightOptionKeySends;
     IBOutlet NSTokenField* tags;
+
+    IBOutlet NSPopUpButton* presetsPopupButton;
+    IBOutlet NSTextField*   presetsErrorLabel;
 
     NSString* keyString;  // hexcode-hexcode rep of keystring in current sheet
     BOOL newMapping;  // true if the keymap sheet is open for adding a new entry
@@ -472,6 +480,7 @@ typedef enum { BulkCopyColors, BulkCopyDisplay, BulkCopyWindow, BulkCopyTerminal
 - (BOOL)cmdSelection;
 - (BOOL)passOnControlLeftClick;
 - (BOOL)maxVertically;
+- (BOOL)closingHotkeySwitchesSpaces;
 - (BOOL)useCompactLabel;
 - (BOOL)highlightTabLabels;
 - (BOOL)openBookmark;
@@ -541,9 +550,7 @@ typedef enum { BulkCopyColors, BulkCopyDisplay, BulkCopyWindow, BulkCopyTerminal
 - (IBAction)removeMapping:(id)sender;
 - (IBAction)globalRemoveMapping:(id)sender;
 - (void)setKeyMappingsToPreset:(NSString*)presetName;
-- (IBAction)useXtermKeyMappings:(id)sender;
-- (IBAction)useXtermWithNumKeyMappings:(id)sender;
-- (IBAction)useFactoryGlobalKeyMappings:(id)sender;
+- (IBAction)presetKeyMappingsItemSelected:(id)sender;
 - (void)_loadPresetColors:(NSString*)presetName;
 - (void)loadColorPreset:(id)sender;
 - (IBAction)addBookmark:(id)sender;
@@ -576,6 +583,7 @@ typedef enum { BulkCopyColors, BulkCopyDisplay, BulkCopyWindow, BulkCopyTerminal
 
 - (BOOL)remappingDisabledTemporarily;
 - (BOOL)hotkeyTogglesWindow;
+- (BOOL)dockIconTogglesWindow;
 - (Bookmark*)hotkeyBookmark;
 
 @end

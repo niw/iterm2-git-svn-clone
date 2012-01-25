@@ -118,7 +118,13 @@ static char* formatsct(screen_char_t* src, int len, char* dest) {
     if (length > free_space) {
         return NO;
     }
-    if (is_partial) {
+    // There's a bit of an edge case here: if you're appending an empty
+    // non-partial line to a partial line, we need it to append a blank line
+    // after the continued line. In practice this happens because a line is
+    // long but then the wrapped portion is erased and the EOL_SOFT flag stays
+    // behind. It would be really complex to ensure consistency of line-wrapping
+    // flags because the screen contents are changed in so many places.
+    if (is_partial && !(!partial && length == 0)) {
         // append to an existing line
         NSAssert(cll_entries > 0, @"is_partial but has no entries");
         cumulative_line_lengths[cll_entries - 1] += length;
@@ -375,7 +381,7 @@ static int OffsetOfWrappedLine(screen_char_t* p, int n, int length, int width) {
     } else {
         start = cumulative_line_lengths[linenum - 1];
     }
-    return buffer_start + start;
+    return raw_buffer + start;
 }
 
 - (void) changeBufferSize: (int) capacity
@@ -757,15 +763,14 @@ static int Search(NSString* needle,
 
 - (int) _findEntryBeforeOffset: (int) offset
 {
-    NSAssert(offset >= start_offset, @"Offset before start_offset");
+    assert(offset >= start_offset);
     int i;
     for (i = first_entry; i < cll_entries; ++i) {
         if (cumulative_line_lengths[i] > offset) {
             return i;
         }
     }
-    NSAssert(NO, @"Offset not in block");
-    return cll_entries - 1;
+    return -1;
 }
 
 - (void) findSubstring: (NSString*) substring
@@ -781,11 +786,11 @@ static int Search(NSString* needle,
     int limit;
     int dir;
     if (options & FindOptBackwards) {
-        if (offset < start_offset) {
-            // Starting point is before legal beginning.
+        entry = [self _findEntryBeforeOffset: offset];
+        if (entry == -1) {
+            // Maybe there were no lines or offset was <= start_offset.
             return;
         }
-        entry = [self _findEntryBeforeOffset: offset];
         limit = first_entry - 1;
         dir = -1;
     } else {
@@ -831,26 +836,30 @@ static int Search(NSString* needle,
             // Get the number of full-width lines in the raw line. If there were
             // only single-width characters the formula would be:
             //     spans = (line_length - 1) / width;
-            int spans = NumberOfFullLines(buffer_start + prev, line_length, width);
+            int spans = NumberOfFullLines(raw_buffer + prev, line_length, width);
             *y += spans + 1;
         } else {
+            // The position we're searching for is in this (unwrapped) line.
             int bytes_to_consume_in_this_line = position - prev;
             int dwc_peek = 0;
+
+            // If the position is the left half of a double width char then include the right half in
+            // the following call to NumberOfFullLines.
+
             if (bytes_to_consume_in_this_line < line_length &&
-                prev + bytes_to_consume_in_this_line + 1 < eol &&
-                buffer_start[prev + bytes_to_consume_in_this_line + 1].code == DWC_RIGHT) {
-                // It doesn't make sense to ask for the number of lines that end
-                // in the middle of a DWC. Add one extra char to look at if that
-                // is the case.
-                ++dwc_peek;
+                prev + bytes_to_consume_in_this_line + 1 < eol) {
+                assert(prev + bytes_to_consume_in_this_line + 1 < buffer_size);
+                if (raw_buffer[prev + bytes_to_consume_in_this_line + 1].code == DWC_RIGHT) {    
+                    ++dwc_peek;
+                }
             }
-            int consume = NumberOfFullLines(buffer_start + prev,
+            int consume = NumberOfFullLines(raw_buffer + prev,
                                             MIN(line_length, bytes_to_consume_in_this_line + 1 + dwc_peek),
                                             width);
             *y += consume;
             if (consume > 0) {
                 // Offset from prev where the consume'th line begin.
-                int offset = OffsetOfWrappedLine(buffer_start + prev,
+                int offset = OffsetOfWrappedLine(raw_buffer + prev,
                                                  consume,
                                                  line_length,
                                                  width);
@@ -868,30 +877,6 @@ static int Search(NSString* needle,
     }
     NSLog(@"Didn't find position %d", position);
     return NO;
-}
-
-// If you were to do an append, this is the x position of where your append
-// would begin.
-- (int) getTrailingWithWidth:(int)width
-{
-    int numLines = [self numRawLines];
-    if (!is_partial || numLines == 0) {
-        return 0;
-    } else {
-        int start;
-        if (cll_entries == 1) {
-            start = 0;
-        } else {
-            start = cumulative_line_lengths[cll_entries - 2];
-        }
-        int length = cumulative_line_lengths[cll_entries - 1] - start;
-        int spans = NumberOfFullLines(buffer_start + start, length, width);
-        int offset = OffsetOfWrappedLine(buffer_start + start,
-                                         spans,
-                                         length,
-                                         width);
-        return offset;
-    }
 }
 
 @end

@@ -122,7 +122,8 @@
 #define KEY_VISUAL_BELL                       @"Visual Bell"
 #define KEY_FLASHING_BELL                     @"Flashing Bell"
 #define KEY_XTERM_MOUSE_REPORTING             @"Mouse Reporting"
-#define KEY_DISABLE_SMCUP_RMCUP                @"Disable Smcup Rmcup"
+#define KEY_DISABLE_SMCUP_RMCUP               @"Disable Smcup Rmcup"
+#define KEY_SCROLLBACK_WITH_STATUS_BAR        @"Scrollback With Status Bar"
 #define KEY_BOOKMARK_GROWL_NOTIFICATIONS      @"BM Growl"
 #define KEY_CHARACTER_ENCODING                @"Character Encoding"
 #define KEY_SCROLLBACK_LINES                  @"Scrollback Lines"
@@ -137,8 +138,9 @@
 #define KEY_RIGHT_OPTION_KEY_SENDS            @"Right Option Key Sends"
 
 #define WINDOW_TYPE_NORMAL 0
-#define WINDOW_TYPE_FULL_SCREEN 1
+#define WINDOW_TYPE_FULL_SCREEN 1  // Creates a normal window but all callers to initWithSmartLayout will toggle fullscreen mode if this is the windowType.
 #define WINDOW_TYPE_TOP 2
+#define WINDOW_TYPE_FORCE_FULL_SCREEN 3  // Used internally, never reported by windowType API. Causes initWithSmartLayout to create a window with fullscreen chrome. It will set its windowType to FULL_SCREEN
 
 @interface ITAddressBookMgr : NSObject
 {

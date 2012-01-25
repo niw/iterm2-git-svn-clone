@@ -47,6 +47,8 @@
     int viewId_;
 }
 
++ (NSDate*)lastResizeDate;
++ (void)windowDidResize;
 - (id)initWithFrame:(NSRect)frame session:(PTYSession*)session;
 - (void)dealloc;
 - (PTYSession*)session;
@@ -55,5 +57,6 @@
 - (void)cancelTimers;
 - (FindViewController*)findViewController;
 - (int)viewId;
+- (void)setViewId:(int)id;
 
 @end

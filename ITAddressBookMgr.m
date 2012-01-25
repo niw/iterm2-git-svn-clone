@@ -283,18 +283,16 @@
     // remove host entry from this group
     NSMutableArray* toRemove = [[[NSMutableArray alloc] init] autorelease];
     NSString* sftpName = [NSString stringWithFormat:@"%@-sftp", [aNetService name]];
-    for (int i = 0; i < [[BookmarkModel sharedInstance] numberOfBookmarksWithFilter:@"bonjour"]; ++i) {
-        Bookmark* bookmark = [[BookmarkModel sharedInstance] bookmarkAtIndex:i withFilter:@"bonjour"];
+    for (NSNumber* n in [[BookmarkModel sharedInstance] bookmarkIndicesMatchingFilter:@"bonjour"]) {
+        int i = [n intValue];
+        Bookmark* bookmark = [[BookmarkModel sharedInstance] bookmarkAtIndex:i];
         NSString* bookmarkName = [bookmark objectForKey:KEY_NAME];
         if ([bookmarkName isEqualToString:[aNetService name]] ||
             [bookmarkName isEqualToString:sftpName]) {
             [toRemove addObject:[NSNumber numberWithInt:i]];
         }
     }
-    for (int i = [toRemove count]-1; i >= 0; --i) {
-        [[BookmarkModel sharedInstance] removeBookmarkAtIndex:[[toRemove objectAtIndex:i] intValue] withFilter:@"bonjour"];
-    }
-    [toRemove removeAllObjects];
+    [[BookmarkModel sharedInstance] removeBookmarksAtIndices:toRemove];
 }
 
 + (NSString*)descFromFont:(NSFont*)font
@@ -430,6 +428,11 @@
 static NSString* UserShell() {
     struct passwd* pw;
     pw = getpwuid(geteuid());
+    if (!pw) {
+        NSLog(@"No passwd entry for effective uid %d", geteuid());
+        endpwent();
+        return nil;
+    }
     NSString* shell = [NSString stringWithUTF8String:pw->pw_shell];
     endpwent();
     return shell;

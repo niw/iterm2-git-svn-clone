@@ -43,6 +43,7 @@
 #import "iTermApplicationDelegate.h"
 #import "SessionView.h"
 #import "PTYTab.h"
+#import "ProcessCache.h"
 
 #include <unistd.h>
 #include <sys/wait.h>
@@ -51,6 +52,7 @@
 #define DEBUG_ALLOC           0
 #define DEBUG_METHOD_TRACE    0
 #define DEBUG_KEYDOWNDUMP     0
+#define ASK_ABOUT_OUTDATED_FORMAT @"AskAboutOutdatedKeyMappingForGuid%@"
 
 @implementation PTYSession
 
@@ -98,6 +100,11 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
 
     slowPasteBuffer = [[NSMutableString alloc] init];
     creationDate_ = [[NSDate date] retain];
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(windowResized)
+                                                 name:@"iTermWindowDidResize"
+                                               object:nil];
     return self;
 }
 
@@ -107,6 +114,7 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
     if (slowPasteTimer) {
         [slowPasteTimer invalidate];
     }
+    [updateDisplayUntil_ release];
     [creationDate_ release];
     [lastActiveAt_ release];
     [bookmarkName release];
@@ -130,7 +138,7 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
     [TERMINAL release];
     TERMINAL = nil;
 
-    [[NSNotificationCenter defaultCenter] removeObserver: self];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 
     if (dvrDecoder_) {
         [dvr_ releaseDecoder:dvrDecoder_];
@@ -221,6 +229,15 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
 - (PTYSession*)liveSession
 {
     return liveSession_;
+}
+
+- (void)windowResized
+{
+    // When the window is resized the title is temporarily changed and it's our
+    // timer that resets it.
+    if (!EXIT) {
+        [self scheduleUpdateIn:kBackgroundSessionIntervalSec];
+    }
 }
 
 + (PTYSession*)sessionFromArrangement:(NSDictionary*)arrangement inView:(SessionView*)sessionView inTab:(PTYTab*)theTab
@@ -404,6 +421,41 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
     return newOutput;
 }
 
+// This command installs the xterm-256color terminfo in the user's terminfo directory:
+// tic -e xterm-256color $FILENAME
+- (void)_maybeAskAboutInstallXtermTerminfo
+{
+    NSString* NEVER_WARN = @"NeverWarnAboutXterm256ColorTerminfo";
+    if ([[NSUserDefaults standardUserDefaults] objectForKey:NEVER_WARN]) {
+        return;
+    }
+
+    NSString* filename = [[NSBundle bundleForClass: [self class]] pathForResource:@"xterm-terminfo" ofType:@"txt"];
+    if (!filename) {
+        return;
+    }
+    NSString* cmd = [NSString stringWithFormat:@"tic -e xterm-256color %@", [filename stringWithEscapedShellCharacters]];
+    if (system("infocmp xterm-256color")) {
+        switch (NSRunAlertPanel(@"Warning",
+                                @"The terminfo file for the terminal type you're using, \"xterm-256color\", is not installed on your system. Would you like to install it now?",
+                                @"Install",
+                                @"Never ask me again",
+                                @"Not Now",
+                                nil)) {
+            case NSAlertDefaultReturn:
+                if (system([cmd UTF8String])) {
+                    NSRunAlertPanel(@"Error",
+                                    [NSString stringWithFormat:@"Sorry, an error occurred while running: %@", cmd],
+                                    @"Ok", nil, nil);
+                }
+                break;
+            case NSAlertAlternateReturn:
+                [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithBool:YES] forKey:NEVER_WARN];
+                break;
+        }
+    }
+}
+
 - (void)startProgram:(NSString *)program
            arguments:(NSArray *)prog_argv
          environment:(NSDictionary *)prog_env
@@ -421,6 +473,9 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
 #endif
     if ([env objectForKey:TERM_ENVNAME] == nil)
         [env setObject:TERM_VALUE forKey:TERM_ENVNAME];
+    if ([[env objectForKey:TERM_ENVNAME] isEqualToString:@"xterm-256color"]) {
+        [self _maybeAskAboutInstallXtermTerminfo];
+    }
 
     if ([env objectForKey:COLORFGBG_ENVNAME] == nil && COLORFGBG_VALUE != nil)
         [env setObject:COLORFGBG_VALUE forKey:COLORFGBG_ENVNAME];
@@ -460,6 +515,13 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
             }
         }
     }
+}
+
+// Terminate a replay session but not the live session
+- (void)softTerminate
+{
+    liveSession_ = nil;
+    [self terminate];
 }
 
 - (void)terminate
@@ -561,6 +623,8 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
     newOutput = YES;
 
     // Make sure the screen gets redrawn soonish
+    [updateDisplayUntil_ release];
+    updateDisplayUntil_ = [[NSDate dateWithTimeIntervalSinceNow:10] retain];
     if ([[[self tab] parentWindow] currentTab] == [self tab]) {
         if ([data length] < 1024) {
             [self scheduleUpdateIn:kFastTimerIntervalSec];
@@ -570,19 +634,19 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
     } else {
         [self scheduleUpdateIn:kBackgroundSessionIntervalSec];
     }
+    [[ProcessCache sharedInstance] notifyNewOutput];
+}
+
+- (BOOL)_growlOnForegroundTabs
+{
+    return [[[NSUserDefaults standardUserDefaults] objectForKey:@"GrowlOnForegroundTabs"] boolValue];
 }
 
 - (void)brokenPipe
 {
-    if ([SCREEN growl]) {
-        [gd growlNotify:NSLocalizedStringFromTableInBundle(@"Broken Pipe",
-                                                           @"iTerm",
-                                                           [NSBundle bundleForClass:[self class]],
-                                                           @"Growl Alerts")
-            withDescription:[NSString stringWithFormat:NSLocalizedStringFromTableInBundle(@"Session %@ #%d just terminated.",
-                                                                                          @"iTerm",
-                                                                                          [NSBundle bundleForClass:[self class]],
-                                                                                          @"Growl Alerts"),
+    if ([SCREEN growl] && (![[self tab] isForegroundTab] || [self _growlOnForegroundTabs])) {
+        [gd growlNotify:@"Session Ended"
+            withDescription:[NSString stringWithFormat:@"Session \"%@\" in tab #%d just terminated.",
                              [self name],
                              [[self tab] realObjectCount]]
             andNotification:@"Broken Pipes"];
@@ -598,7 +662,7 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
     }
 }
 
-- (BOOL)hasActionableKeyMappingForEvent:(NSEvent *)event
+- (int)_keyBindingActionForEvent:(NSEvent*)event
 {
     unsigned int modflag;
     NSString *unmodkeystr;
@@ -618,13 +682,31 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
     */
 
     // Check if we have a custom key mapping for this event
-
     keyBindingAction = [iTermKeyBindingMgr actionForKeyCode:unmodunicode
                                                   modifiers:modflag
                                                        text:&keyBindingText
                                                 keyMappings:[[self addressBookEntry] objectForKey: KEY_KEYBOARD_MAP]];
+    return keyBindingAction;
+}
 
+- (BOOL)hasTextSendingKeyMappingForEvent:(NSEvent*)event
+{
+    int keyBindingAction = [self _keyBindingActionForEvent:event];
+    switch (keyBindingAction) {
+        case KEY_ACTION_ESCAPE_SEQUENCE:
+        case KEY_ACTION_HEX_CODE:
+        case KEY_ACTION_TEXT:
+        case KEY_ACTION_IGNORE:
+        case KEY_ACTION_SEND_C_H_BACKSPACE:
+        case KEY_ACTION_SEND_C_QM_BACKSPACE:
+            return YES;
+    }
+    return NO;
+}
 
+- (BOOL)hasActionableKeyMappingForEvent:(NSEvent *)event
+{
+    int keyBindingAction = [self _keyBindingActionForEvent:event];
     return (keyBindingAction >= 0) && (keyBindingAction != KEY_ACTION_DO_NOT_REMAP_MODIFIERS) && (keyBindingAction != KEY_ACTION_REMAP_LOCALLY);
 }
 
@@ -640,6 +722,12 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
 - (BOOL)_askAboutOutdatedKeyMappings
 {
     NSNumber* n = [addressBookEntry objectForKey:KEY_ASK_ABOUT_OUTDATED_KEYMAPS];
+    if (!n) {
+        n = [[NSUserDefaults standardUserDefaults] objectForKey:[NSString stringWithFormat:ASK_ABOUT_OUTDATED_FORMAT, [addressBookEntry objectForKey:KEY_GUID]]];
+        if (!n && [addressBookEntry objectForKey:KEY_ORIGINAL_GUID]) {
+            n = [[NSUserDefaults standardUserDefaults] objectForKey:[NSString stringWithFormat:ASK_ABOUT_OUTDATED_FORMAT, [addressBookEntry objectForKey:KEY_ORIGINAL_GUID]]];
+        }
+    }
     return n ? [n boolValue] : YES;
 }
 
@@ -677,6 +765,14 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
     [model setObject:[NSNumber numberWithBool:NO]
                                        forKey:KEY_ASK_ABOUT_OUTDATED_KEYMAPS
                                    inBookmark:addressBookEntry];
+    [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithBool:NO]
+                                              forKey:[NSString stringWithFormat:ASK_ABOUT_OUTDATED_FORMAT,
+                                                      [addressBookEntry objectForKey:KEY_GUID]]];
+    if ([addressBookEntry objectForKey:KEY_ORIGINAL_GUID]) {
+        [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithBool:NO]
+                                                  forKey:[NSString stringWithFormat:ASK_ABOUT_OUTDATED_FORMAT,
+                                                          [addressBookEntry objectForKey:KEY_ORIGINAL_GUID]]];
+    }
     [PTYSession reloadAllBookmarks];
 }
 
@@ -811,11 +907,18 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
                                                 keyMappings:[[self addressBookEntry] objectForKey:KEY_KEYBOARD_MAP]];
 
     if (keyBindingAction >= 0) {
+        DebugLog([NSString stringWithFormat:@"keyBindingAction=%d", keyBindingAction]);
         // A special action was bound to this key combination.
         NSString *aString;
 
-        if (keyBindingAction == KEY_ACTION_NEXT_SESSION ||
-            keyBindingAction == KEY_ACTION_PREVIOUS_SESSION) {
+        NSString* temp;
+        int profileAction = [iTermKeyBindingMgr localActionForKeyCode:unmodunicode
+                                                            modifiers:modflag
+                                                                 text:&temp
+                                                          keyMappings:[[self addressBookEntry] objectForKey:KEY_KEYBOARD_MAP]];
+        if (profileAction == keyBindingAction &&  // Don't warn if it's a global mapping
+            (keyBindingAction == KEY_ACTION_NEXT_SESSION ||
+             keyBindingAction == KEY_ACTION_PREVIOUS_SESSION)) {
             // Warn users about outdated default key bindings.
             int tempMods = modflag & (NSAlternateKeyMask | NSControlKeyMask | NSShiftKeyMask | NSCommandKeyMask);
             int tempKeyCode = unmodunicode;
@@ -963,7 +1066,7 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
             case KEY_ACTION_REMAP_LOCALLY:
                 break;
             case KEY_ACTION_TOGGLE_FULLSCREEN:
-                [[[iTermController sharedInstance] currentTerminal] toggleFullScreen:nil];
+                [[[iTermController sharedInstance] currentTerminal] toggleFullScreenMode:nil];
                 break;
             case KEY_ACTION_NEW_WINDOW_WITH_PROFILE:
                 [[[self tab] realParentWindow] newWindowWithBookmarkGuid:keyBindingText];
@@ -982,33 +1085,29 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
                 break;
         }
     } else {
+        DebugLog(@"No keybinding action");
         if (EXIT) {
+            DebugLog(@"Terminal already dead");
             return;
         }
         // No special binding for this key combination.
         if (modflag & NSFunctionKeyMask) {
+            DebugLog(@"Is a function key");
             // Handle all "special" keys (arrows, etc.)
             NSData *data = nil;
 
-            // Set the alternate key mask iff an esc-generating modifier is
-            // pressed.
-            unsigned int hackedModflag = modflag & (~NSAlternateKeyMask);
-            if ([self shouldSendEscPrefixForModifier:modflag]) {
-                hackedModflag |= NSAlternateKeyMask;
-            }
-
             switch (unicode) {
                 case NSUpArrowFunctionKey:
-                    data = [TERMINAL keyArrowUp:hackedModflag];
+                    data = [TERMINAL keyArrowUp:modflag];
                     break;
                 case NSDownArrowFunctionKey:
-                    data = [TERMINAL keyArrowDown:hackedModflag];
+                    data = [TERMINAL keyArrowDown:modflag];
                     break;
                 case NSLeftArrowFunctionKey:
-                    data = [TERMINAL keyArrowLeft:hackedModflag];
+                    data = [TERMINAL keyArrowLeft:modflag];
                     break;
                 case NSRightArrowFunctionKey:
-                    data = [TERMINAL keyArrowRight:hackedModflag];
+                    data = [TERMINAL keyArrowRight:modflag];
                     break;
                 case NSInsertFunctionKey:
                     data = [TERMINAL keyInsert];
@@ -1018,16 +1117,16 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
                     data = [TERMINAL keyDelete];
                     break;
                 case NSHomeFunctionKey:
-                    data = [TERMINAL keyHome:hackedModflag];
+                    data = [TERMINAL keyHome:modflag];
                     break;
                 case NSEndFunctionKey:
-                    data = [TERMINAL keyEnd:hackedModflag];
+                    data = [TERMINAL keyEnd:modflag];
                     break;
                 case NSPageUpFunctionKey:
-                    data = [TERMINAL keyPageUp:hackedModflag];
+                    data = [TERMINAL keyPageUp:modflag];
                     break;
                 case NSPageDownFunctionKey:
-                    data = [TERMINAL keyPageDown:hackedModflag];
+                    data = [TERMINAL keyPageDown:modflag];
                     break;
                 case NSClearLineFunctionKey:
                     data = [@"\e" dataUsingEncoding:NSUTF8StringEncoding];
@@ -1052,6 +1151,7 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
                     ([self optionKey] != OPT_NORMAL)) ||
                    ((modflag & NSRightAlternateKeyMask) == NSRightAlternateKeyMask &&
                     ([self rightOptionKey] != OPT_NORMAL))) {
+           DebugLog(@"Option + key -> modified key");
             // A key was pressed while holding down option and the option key
             // is not behaving normally. Apply the modified behavior.
             int mode;  // The modified behavior based on which modifier is pressed.
@@ -1077,23 +1177,28 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
                 }
             }
         } else {
+            DebugLog(@"Regular path for keypress");
             // Regular path for inserting a character from a keypress.
             int max = [keystr length];
             NSData *data=nil;
 
             if (max != 1||[keystr characterAtIndex:0] > 0x7f) {
+                DebugLog(@"Non-ascii input");
                 data = [keystr dataUsingEncoding:[TERMINAL encoding]];
             } else {
+                DebugLog(@"ASCII input");
                 data = [keystr dataUsingEncoding:NSUTF8StringEncoding];
             }
 
             // Enter key is on numeric keypad, but not marked as such
             if (unicode == NSEnterCharacter && unmodunicode == NSEnterCharacter) {
                 modflag |= NSNumericPadKeyMask;
+                DebugLog(@"Enter key");
                 keystr = @"\015";  // Enter key -> 0x0d
             }
             // Check if we are in keypad mode
             if (modflag & NSNumericPadKeyMask) {
+                DebugLog(@"Numeric keypad mask");
                 data = [TERMINAL keypadData:unicode keystr:keystr];
             }
 
@@ -1106,6 +1211,7 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
                 // fat-fingered switching of tabs/windows.
                 // Do not send anything for cmd+[shift]+enter if it wasn't
                 // caught by the menu.
+                DebugLog(@"Cmd + 0-9 or cmd + enter");
                 data = nil;
             }
             if (data != nil) {
@@ -1309,6 +1415,57 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
     return info;
 }
 
+
+- (void)_pasteStringImmediately:(NSString*)aString
+{
+    if ([aString length] > 0) {
+        [self writeTask:[aString
+                         dataUsingEncoding:[TERMINAL encoding]
+                         allowLossyConversion:YES]];
+
+    }
+}
+
+- (void)_pasteWithBytePerCallPrefKey:(NSString*)bytesPerCallKey
+                        defaultValue:(int)bytesPerCallDefault
+            delayBetweenCallsPrefKey:(NSString*)delayBetweenCallsKey
+                        defaultValue:(float)delayBetweenCallsDefault
+                            selector:(SEL)selector
+{
+    NSRange range;
+    range.location = 0;
+    NSNumber* pref = [[NSUserDefaults standardUserDefaults] valueForKey:bytesPerCallKey];
+    NSNumber* delay = [[NSUserDefaults standardUserDefaults] valueForKey:delayBetweenCallsKey];
+    const int kBatchSize = pref ? [pref intValue] : bytesPerCallDefault;
+    if ([slowPasteBuffer length] > kBatchSize) {
+        range.length = kBatchSize;
+    } else {
+        range.length = [slowPasteBuffer length];
+    }
+    [self _pasteStringImmediately:[slowPasteBuffer substringWithRange:range]];
+    [slowPasteBuffer deleteCharactersInRange:range];
+    if ([slowPasteBuffer length] > 0) {
+        slowPasteTimer = [NSTimer scheduledTimerWithTimeInterval:delay ? [delay floatValue] : delayBetweenCallsDefault
+                                                          target:self
+                                                        selector:selector
+                                                        userInfo:nil
+                                                         repeats:NO];
+    } else {
+        slowPasteTimer = nil;
+    }
+}
+
+// Outputs 16 bytes every 125ms so that clients that don't buffer input can handle pasting large buffers.
+// Override the constnats by setting defaults SlowPasteBytesPerCall and SlowPasteDelayBetweenCalls
+- (void)pasteSlowly:(id)sender
+{
+    [self _pasteWithBytePerCallPrefKey:@"SlowPasteBytesPerCall"
+                          defaultValue:16
+              delayBetweenCallsPrefKey:@"SlowPasteDelayBetweenCalls"
+                          defaultValue:0.125
+                              selector:@selector(pasteSlowly:)];
+}
+
 - (void)paste:(id)sender
 {
     NSString* pbStr = [PTYSession pasteboardString];
@@ -1323,7 +1480,7 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
             [str replaceOccurrencesOfString:@" " withString:@"\\ " options:NSLiteralSearch range:NSMakeRange(0, [str length])];
         }
         if ([sender tag] & 2) {
-            [slowPasteBuffer setString:str];
+            [slowPasteBuffer appendString:[str stringWithLinefeedNewlines]];
             [self pasteSlowly:nil];
         } else {
             [self pasteString:str];
@@ -1331,44 +1488,25 @@ static NSString* SESSION_ARRANGEMENT_WORKING_DIRECTORY = @"Working Directory";
     }
 }
 
-// Outputs 16 bytes every 125ms so that clients that don't buffer input can handle pasting large buffers.
-// Override the constnats by setting defaults SlowPasteBytesPerCall and SlowPasteDelayBetweenCalls
-- (void)pasteSlowly:(id)sender
+- (void)_pasteStringMore
 {
-    NSRange range;
-    range.location = 0;
-    NSNumber* pref = [[NSUserDefaults standardUserDefaults] valueForKey:@"SlowPasteBytesPerCall"];
-    NSNumber* delay = [[NSUserDefaults standardUserDefaults] valueForKey:@"SlowPasteDelayBetweenCalls"];
-    const int kBatchSize = pref ? [pref intValue] : 16;
-    if ([slowPasteBuffer length] > kBatchSize) {
-        range.length = kBatchSize;
-    } else {
-        range.length = [slowPasteBuffer length];
-    }
-    [self pasteString:[slowPasteBuffer substringWithRange:range]];
-    [slowPasteBuffer deleteCharactersInRange:range];
-    if ([slowPasteBuffer length] > 0) {
-        slowPasteTimer = [NSTimer scheduledTimerWithTimeInterval:delay ? [delay floatValue] : 0.125
-                                                          target:self
-                                                        selector:@selector(pasteSlowly:)
-                                                        userInfo:nil
-                                                         repeats:NO];
-    } else {
-        slowPasteTimer = nil;
-    }
+    [self _pasteWithBytePerCallPrefKey:@"QuickPasteBytesPerCall"
+                          defaultValue:256
+              delayBetweenCallsPrefKey:@"QuickPasteDelayBetweenCalls"
+                          defaultValue:0.01
+                              selector:@selector(_pasteStringMore)];
 }
 
 - (void)pasteString:(NSString *)aString
 {
-
     if ([aString length] > 0) {
-        NSString *tempString = [aString stringReplaceSubstringFrom:@"\r\n" to:@"\r"];
-        [self writeTask:[[tempString stringReplaceSubstringFrom:@"\n" to:@"\r"] dataUsingEncoding:[TERMINAL encoding]
-                                                                             allowLossyConversion:YES]];
+        // This is the "normal" way of pasting. It's fast but tends not to outrun a shell's ability to
+        // read from its buffer. Why this crazy thing? See bug 1031.
+        [slowPasteBuffer appendString:[aString stringWithLinefeedNewlines]];
+        [self _pasteStringMore];
     } else {
         NSBeep();
     }
-
 }
 
 - (void)deleteBackward:(id)sender
@@ -2307,10 +2445,18 @@ static long long timeInTenthsOfSeconds(struct timeval t)
 - (void)updateDisplay
 {
     timerRunning_ = YES;
+    BOOL anotherUpdateNeeded = [NSApp isActive];
+    if (!anotherUpdateNeeded &&
+        updateDisplayUntil_ &&
+        [[NSDate date] timeIntervalSinceDate:updateDisplayUntil_] < 0) {
+        // We're still in the time window after the last output where updates are needed.
+        anotherUpdateNeeded = YES;
+    }
+    
     BOOL isForegroundTab = [[self tab] isForegroundTab];
     if (!isForegroundTab) {
         // Set color, other attributes of a background tab.
-        [[self tab] setLabelAttributes];
+        anotherUpdateNeeded |= [[self tab] setLabelAttributes];
     }
     if ([[self tab] activeSession] == self) {
         // Update window info for the active tab.
@@ -2319,7 +2465,7 @@ static long long timeInTenthsOfSeconds(struct timeval t)
         if (!jobName_ ||
             timeInTenthsOfSeconds(now) >= timeInTenthsOfSeconds(lastUpdate) + 7) {
             // It has been more than 700ms since the last time we were here or
-            // the job doesn't ahve a name
+            // the job doesn't have a name
             if (isForegroundTab && [[[self tab] parentWindow] tempTitle]) {
                 // Revert to the permanent tab title.
                 [[[self tab] parentWindow] setWindowTitle];
@@ -2335,22 +2481,40 @@ static long long timeInTenthsOfSeconds(struct timeval t)
                 [oldName release];
             }
             lastUpdate = now;
+        } else if (timeInTenthsOfSeconds(now) < timeInTenthsOfSeconds(lastUpdate) + 7) {
+            // If it's been less than 700ms keep updating.
+            anotherUpdateNeeded = YES;
         }
     }
 
-    [TEXTVIEW refresh];
-    [self updateScroll];
+    anotherUpdateNeeded |= [TEXTVIEW refresh];
+    anotherUpdateNeeded |= [[[self tab] parentWindow] tempTitle];
 
-    if ([[[self tab] parentWindow] currentTab] == [self tab]) {
-        [self scheduleUpdateIn:kBlinkTimerIntervalSec];
+    if (anotherUpdateNeeded) {
+        if ([[[self tab] parentWindow] currentTab] == [self tab]) {
+            [self scheduleUpdateIn:kBlinkTimerIntervalSec];
+        } else {
+            [self scheduleUpdateIn:kBackgroundSessionIntervalSec];
+        }
     } else {
-        [self scheduleUpdateIn:kBackgroundSessionIntervalSec];
+        [updateTimer release];
+        updateTimer = nil;
     }
     timerRunning_ = NO;
 }
 
+- (void)refreshAndStartTimerIfNeeded
+{
+    if ([TEXTVIEW refresh]) {
+        [self scheduleUpdateIn:kBlinkTimerIntervalSec];
+    }
+}
+
 - (void)scheduleUpdateIn:(NSTimeInterval)timeout
 {
+    if (EXIT) {
+        return;
+    }
     float kEpsilon = 0.001;
     if (!timerRunning_ &&
         [updateTimer isValid] &&

@@ -48,6 +48,18 @@
 #import "iTermKeyBindingMgr.h"
 #import "iTerm/PseudoTerminal.h"
 #import "iTermExpose.h"
+#import "GTMCarbonEvent.h"
+
+#ifdef HOTKEY_WINDOW_VERBOSE_LOGGING
+#define HKWLog NSLog
+#else
+#define HKWLog(args...) \
+do { \
+if (gDebugLogging) { \
+DebugLog([NSString stringWithFormat:args]); \
+} \
+} while (0)
+#endif
 
 @interface NSApplication (Undocumented)
 - (void)_cycleWindowsReversed:(BOOL)back;
@@ -399,10 +411,10 @@ static BOOL initDone = NO;
     [iTermExpose exitIfActive];
     
     // Un-full-screen each window. This is done in two steps because
-    // toggleFullScreen deallocs self.
+    // toggleFullScreenMode deallocs self.
     for (PseudoTerminal* t in terminalWindows) {
         if ([t fullScreen]) {
-            [t toggleFullScreen:self];
+            [t toggleFullScreenMode:self];
         }
     }
 
@@ -495,21 +507,35 @@ static BOOL initDone = NO;
     NSMenuItem* aMenuItem = [[NSMenuItem alloc] initWithTitle:tag action:@selector(noAction:) keyEquivalent:@""];
     NSMenu* subMenu = [[[NSMenu alloc] init] autorelease];
     int count = 0;
+    int MAX_MENU_ITEMS = 100;
+    if ([tag isEqualToString:@"bonjour"]) {
+        MAX_MENU_ITEMS = 50;
+    }
     for (int i = 0; i < [[BookmarkModel sharedInstance] numberOfBookmarks]; ++i) {
         Bookmark* bookmark = [[BookmarkModel sharedInstance] bookmarkAtIndex:i];
         NSArray* tags = [bookmark objectForKey:KEY_TAGS];
         for (int j = 0; j < [tags count]; ++j) {
             if ([tag localizedCaseInsensitiveCompare:[tags objectAtIndex:j]] == NSOrderedSame) {
                 ++count;
-                [self _addBookmark:bookmark
-                            toMenu:subMenu
-                            target:aTarget
-                     withShortcuts:withShortcuts
-                          selector:selector
-                 alternateSelector:alternateSelector];
+                if (count <= MAX_MENU_ITEMS) {
+                    [self _addBookmark:bookmark
+                                toMenu:subMenu
+                                target:aTarget
+                         withShortcuts:withShortcuts
+                              selector:selector
+                     alternateSelector:alternateSelector];
+                }
                 break;
             }
         }
+    }
+    if ([[BookmarkModel sharedInstance] numberOfBookmarks] > MAX_MENU_ITEMS) {
+        int overflow = [[BookmarkModel sharedInstance] numberOfBookmarks] - MAX_MENU_ITEMS;
+        NSMenuItem* overflowItem = [[NSMenuItem alloc] initWithTitle:[NSString stringWithFormat:@"[%d profiles not shown]", overflow]
+                                                           action:nil
+                                                    keyEquivalent:@""];
+        [subMenu addItem:overflowItem];
+        [overflowItem release];        
     }
     [aMenuItem setSubmenu:subMenu];
     [aMenuItem setTarget:self];
@@ -518,15 +544,28 @@ static BOOL initDone = NO;
 
     if (openAllSelector && count > 1) {
         [subMenu addItem:[NSMenuItem separatorItem]];
-        aMenuItem = [[NSMenuItem alloc] initWithTitle:
-                     NSLocalizedStringFromTableInBundle(@"Open All",
-                                                        @"iTerm",
-                                                        [NSBundle bundleForClass: [iTermController class]],
-                                                        @"Context Menu")
+        aMenuItem = [[NSMenuItem alloc] initWithTitle:@"Open All"
                                                action:openAllSelector
                                         keyEquivalent:@""];
         unsigned int modifierMask = NSCommandKeyMask | NSControlKeyMask;
         [aMenuItem setKeyEquivalentModifierMask:modifierMask];
+        [aMenuItem setRepresentedObject:subMenu];
+        if ([self respondsToSelector:openAllSelector]) {
+            [aMenuItem setTarget:self];
+        } else {
+            assert([aTarget respondsToSelector:openAllSelector]);
+            [aMenuItem setTarget:aTarget];
+        }
+        [subMenu addItem:aMenuItem];
+        [aMenuItem release];
+
+        // Add alternate -------------------------------------------------------
+        aMenuItem = [[NSMenuItem alloc] initWithTitle:@"Open All in New Window"
+                                               action:openAllSelector
+                                        keyEquivalent:@""];
+        modifierMask = NSCommandKeyMask | NSControlKeyMask;
+        [aMenuItem setAlternate:YES];
+        [aMenuItem setKeyEquivalentModifierMask:modifierMask | NSAlternateKeyMask];
         [aMenuItem setRepresentedObject:subMenu];
         if ([self respondsToSelector:openAllSelector]) {
             [aMenuItem setTarget:self];
@@ -556,85 +595,87 @@ static BOOL initDone = NO;
 
 - (void)newSessionsInManyWindows:(id)sender
 {
-    [self _newSessionsInManyWindowsInMenu:[sender representedObject]];
+    [self _newSessionsInManyWindowsInMenu:[sender menu]];
 }
 
-- (void)_openNewSessionsInWindow:(NSMenu*)parent
+- (PseudoTerminal*)_openNewSessionsFromMenu:(NSMenu*)parent inNewWindow:(BOOL)newWindow usedGuids:(NSMutableSet*)usedGuids bookmarks:(NSMutableArray*)bookmarks
 {
-    PseudoTerminal* term = [self currentTerminal];
+    BOOL doOpen = usedGuids == nil;
+    if (doOpen) {
+        usedGuids = [NSMutableSet setWithCapacity:[[BookmarkModel sharedInstance] numberOfBookmarks]];
+        bookmarks = [NSMutableArray arrayWithCapacity:[[BookmarkModel sharedInstance] numberOfBookmarks]];
+    }
+
+    PseudoTerminal* term = newWindow ? nil : [self currentTerminal];
     for (NSMenuItem* item in [parent itemArray]) {
         if (![item isSeparatorItem] && ![item submenu] && ![item isAlternate]) {
             NSString* guid = [item representedObject];
             Bookmark* bookmark = [[BookmarkModel sharedInstance] bookmarkWithGuid:guid];
             if (bookmark) {
-                if (!term) {
-                    PTYSession* session = [self launchBookmark:bookmark inTerminal:nil];
-                    term = [[session tab] realParentWindow];
-                } else {
-                    [self launchBookmark:bookmark inTerminal:term];
+                if (![usedGuids containsObject:guid]) {
+                    [usedGuids addObject:guid];
+                    [bookmarks addObject:bookmark];
                 }
             }
         } else if (![item isSeparatorItem] && [item submenu] && ![item isAlternate]) {
             NSMenu* sub = [item submenu];
-            [self _openNewSessionsInWindow:sub];
+            term = [self _openNewSessionsFromMenu:sub inNewWindow:newWindow usedGuids:usedGuids bookmarks:bookmarks];
         }
     }
+
+    if (doOpen) {
+        for (Bookmark* bookmark in bookmarks) {
+            if (!term) {
+                PTYSession* session = [self launchBookmark:bookmark inTerminal:nil];
+                term = [[session tab] realParentWindow];
+            } else {
+                [self launchBookmark:bookmark inTerminal:term];
+            }
+        }
+    }
+
+    return term;
 }
 
 - (void)newSessionsInWindow:(id)sender
 {
-    [self _openNewSessionsInWindow:[sender representedObject]];
+    [self _openNewSessionsFromMenu:[sender menu] inNewWindow:[sender isAlternate] usedGuids:nil bookmarks:nil];
 }
 
-- (void)addBookmarksToMenu:(NSMenu *)aMenu target:(id)aTarget withShortcuts:(BOOL)withShortcuts selector:(SEL)selector openAllSelector:(SEL)openAllSelector alternateSelector:(SEL)alternateSelector
+- (void)newSessionsInNewWindow:(id)sender
 {
-    NSArray* tags = [[BookmarkModel sharedInstance] allTags];
-    int count = 0;
-    NSArray* sortedTags = [tags sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
-    for (int i = 0; i < [sortedTags count]; ++i) {
-        [self _addBookmarksForTag:[sortedTags objectAtIndex:i]
-                           toMenu:aMenu
-                           target:aTarget
-                    withShortcuts:withShortcuts
-                         selector:selector
-                alternateSelector:alternateSelector
-                  openAllSelector:openAllSelector];
-        ++count;
-    }
-    for (int i = 0; i < [[BookmarkModel sharedInstance] numberOfBookmarks]; ++i) {
-        Bookmark* bookmark = [[BookmarkModel sharedInstance] bookmarkAtIndex:i];
-        if ([[bookmark objectForKey:KEY_TAGS] count] == 0) {
-            ++count;
-            [self _addBookmark:bookmark
-                        toMenu:aMenu
-                        target:aTarget
-                 withShortcuts:withShortcuts
-                      selector:selector
-             alternateSelector:alternateSelector];
-        }
-    }
+    [self _openNewSessionsFromMenu:[sender menu] inNewWindow:YES
+                         usedGuids:nil bookmarks:nil];
+}
 
-    if (count > 1) {
-        [aMenu addItem:[NSMenuItem separatorItem]];
-        NSMenuItem* aMenuItem = [[NSMenuItem alloc] initWithTitle:
-                                 NSLocalizedStringFromTableInBundle(@"Open All",
-                                                                    @"iTerm",
-                                                                    [NSBundle bundleForClass: [iTermController class]],
-                                                                    @"Context Menu")
-                                                           action:openAllSelector
-                                                    keyEquivalent:@""];
-        unsigned int modifierMask = NSCommandKeyMask | NSControlKeyMask;
-        [aMenuItem setKeyEquivalentModifierMask:modifierMask];
-        [aMenuItem setRepresentedObject:aMenu];
-        if ([self respondsToSelector:openAllSelector]) {
-            [aMenuItem setTarget:self];
-        } else {
-            assert([aTarget respondsToSelector:openAllSelector]);
-            [aMenuItem setTarget:aTarget];
-        }
-        [aMenu addItem:aMenuItem];
-        [aMenuItem release];
+- (void)addBookmarksToMenu:(NSMenu *)aMenu withSelector:(SEL)selector openAllSelector:(SEL)openAllSelector startingAt:(int)startingAt
+{
+    JournalParams params;
+    params.selector = selector;
+    params.openAllSelector = openAllSelector;
+    params.alternateSelector = @selector(newSessionInWindowAtIndex:);
+    params.alternateOpenAllSelector = @selector(newSessionsInWindow:);
+    params.target = self;
+
+    BookmarkModel* bm = [BookmarkModel sharedInstance];
+    int N = [bm numberOfBookmarks];
+    for (int i = 0; i < N; i++) {
+        Bookmark* b = [bm bookmarkAtIndex:i];
+        [bm addBookmark:b
+                 toMenu:aMenu
+         startingAtItem:startingAt
+               withTags:[b objectForKey:KEY_TAGS]
+                 params:&params
+                  atPos:i];
     }
+}
+
+- (void)addBookmarksToMenu:(NSMenu *)aMenu startingAt:(int)startingAt
+{
+    [self addBookmarksToMenu:aMenu
+                withSelector:@selector(newSessionInTabAtIndex:)
+             openAllSelector:@selector(newSessionsInWindow:)
+                  startingAt:startingAt];
 }
 
 - (void)irAdvance:(int)dir
@@ -682,18 +723,22 @@ static BOOL initDone = NO;
     }
 
     // Where do we execute this command?
+    BOOL toggle = NO;
     if (theTerm == nil) {
         [iTermController switchToSpaceInBookmark:aDict];
         term = [[[PseudoTerminal alloc] initWithSmartLayout:YES 
                                                  windowType:[aDict objectForKey:KEY_WINDOW_TYPE] ? [[aDict objectForKey:KEY_WINDOW_TYPE] intValue] : WINDOW_TYPE_NORMAL
                                                      screen:[aDict objectForKey:KEY_SCREEN] ? [[aDict objectForKey:KEY_SCREEN] intValue] : -1] autorelease];
         [self addInTerminals:term];
+        toggle = [term windowType] == WINDOW_TYPE_FULL_SCREEN;
     } else {
         term = theTerm;
     }
 
     PTYSession* session = [term addNewSession:aDict];
-
+    if (toggle) {
+        [term toggleFullScreenMode:nil];
+    }
     // This function is activated from the dock icon's context menu so make sure
     // that the new window is on top of all other apps' windows. For some reason,
     // makeKeyAndOrderFront does nothing.
@@ -722,17 +767,23 @@ static BOOL initDone = NO;
     }
 
     // Where do we execute this command?
+    BOOL toggle = NO;
     if (theTerm == nil) {
         [iTermController switchToSpaceInBookmark:aDict];
         term = [[[PseudoTerminal alloc] initWithSmartLayout:YES 
                                                  windowType:[aDict objectForKey:KEY_WINDOW_TYPE] ? [[aDict objectForKey:KEY_WINDOW_TYPE] intValue] : WINDOW_TYPE_NORMAL
                                                      screen:[aDict objectForKey:KEY_SCREEN] ? [[aDict objectForKey:KEY_SCREEN] intValue] : -1] autorelease];
         [self addInTerminals:term];
+        toggle = [term windowType] == WINDOW_TYPE_FULL_SCREEN;
     } else {
         term = theTerm;
     }
 
-    return [term addNewSession:aDict withCommand:command asLoginSession:NO];
+    id result = [term addNewSession:aDict withCommand:command asLoginSession:NO];
+    if (toggle) {
+        [term toggleFullScreenMode:nil];
+    }
+    return result;
 }
 
 - (id)launchBookmark:(NSDictionary *)bookmarkData inTerminal:(PseudoTerminal *)theTerm withURL:(NSString *)url
@@ -741,9 +792,11 @@ static BOOL initDone = NO;
     NSDictionary *aDict;
 
     aDict = bookmarkData;
-    // Automatically fill in ssh command if command is exactly equal to $$
+    // Automatically fill in ssh command if command is exactly equal to $$ or it's a login shell.
     BOOL ignore;
-    if (aDict == nil || [[ITAddressBookMgr bookmarkCommand:aDict isLoginSession:&ignore] isEqualToString:@"$$"]) {
+    if (aDict == nil ||
+        [[ITAddressBookMgr bookmarkCommand:aDict isLoginSession:&ignore] isEqualToString:@"$$"] ||
+        ![[aDict objectForKey:KEY_CUSTOM_COMMAND] isEqualToString:@"Yes"]) {
         Bookmark* prototype = aDict;
         if (!prototype) {
             prototype = [[BookmarkModel sharedInstance] defaultBookmark];
@@ -761,25 +814,34 @@ static BOOL initDone = NO;
 
         if ([urlType compare:@"ssh" options:NSCaseInsensitiveSearch] == NSOrderedSame) {
             NSMutableString *tempString = [NSMutableString stringWithString:@"ssh "];
-            if ([urlRep user]) [tempString appendFormat:@"-l %@ ", [urlRep user]];
-            if ([urlRep port]) [tempString appendFormat:@"-p %@ ", [urlRep port]];
-            if ([urlRep host]) [tempString appendString:[urlRep host]];
+            if ([urlRep user]) {
+                [tempString appendFormat:@"-l %@ ", [urlRep user]];
+            }
+            if ([urlRep port]) {
+                [tempString appendFormat:@"-p %@ ", [urlRep port]];
+            }
+            if ([urlRep host]) {
+                [tempString appendString:[urlRep host]];
+            }
             [tempDict setObject:tempString forKey:KEY_COMMAND];
+            [tempDict setObject:@"Yes" forKey:KEY_CUSTOM_COMMAND];
             aDict = tempDict;
-        }
-        else if ([urlType compare:@"ftp" options:NSCaseInsensitiveSearch] == NSOrderedSame) {
+        } else if ([urlType compare:@"ftp" options:NSCaseInsensitiveSearch] == NSOrderedSame) {
             NSMutableString *tempString = [NSMutableString stringWithFormat:@"ftp %@", url];
             [tempDict setObject:tempString forKey:KEY_COMMAND];
+            [tempDict setObject:@"Yes" forKey:KEY_CUSTOM_COMMAND];
             aDict = tempDict;
-        }
-        else if ([urlType compare:@"telnet" options:NSCaseInsensitiveSearch] == NSOrderedSame) {
+        } else if ([urlType compare:@"telnet" options:NSCaseInsensitiveSearch] == NSOrderedSame) {
             NSMutableString *tempString = [NSMutableString stringWithString:@"telnet "];
-            if ([urlRep user]) [tempString appendFormat:@"-l %@ ", [urlRep user]];
+            if ([urlRep user]) {
+                [tempString appendFormat:@"-l %@ ", [urlRep user]];
+            }
             if ([urlRep host]) {
                 [tempString appendString:[urlRep host]];
                 if ([urlRep port]) [tempString appendFormat:@" %@", [urlRep port]];
             }
             [tempDict setObject:tempString forKey:KEY_COMMAND];
+            [tempDict setObject:@"Yes" forKey:KEY_CUSTOM_COMMAND];
             aDict = tempDict;
         }
         if (!aDict) {
@@ -788,17 +850,23 @@ static BOOL initDone = NO;
     }
 
     // Where do we execute this command?
+    BOOL toggle = NO;
     if (theTerm == nil) {
         [iTermController switchToSpaceInBookmark:aDict];
         term = [[[PseudoTerminal alloc] initWithSmartLayout:YES
                                                  windowType:[aDict objectForKey:KEY_WINDOW_TYPE] ? [[aDict objectForKey:KEY_WINDOW_TYPE] intValue] : WINDOW_TYPE_NORMAL
                                                      screen:[aDict objectForKey:KEY_SCREEN] ? [[aDict objectForKey:KEY_SCREEN] intValue] : -1] autorelease];
         [self addInTerminals: term];
+        toggle = [term windowType] == WINDOW_TYPE_FULL_SCREEN;
     } else {
         term = theTerm;
     }
 
-    return [term addNewSession: aDict withURL: url];
+    id result = [term addNewSession: aDict withURL: url];
+    if (toggle) {
+        [term toggleFullScreenMode:nil];
+    }
+    return result;
 }
 
 - (void)launchScript:(id)sender
@@ -887,7 +955,7 @@ static PseudoTerminal* GetHotkeyWindow()
 
 static void RollInHotkeyTerm(PseudoTerminal* term)
 {
-    NSLog(@"Roll in [show] visor");
+    HKWLog(@"Roll in [show] visor");
     NSScreen* screen = [term screen];
     if (!screen) {
         screen = [NSScreen mainScreen];
@@ -921,7 +989,7 @@ static void RollInHotkeyTerm(PseudoTerminal* term)
         case WINDOW_TYPE_FULL_SCREEN:
             [[NSAnimationContext currentContext] setDuration:[[PreferencePanel sharedInstance] hotkeyTermAnimationDuration]];
             [[[term window] animator] setAlphaValue:1];
-            [NSMenu setMenuBarVisible:NO];
+            [term hideMenuBar];
             break;
     }
     [[iTermController sharedInstance] performSelector:@selector(rollInFinished)
@@ -936,9 +1004,63 @@ static void RollInHotkeyTerm(PseudoTerminal* term)
     [[term window] makeKeyAndOrderFront:nil];
 }
 
+// http://www.cocoadev.com/index.pl?DeterminingOSVersion
++ (BOOL)getSystemVersionMajor:(unsigned *)major
+                        minor:(unsigned *)minor
+                       bugFix:(unsigned *)bugFix;
+{
+    OSErr err;
+    SInt32 systemVersion, versionMajor, versionMinor, versionBugFix;
+    if ((err = Gestalt(gestaltSystemVersion, &systemVersion)) != noErr) {
+        return NO;
+    }
+    if (systemVersion < 0x1040) {
+        if (major) {
+            *major = ((systemVersion & 0xF000) >> 12) * 10 + ((systemVersion & 0x0F00) >> 8);
+        }
+        if (minor) {
+            *minor = (systemVersion & 0x00F0) >> 4;
+        }
+        if (bugFix) {
+            *bugFix = (systemVersion & 0x000F);
+        }
+    } else {
+        if ((err = Gestalt(gestaltSystemVersionMajor, &versionMajor)) != noErr) {
+            return NO;
+        }
+        if ((err = Gestalt(gestaltSystemVersionMinor, &versionMinor)) != noErr) {
+            return NO;
+        }
+        if ((err = Gestalt(gestaltSystemVersionBugFix, &versionBugFix)) != noErr) {
+            return NO;
+        }
+        if (major) {
+            *major = versionMajor;
+        }
+        if (minor) {
+            *minor = versionMinor;
+        }
+        if (bugFix) {
+            *bugFix = versionBugFix;
+        }
+    }
+    
+    return YES;
+}
+
+static BOOL IsSnowLeopardOrLater() {
+    unsigned major;
+    unsigned minor;
+    if ([iTermController getSystemVersionMajor:&major minor:&minor bugFix:nil]) {
+        return (major == 10 && minor >= 6) || (major > 10);
+    } else {
+        return NO;
+    }
+}
+
 static BOOL OpenHotkeyWindow()
 {
-    NSLog(@"Open visor");
+    HKWLog(@"Open visor");
     iTermController* cont = [iTermController sharedInstance];
     Bookmark* bookmark = [[PreferencePanel sharedInstance] hotkeyBookmark];
     if (bookmark) {
@@ -958,7 +1080,12 @@ static BOOL OpenHotkeyWindow()
                 rect.origin.y = -rect.size.height;
                 rect.origin.x = -rect.size.width;
             }
-            [[term window] setFrame:rect display:YES];
+            if (IsSnowLeopardOrLater()) {
+                // TODO: When upgrading to the 10.6 SDK, remove the conditional and the
+                // const below:
+                const int NSWindowCollectionBehaviorStationary = (1 << 4);  // value stolen from 10.6 SDK
+                [[term window] setCollectionBehavior:[[term window] collectionBehavior] | NSWindowCollectionBehaviorStationary];
+            }
         }
         RollInHotkeyTerm(term);
         return YES;
@@ -989,9 +1116,9 @@ static BOOL OpenHotkeyWindow()
 
 static void RollOutHotkeyTerm(PseudoTerminal* term, BOOL itermWasActiveWhenHotkeyOpened)
 {
-    NSLog(@"Roll out [hide] visor");
+    HKWLog(@"Roll out [hide] visor");
     if (![[term window] isVisible]) {
-        NSLog(@"RollOutHotkeyTerm returning because term isn't visible.");
+        HKWLog(@"RollOutHotkeyTerm returning because term isn't visible.");
         return;
     }
     BOOL temp = [term isHotKeyWindow];
@@ -1025,20 +1152,34 @@ static void RollOutHotkeyTerm(PseudoTerminal* term, BOOL itermWasActiveWhenHotke
     [term setIsHotKeyWindow:temp];
 }
 
+- (void)doNotOrderOutWhenHidingHotkeyWindow
+{
+    itermWasActiveWhenHotkeyOpened = YES;
+}
+
 - (void)restoreNormalcy:(PseudoTerminal*)term
 {
     if (!itermWasActiveWhenHotkeyOpened) {
         [NSApp hide:nil];
         [self performSelector:@selector(unhide) withObject:nil afterDelay:0.1];
     } else {
-        [NSMenu setMenuBarVisible:YES];
+        PseudoTerminal* currentTerm = [self currentTerminal];
+        if (currentTerm && ![currentTerm isHotKeyWindow] && [currentTerm fullScreen]) {
+            [currentTerm hideMenuBar];
+        } else {
+            [NSMenu setMenuBarVisible:YES];
+        }
     }
-    
-    // Place behind all other windows at this level
-    [[term window] orderWindow:NSWindowBelow relativeTo:0];
-    // If you orderOut the hotkey term (term variable) then it switches to the
-    // space in which your next window exists. So leave key status in the hotkey
-    // window although it's invisible.
+
+    if ([[PreferencePanel sharedInstance] closingHotkeySwitchesSpaces]) {
+        [[term window] orderOut:self];
+    } else {
+        // Place behind all other windows at this level
+        [[term window] orderWindow:NSWindowBelow relativeTo:0];
+        // If you orderOut the hotkey term (term variable) then it switches to the
+        // space in which your next window exists. So leave key status in the hotkey
+        // window although it's invisible.
+    }
 }
 
 - (void)unhide
@@ -1056,7 +1197,7 @@ static void RollOutHotkeyTerm(PseudoTerminal* term, BOOL itermWasActiveWhenHotke
     itermWasActiveWhenHotkeyOpened = [NSApp isActive];
     PseudoTerminal* hotkeyTerm = GetHotkeyWindow();
     if (hotkeyTerm) {
-        NSLog(@"Showing existing visor");
+        HKWLog(@"Showing existing visor");
         int i = 0;
         [[iTermController sharedInstance] setKeyWindowIndexMemo:-1];
         for (PseudoTerminal* term in [[iTermController sharedInstance] terminals]) {
@@ -1067,12 +1208,12 @@ static void RollOutHotkeyTerm(PseudoTerminal* term, BOOL itermWasActiveWhenHotke
             }
             i++;
         }
-        NSLog(@"Activate iterm2");
+        HKWLog(@"Activate iterm2");
         [[NSApplication sharedApplication] activateIgnoringOtherApps:YES];
         rollingIn_ = YES;
         RollInHotkeyTerm(hotkeyTerm);
     } else {
-        NSLog(@"Open new visor window");
+        HKWLog(@"Open new visor window");
         if (OpenHotkeyWindow()) {
             rollingIn_ = YES;
         }
@@ -1092,7 +1233,7 @@ static void RollOutHotkeyTerm(PseudoTerminal* term, BOOL itermWasActiveWhenHotke
     for (PseudoTerminal* term in [[iTermController sharedInstance] terminals]) {
         if (term != hotkeyTerm) {
             if ([[term window] isVisible]) {
-                NSLog(@"found visible non-visor window");
+                HKWLog(@"found visible non-visor window");
                 isAnyNonHotWindowVisible = YES;
                 break;
             }
@@ -1103,10 +1244,10 @@ static void RollOutHotkeyTerm(PseudoTerminal* term, BOOL itermWasActiveWhenHotke
 
 - (void)fastHideHotKeyWindow
 {
-    NSLog(@"fastHideHotKeyWindow");
+    HKWLog(@"fastHideHotKeyWindow");
     PseudoTerminal* term = GetHotkeyWindow();
     if (term) {
-        NSLog(@"fastHideHotKeyWindow - found a hot term");
+        HKWLog(@"fastHideHotKeyWindow - found a hot term");
         // Temporarily tell the hotkeywindow that it's not hot so that it doesn't try to hide itself
         // when losing key status.
         BOOL temp = [term isHotKeyWindow];
@@ -1129,7 +1270,7 @@ static void RollOutHotkeyTerm(PseudoTerminal* term, BOOL itermWasActiveWhenHotke
                 // Note that this rect is different than in RollOutHotkeyTerm(). For some reason,
                 // in this code path, the screen's origin is not included. I don't know why.
                 rect.origin.y = screenFrame.size.height + screenFrame.origin.y;
-                NSLog(@"FAST: Set y=%f", rect.origin.y);
+                HKWLog(@"FAST: Set y=%f", rect.origin.y);
                 [[term window] setFrame:rect display:YES];
                 break;
 
@@ -1148,28 +1289,28 @@ static void RollOutHotkeyTerm(PseudoTerminal* term, BOOL itermWasActiveWhenHotke
 
 - (void)hideHotKeyWindow:(PseudoTerminal*)hotkeyTerm
 {
-    NSLog(@"Hide visor.");
+    HKWLog(@"Hide visor.");
     RollOutHotkeyTerm(hotkeyTerm, itermWasActiveWhenHotkeyOpened);
 }
 
 void OnHotKeyEvent(void)
 {
-    NSLog(@"hotkey pressed");
+    HKWLog(@"hotkey pressed");
     PreferencePanel* prefPanel = [PreferencePanel sharedInstance];
     if ([prefPanel hotkeyTogglesWindow]) {
-        NSLog(@"visor enabled");
+        HKWLog(@"visor enabled");
         PseudoTerminal* hotkeyTerm = GetHotkeyWindow();
         if (hotkeyTerm) {
-            NSLog(@"already have a visor created");
+            HKWLog(@"already have a visor created");
             if ([[hotkeyTerm window] alphaValue] == 1) {
-                NSLog(@"visor opaque");
+                HKWLog(@"visor opaque");
                 [[iTermController sharedInstance] hideHotKeyWindow:hotkeyTerm];
             } else {
-                NSLog(@"visor not opaque");
+                HKWLog(@"visor not opaque");
                 [[iTermController sharedInstance] showHotKeyWindow];
             }
         } else {
-            NSLog(@"no visor created yet");
+            HKWLog(@"no visor created yet");
             [[iTermController sharedInstance] showHotKeyWindow];
         }
     } else if ([NSApp isActive]) {
@@ -1264,12 +1405,12 @@ static CGEventRef OnTappedEvent(CGEventTapProxy proxy, CGEventType type, CGEvent
         }
         if (local) {
             // Now that the cocoaEvent has the remapped version, restore
-            // the original event and free the copy.
+            // the original event.
             CGEventRef temp = event;
             event = eventCopy;
             eventCopy = temp;
-            CFRelease(eventCopy);
         }
+        CFRelease(eventCopy);
         if (tempDisabled && !isDoNotRemap) {
             callDirectly = YES;
         }
@@ -1293,10 +1434,12 @@ static CGEventRef OnTappedEvent(CGEventTapProxy proxy, CGEventType type, CGEvent
         cocoaEvent = [NSEvent eventWithCGEvent:eventCopy];
         CFRelease(eventCopy);
     }
+#ifdef USE_EVENT_TAP_FOR_HOTKEY
     if ([cont eventIsHotkey:cocoaEvent]) {
         OnHotKeyEvent();
         return NULL;
     }
+#endif
 
     if (callDirectly) {
         // Send keystroke directly to preference panel when setting do-not-remap for a key; for
@@ -1329,6 +1472,11 @@ static CGEventRef OnTappedEvent(CGEventTapProxy proxy, CGEventType type, CGEvent
 {
     hotkeyCode_ = 0;
     hotkeyModifiers_ = 0;
+#ifndef USE_EVENT_TAP_FOR_HOTKEY
+    [[GTMCarbonEventDispatcherHandler sharedEventDispatcherHandler] unregisterHotKey:carbonHotKey_];
+    [carbonHotKey_ release];
+    carbonHotKey_ = nil;
+#endif
 }
 
 - (BOOL)haveEventTap
@@ -1352,6 +1500,7 @@ static CGEventRef OnTappedEvent(CGEventTapProxy proxy, CGEventType type, CGEvent
 #ifdef FAKE_EVENT_TAP
     return YES;
 #endif
+
     if (![self haveEventTap]) {
         DebugLog(@"Register event tap.");
         machPortRef = CGEventTapCreate(kCGHIDEventTap,
@@ -1387,8 +1536,12 @@ static CGEventRef OnTappedEvent(CGEventTapProxy proxy, CGEventType type, CGEvent
 
 - (BOOL)registerHotkey:(int)keyCode modifiers:(int)modifiers
 {
+    if (carbonHotKey_) {
+        [self unregisterHotkey];
+    }
     hotkeyCode_ = keyCode;
     hotkeyModifiers_ = modifiers & (NSCommandKeyMask | NSControlKeyMask | NSAlternateKeyMask | NSShiftKeyMask);
+#ifdef USE_EVENT_TAP_FOR_HOTKEY
     if (![self startEventTap]) {
         switch (NSRunAlertPanel(@"Could not enable hotkey",
                                 @"You have assigned a \"hotkey\" that opens iTerm2 at any time. To use it, you must turn on \"access for assistive devices\" in the Universal Access preferences panel in System Preferences and restart iTerm2.",
@@ -1406,6 +1559,21 @@ static CGEventRef OnTappedEvent(CGEventTapProxy proxy, CGEventType type, CGEvent
         }
     }
     return YES;
+#else
+    carbonHotKey_ = [[[GTMCarbonEventDispatcherHandler sharedEventDispatcherHandler]
+                      registerHotKey:keyCode
+                      modifiers:hotkeyModifiers_
+                      target:self
+                      action:@selector(carbonHotkeyPressed)
+                      userInfo:nil
+                      whenPressed:YES] retain];
+    return YES;
+#endif
+}
+
+- (void)carbonHotkeyPressed
+{
+    OnHotKeyEvent();
 }
 
 - (void)beginRemappingModifiers
@@ -1468,7 +1636,7 @@ NSString *terminalsKey = @"terminals";
     if ([thePseudoTerminal windowInited] && [[thePseudoTerminal window] isKeyWindow] == NO) {
         [[thePseudoTerminal window] makeKeyAndOrderFront: self];
         if ([thePseudoTerminal fullScreen]) {
-            [NSMenu setMenuBarVisible:NO];
+          [thePseudoTerminal hideMenuBar];
         }
     }
 

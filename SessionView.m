@@ -33,12 +33,28 @@
 static const float kTargetFrameRate = 1.0/60.0;
 static int nextViewId;
 
+// Last time any window was resized TODO(georgen):it would be better to track per window.
+static NSDate* lastResizeDate_;
+
 @implementation SessionView
+
++ (void)initialize
+{
+    lastResizeDate_ = [[NSDate date] retain];
+}
+
++ (void)windowDidResize
+{
+    [lastResizeDate_ release];
+    lastResizeDate_ = [[NSDate date] retain];
+}
 
 - (id)initWithFrame:(NSRect)frame
 {
     self = [super initWithFrame:frame];
     if (self) {
+        [lastResizeDate_ release];
+        lastResizeDate_ = [[NSDate date] retain];
         findView_ = [[FindViewController alloc] initWithNibName:@"FindView" bundle:nil];
         [[findView_ view] setHidden:YES];
         [self addSubview:[findView_ view]];
@@ -54,6 +70,8 @@ static int nextViewId;
 {
     self = [self initWithFrame:frame];
     if (self) {
+        [lastResizeDate_ release];
+        lastResizeDate_ = [[NSDate date] retain];
         session_ = [session retain];
     }
     return self;
@@ -117,6 +135,10 @@ static int nextViewId;
     previousUpdate_ = [[NSDate date] retain];
     const double kAnimationDuration = 0.1;
     changePerSecond_ = (targetDimmingAmount_ - currentDimmingAmount_) / kAnimationDuration;
+    if (changePerSecond_ == 0) {
+        // Nothing to do.
+        return;
+    }
     if (timer_) {
         [timer_ invalidate];
         timer_ = nil;
@@ -126,7 +148,8 @@ static int nextViewId;
 
 - (double)dimmedDimmingAmount
 {
-    return 0.06125;
+    NSNumber* n = [[NSUserDefaults standardUserDefaults] objectForKey:@"SplitPaneDimmingAmount"];
+    return n ? [n doubleValue] : 0.15;
 }
 
 - (void)setDimmed:(BOOL)isDimmed
@@ -171,6 +194,11 @@ static int nextViewId;
     return findView_;
 }
 
+- (void)setViewId:(int)viewId
+{
+    viewId_ = viewId;
+}
+
 - (int)viewId
 {
     return viewId_;
@@ -190,6 +218,18 @@ static int nextViewId;
         [findView_ setFrameOrigin:NSMakePoint(frameSize.width - [[findView_ view] frame].size.width - 30,
                                               frameSize.height - [[findView_ view] frame].size.height)];
     }
+}
+
++ (NSDate*)lastResizeDate
+{
+    return lastResizeDate_;
+}
+
+// This is called as part of the live resizing protocol when you let up the mouse button.
+- (void)viewDidEndLiveResize
+{
+    [lastResizeDate_ release];
+    lastResizeDate_ = [[NSDate date] retain];
 }
 
 @end
